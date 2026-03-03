@@ -280,8 +280,7 @@ class TestJapaneseEnforcementGateway:
         )
         gw.set_mode(ProviderType.CLOUD)
 
-        # callを実行 — MockCloudProviderがリクエストを受け取る
-        # 注入確認のため_inject_language_directiveを直接テスト
+        # _inject_language_directiveを直接テストして注入を確認
         injected = gw._inject_language_directive(request_pm)
         assert "日本語" in injected.system_prompt
         assert injected.system_prompt.startswith("【重要】")

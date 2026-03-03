@@ -152,7 +152,8 @@ def build_gateway_from_config(config: dict[str, Any]):
     response_lang_env = os.environ.get(f"{ENV_PREFIX}RESPONSE_LANGUAGE")
     if response_lang_env is not None:
         # "none" / "" → None（言語強制無効）
-        lang = None if response_lang_env.lower() in ("none", "") else response_lang_env
+        lang_lower = str(response_lang_env).lower()
+        lang = None if lang_lower in ("none", "") else response_lang_env
     else:
         lang = llm_config.get("response_language", "ja")
     gateway.set_response_language(lang)

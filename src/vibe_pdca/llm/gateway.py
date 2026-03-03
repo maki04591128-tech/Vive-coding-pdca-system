@@ -220,6 +220,7 @@ class LLMGateway:
     def set_auto_fallback(self, enabled: bool) -> None:
         """自動フォールバックの有効 / 無効を設定する。"""
         self._auto_fallback_enabled = enabled
+        logger.info("自動フォールバック: %s", "有効" if enabled else "無効")
 
     @property
     def response_language(self) -> str | None:
