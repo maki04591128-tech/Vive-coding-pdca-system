@@ -164,12 +164,16 @@ def build_gateway_from_config(config: dict[str, Any]):
             provider, roles=roles, circuit_breaker_config=cb_config,
         )
 
-    # ローカルプロバイダ登録
+    # ローカルプロバイダ登録（環境変数でモデル / URL を上書き可能）
+    local_model_override = os.environ.get(f"{ENV_PREFIX}LOCAL_LLM_MODEL")
+    local_url_override = os.environ.get(f"{ENV_PREFIX}LOCAL_LLM_BASE_URL")
     for p_conf in llm_config.get("local_providers", []):
+        model = local_model_override or p_conf["model"]
+        base_url = local_url_override or p_conf.get("base_url", "http://localhost:11434/v1")
         provider = LocalLLMProvider(
             name=p_conf["name"],
-            model=p_conf["model"],
-            base_url=p_conf.get("base_url", "http://localhost:11434/v1"),
+            model=model,
+            base_url=base_url,
             timeout=p_conf.get("timeout", 300.0),
         )
         roles = [Role(r) for r in p_conf.get("roles", [])]

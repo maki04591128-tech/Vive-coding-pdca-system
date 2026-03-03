@@ -102,6 +102,8 @@ llm:
 
   # ── ローカルLLMプロバイダ（手動切替 / フォールバック先） ──
   # preferred_mode: "local" または環境変数 VIBE_PDCA_LLM_MODE=local で優先使用可能
+  # モデル差し替え: 環境変数 VIBE_PDCA_LOCAL_LLM_MODEL で全プロバイダのモデルを一括変更可能
+  # URL差し替え:   環境変数 VIBE_PDCA_LOCAL_LLM_BASE_URL で接続先サーバーを変更可能
   local_providers:
     # Ollama (汎用フォールバック)
     - name: "ollama-llama3.3"

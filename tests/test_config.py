@@ -98,3 +98,63 @@ class TestBuildGatewayEnvOverride:
         config = {"llm": {"auto_fallback": False}}
         gw = build_gateway_from_config(config)
         assert gw.auto_fallback_enabled is True
+
+
+class TestBuildGatewayLocalLLMOverride:
+    """環境変数によるローカルLLMモデル差し替えのテスト。"""
+
+    def _config_with_local_provider(self):
+        return {
+            "llm": {
+                "local_providers": [
+                    {
+                        "name": "ollama-default",
+                        "model": "llama3.3:70b",
+                        "base_url": "http://localhost:11434/v1",
+                        "timeout": 300.0,
+                        "roles": ["pm"],
+                    },
+                ],
+            },
+        }
+
+    def test_env_var_overrides_local_model(self, monkeypatch):
+        """VIBE_PDCA_LOCAL_LLM_MODEL が全ローカルプロバイダのモデルを上書きする。"""
+        monkeypatch.setenv("VIBE_PDCA_LOCAL_LLM_MODEL", "deepseek-r1:70b")
+        config = self._config_with_local_provider()
+        gw = build_gateway_from_config(config)
+        provider = gw._local_providers["ollama-default"]
+        assert provider.model == "deepseek-r1:70b"
+
+    def test_env_var_overrides_local_base_url(self, monkeypatch):
+        """VIBE_PDCA_LOCAL_LLM_BASE_URL が全ローカルプロバイダのURLを上書きする。"""
+        monkeypatch.setenv("VIBE_PDCA_LOCAL_LLM_BASE_URL", "http://localhost:8000/v1")
+        config = self._config_with_local_provider()
+        gw = build_gateway_from_config(config)
+        provider = gw._local_providers["ollama-default"]
+        assert provider.base_url == "http://localhost:8000/v1"
+
+    def test_config_used_when_no_env_var(self, monkeypatch):
+        """環境変数未設定時は設定ファイルのモデル名が使われる。"""
+        monkeypatch.delenv("VIBE_PDCA_LOCAL_LLM_MODEL", raising=False)
+        monkeypatch.delenv("VIBE_PDCA_LOCAL_LLM_BASE_URL", raising=False)
+        config = self._config_with_local_provider()
+        gw = build_gateway_from_config(config)
+        provider = gw._local_providers["ollama-default"]
+        assert provider.model == "llama3.3:70b"
+        assert provider.base_url == "http://localhost:11434/v1"
+
+    def test_env_var_overrides_multiple_providers(self, monkeypatch):
+        """複数ローカルプロバイダがある場合、全てのモデルが上書きされる。"""
+        monkeypatch.setenv("VIBE_PDCA_LOCAL_LLM_MODEL", "qwen3:72b")
+        config = {
+            "llm": {
+                "local_providers": [
+                    {"name": "ollama-1", "model": "llama3.3:70b", "roles": ["pm"]},
+                    {"name": "ollama-2", "model": "qwen2.5:32b", "roles": ["scribe"]},
+                ],
+            },
+        }
+        gw = build_gateway_from_config(config)
+        assert gw._local_providers["ollama-1"].model == "qwen3:72b"
+        assert gw._local_providers["ollama-2"].model == "qwen3:72b"

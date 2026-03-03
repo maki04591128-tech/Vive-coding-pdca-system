@@ -87,15 +87,20 @@ cp .env.example .env
 
 ### 3. ローカルLLM（Ollama）のセットアップ
 
-自動フォールバック先として Ollama を推奨します。
+自動フォールバック先・手動切替先として Ollama を推奨します。
 
 ```bash
 # Ollama インストール
 curl -fsSL https://ollama.com/install.sh | sh
 
-# モデルのダウンロード
+# デフォルトモデルのダウンロード
 ollama pull llama3.3:70b
 ollama pull qwen2.5:32b
+
+# 高性能モデルへの差し替え（例）
+ollama pull deepseek-r1:70b   # コード生成に強い
+ollama pull codestral:22b     # 軽量コード特化
+ollama pull qwen3:72b         # 日本語・推論に強い
 ```
 
 ### 4. 動作確認
@@ -123,6 +128,8 @@ config/environments/prod.yml    ← 本番環境（クラウド優先）
 |------|------|-----------|----------------------|
 | `llm.preferred_mode` | 優先モード (`cloud` / `local`) | `cloud` | `VIBE_PDCA_LLM_MODE` |
 | `llm.auto_fallback` | 自動フォールバック有効化 | `true` | `VIBE_PDCA_LLM_AUTO_FALLBACK` |
+| `llm.local_providers[].model` | ローカルLLMモデル名 | `llama3.3:70b` | `VIBE_PDCA_LOCAL_LLM_MODEL` |
+| `llm.local_providers[].base_url` | ローカルLLMサーバーURL | `http://localhost:11434/v1` | `VIBE_PDCA_LOCAL_LLM_BASE_URL` |
 | `llm.circuit_breaker.failure_threshold` | OPEN遷移の連続失敗回数 | `3` | — |
 | `llm.circuit_breaker.recovery_timeout` | OPEN→HALF_OPEN待機秒数 | `60.0` | — |
 | `llm.cost.daily_limit_usd` | 日次コスト上限 (USD) | `30.0` | — |
@@ -189,6 +196,28 @@ python -m vibe_pdca.cli mode set \
   --llm-mode local \
   --reason "オフライン作業のためローカルへ切替"
 ```
+
+### ローカルLLMのモデル差し替え
+
+環境変数でローカルLLMのモデルを差し替えできます（YAML 設定の編集不要）。
+
+```bash
+# 高性能モデルへ差し替え（Ollama でモデルを pull 済みであること）
+export VIBE_PDCA_LOCAL_LLM_MODEL=deepseek-r1:70b
+
+# vLLM / llama.cpp / LM Studio 等の別サーバーを使う場合
+export VIBE_PDCA_LOCAL_LLM_BASE_URL=http://localhost:8000/v1
+```
+
+推奨モデル例：
+
+| モデル | サイズ | 特徴 |
+|--------|--------|------|
+| `llama3.3:70b` | 70B | デフォルト。汎用性が高い |
+| `deepseek-r1:70b` | 70B | コード生成・推論に優れる |
+| `qwen3:72b` | 72B | 日本語・推論に強い |
+| `codestral:22b` | 22B | 軽量・コード特化 |
+| `gemma3:27b` | 27B | 軽量・高品質 |
 
 ### ステータス確認
 
