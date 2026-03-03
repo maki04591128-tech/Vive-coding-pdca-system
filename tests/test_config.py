@@ -2,7 +2,13 @@
 
 
 
-from vibe_pdca.config.loader import deep_merge, load_config, resolve_env_vars
+from vibe_pdca.config.loader import (
+    build_gateway_from_config,
+    deep_merge,
+    load_config,
+    resolve_env_vars,
+)
+from vibe_pdca.llm.models import ProviderType
 
 
 class TestDeepMerge:
@@ -53,3 +59,42 @@ class TestLoadConfig:
         (env_dir / "dev.yml").write_text("llm:\n  mode: local\n")
         config = load_config(config_dir=tmp_path, env="dev")
         assert config["llm"]["mode"] == "local"
+
+
+class TestBuildGatewayEnvOverride:
+    """環境変数によるモード切替のテスト。"""
+
+    def test_env_var_overrides_config_to_local(self, monkeypatch):
+        """VIBE_PDCA_LLM_MODE=local が設定ファイルの cloud を上書きする。"""
+        monkeypatch.setenv("VIBE_PDCA_LLM_MODE", "local")
+        config = {"llm": {"preferred_mode": "cloud"}}
+        gw = build_gateway_from_config(config)
+        assert gw.preferred_mode == ProviderType.LOCAL
+
+    def test_env_var_overrides_config_to_cloud(self, monkeypatch):
+        """VIBE_PDCA_LLM_MODE=cloud が設定ファイルの local を上書きする。"""
+        monkeypatch.setenv("VIBE_PDCA_LLM_MODE", "cloud")
+        config = {"llm": {"preferred_mode": "local"}}
+        gw = build_gateway_from_config(config)
+        assert gw.preferred_mode == ProviderType.CLOUD
+
+    def test_config_used_when_no_env_var(self, monkeypatch):
+        """環境変数未設定時は設定ファイルの値が使われる。"""
+        monkeypatch.delenv("VIBE_PDCA_LLM_MODE", raising=False)
+        config = {"llm": {"preferred_mode": "local"}}
+        gw = build_gateway_from_config(config)
+        assert gw.preferred_mode == ProviderType.LOCAL
+
+    def test_env_var_overrides_auto_fallback_false(self, monkeypatch):
+        """VIBE_PDCA_LLM_AUTO_FALLBACK=false が自動フォールバックを無効化する。"""
+        monkeypatch.setenv("VIBE_PDCA_LLM_AUTO_FALLBACK", "false")
+        config = {"llm": {"auto_fallback": True}}
+        gw = build_gateway_from_config(config)
+        assert gw.auto_fallback_enabled is False
+
+    def test_env_var_overrides_auto_fallback_true(self, monkeypatch):
+        """VIBE_PDCA_LLM_AUTO_FALLBACK=true が自動フォールバックを有効化する。"""
+        monkeypatch.setenv("VIBE_PDCA_LLM_AUTO_FALLBACK", "true")
+        config = {"llm": {"auto_fallback": False}}
+        gw = build_gateway_from_config(config)
+        assert gw.auto_fallback_enabled is True

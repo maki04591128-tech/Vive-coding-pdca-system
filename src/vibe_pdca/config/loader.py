@@ -112,13 +112,24 @@ def build_gateway_from_config(config: dict[str, Any]):
     llm_config = config.get("llm", {})
     gateway = LLMGateway(config=llm_config)
 
-    # 優先モード
-    mode_str = llm_config.get("preferred_mode", "cloud")
+    # 優先モード（環境変数 > 設定ファイル）
+    mode_str = os.environ.get(
+        f"{ENV_PREFIX}LLM_MODE",
+        llm_config.get("preferred_mode", "cloud"),
+    )
+    mode_source = "環境変数" if f"{ENV_PREFIX}LLM_MODE" in os.environ else "設定ファイル"
     gateway.set_mode(
         ProviderType.CLOUD if mode_str == "cloud" else ProviderType.LOCAL,
-        reason="設定ファイルによる初期設定",
+        reason=f"{mode_source}による初期設定",
     )
-    gateway.set_auto_fallback(llm_config.get("auto_fallback", True))
+
+    # 自動フォールバック（環境変数 > 設定ファイル）
+    auto_fb_env = os.environ.get(f"{ENV_PREFIX}LLM_AUTO_FALLBACK")
+    if auto_fb_env is not None:
+        auto_fb = auto_fb_env.lower() not in ("false", "0", "no")
+    else:
+        auto_fb = llm_config.get("auto_fallback", True)
+    gateway.set_auto_fallback(auto_fb)
 
     # サーキットブレーカー設定
     cb_conf = llm_config.get("circuit_breaker", {})

@@ -49,8 +49,9 @@ Runbook、Incident Playbook、Approval Checklist、Release Checklist、Suppress 
 │              │     │          │                │              │
 │              │     │    ┌─────┴──────┐  ┌─────┴──────┐      │
 │              │     │    │ クラウドLLM │  │ ローカルLLM │      │
-│              │     │    │ (優先)      │  │ (フォール   │      │
-│              │     │    │            │  │  バック)     │      │
+│              │     │    │ (優先)      │  │ (手動切替/  │      │
+│              │     │    │            │  │  フォール   │      │
+│              │     │    │            │  │  バック)    │      │
 │              │     │    └────────────┘  └────────────┘      │
 │              │     │          │                │              │
 │              │     │  ┌───────┴────────────────┴──────┐      │
@@ -118,13 +119,15 @@ config/environments/prod.yml    ← 本番環境（クラウド優先）
 
 ### 主要な設定項目
 
-| 項目 | 説明 | デフォルト |
-|------|------|-----------|
-| `llm.preferred_mode` | 優先モード (`cloud` / `local`) | `cloud` |
-| `llm.auto_fallback` | 自動フォールバック有効化 | `true` |
-| `llm.circuit_breaker.failure_threshold` | OPEN遷移の連続失敗回数 | `3` |
-| `llm.circuit_breaker.recovery_timeout` | OPEN→HALF_OPEN待機秒数 | `60.0` |
-| `llm.cost.daily_limit_usd` | 日次コスト上限 (USD) | `30.0` |
+| 項目 | 説明 | デフォルト | 環境変数オーバーライド |
+|------|------|-----------|----------------------|
+| `llm.preferred_mode` | 優先モード (`cloud` / `local`) | `cloud` | `VIBE_PDCA_LLM_MODE` |
+| `llm.auto_fallback` | 自動フォールバック有効化 | `true` | `VIBE_PDCA_LLM_AUTO_FALLBACK` |
+| `llm.circuit_breaker.failure_threshold` | OPEN遷移の連続失敗回数 | `3` | — |
+| `llm.circuit_breaker.recovery_timeout` | OPEN→HALF_OPEN待機秒数 | `60.0` | — |
+| `llm.cost.daily_limit_usd` | 日次コスト上限 (USD) | `30.0` | — |
+
+> **優先順位**: 環境変数 > プロジェクト固有設定 > 環境別設定 > グローバルデフォルト
 
 ## 使い方
 
@@ -151,6 +154,23 @@ print(f"Fallback: {response.fallback_used}")
 ```
 
 ### 手動モード切替
+
+#### 環境変数で切替（最も簡単）
+
+```bash
+# ローカルLLMモードで起動（設定ファイルの変更不要）
+export VIBE_PDCA_LLM_MODE=local
+
+# 自動フォールバックを無効化（ローカルのみで運用）
+export VIBE_PDCA_LLM_AUTO_FALLBACK=false
+```
+
+#### 設定ファイルで切替
+
+`config/default.yml` の `llm.preferred_mode` を `"local"` に変更するか、
+`config/environments/dev.yml` のように環境別設定で上書きします。
+
+#### Python API で実行時に切替
 
 ```python
 # ローカルLLMモードへ切替
