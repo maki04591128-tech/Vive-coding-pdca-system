@@ -169,11 +169,11 @@ def build_gateway_from_config(config: dict[str, Any]):
     local_model_override = os.environ.get(f"{ENV_PREFIX}LOCAL_LLM_MODEL")
     local_url_override = os.environ.get(f"{ENV_PREFIX}LOCAL_LLM_BASE_URL")
     for p_conf in llm_config.get("local_providers", []):
-        roles_str = p_conf.get("roles", [])
+        role_names = p_conf.get("roles", [])
 
         # 役割別環境変数を確認（最初にマッチした役割の値を使用）
         role_model_override = None
-        for r in roles_str:
+        for r in role_names:
             env_key = f"{ENV_PREFIX}LOCAL_LLM_MODEL_{r.upper()}"
             role_override = os.environ.get(env_key)
             if role_override:
@@ -188,7 +188,7 @@ def build_gateway_from_config(config: dict[str, Any]):
             base_url=base_url,
             timeout=p_conf.get("timeout", 300.0),
         )
-        roles = [Role(r) for r in roles_str]
+        roles = [Role(r) for r in role_names]
         gateway.register_local_provider(provider, roles=roles)
 
     # ヘルスチェッカー初期化
