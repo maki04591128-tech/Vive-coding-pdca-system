@@ -31,6 +31,20 @@ Runbook、Incident Playbook、Approval Checklist、Release Checklist、Suppress 
 
 **役割別マルチモデル**: ADR-001 に従い、PM / 書記 / プログラマ / デザイナ / ユーザ / DO の各役割に最適なLLMモデルを割り当てます。
 
+## 使用するローカルLLM
+
+本システムでは、クラウドLLM障害時の自動フォールバック先および手動切替先として、以下のローカルLLMを使用します。
+
+| プロバイダ名 | モデル | パラメータ数 | 用途 | 対応役割 |
+|-------------|--------|------------|------|---------|
+| ollama-llama3.3 | **llama3.3:70b** | 70B | 汎用フォールバック（メイン） | PM, 書記, プログラマ, デザイナ, ユーザ, DO |
+| ollama-qwen2.5 | **qwen2.5:32b** | 32B | 軽量応急用 | PM, 書記, デザイナ, ユーザ |
+
+- **実行基盤**: [Ollama](https://ollama.com/)（OpenAI 互換 API: `http://localhost:11434/v1`）
+- **選定理由**: llama3.3:70b は全役割をカバーできる汎用性と高い日本語能力を持つ。qwen2.5:32b は軽量で応急対応に適するが、コード生成精度の制約からプログラマ・DO担当には割り当てない（ADR-001 / ADR-008 参照）
+- **コスト**: ローカル実行のため API 利用料 $0（ハードウェアコストは別途）
+- **モデル差し替え**: 環境変数 `VIBE_PDCA_LOCAL_LLM_MODEL` で一括変更可能（[詳細](#ローカルllmのモデル差し替え)）
+
 ## アーキテクチャ
 
 ```
@@ -229,6 +243,10 @@ status = gateway.get_status()
 #   "cloud_providers": {
 #     "openai-gpt5.1": {"circuit_state": "closed", ...},
 #     ...
+#   },
+#   "local_providers": {
+#     "ollama-llama3.3": {"model": "llama3.3:70b", "base_url": "http://localhost:11434/v1"},
+#     "ollama-qwen2.5": {"model": "qwen2.5:32b", "base_url": "http://localhost:11434/v1"},
 #   },
 #   "cost": {"daily_cost_usd": 1.23, ...}
 # }
