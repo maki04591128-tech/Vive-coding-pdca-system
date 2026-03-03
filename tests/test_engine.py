@@ -226,6 +226,18 @@ class TestStopConditions:
         reason = sm.check_stop_conditions(error_key="err-001")
         assert reason == StopReason.SAME_ERROR_RETRY
 
+    def test_different_error_keys_counted_separately(self, sm):
+        sm.start_new_cycle()
+        # 別々のエラーキーはそれぞれカウントされる
+        reason = sm.check_stop_conditions(error_key="err-A")
+        assert reason is None
+        reason = sm.check_stop_conditions(error_key="err-B")
+        assert reason is None
+        reason = sm.check_stop_conditions(error_key="err-A")
+        assert reason is None  # err-A は2回目なのでまだOK
+        reason = sm.check_stop_conditions(error_key="err-B")
+        assert reason is None  # err-B も2回目なのでまだOK
+
     def test_cycle_timeout(self, sm):
         # タイムアウトを非常に短く設定
         sm_short = PDCAStateMachine(

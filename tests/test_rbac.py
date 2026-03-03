@@ -10,6 +10,7 @@ from vibe_pdca.governance import (
     PermissionDeniedError,
     RBACManager,
     RoleName,
+    RolePermission,
 )
 
 
@@ -155,7 +156,9 @@ class TestRBACManager:
         assert "auditor" in status
         assert status["owner"]["permission_count"] > status["reviewer"]["permission_count"]
 
-    def test_unknown_role(self, rbac):
-        """存在しないロールは空の権限セットを返す。"""
-        perms = rbac.get_role_permissions(RoleName("nonexistent") if False else RoleName.OWNER)
-        assert len(perms) > 0  # OWNER always has permissions
+    def test_empty_role_map_returns_empty_permissions(self):
+        """空の権限マップで初期化した場合、権限チェックが正しく失敗する。"""
+        role_perm = RolePermission(role=RoleName.OWNER, permissions=set())
+        empty_rbac = RBACManager(role_permissions={RoleName.OWNER: role_perm})
+        perms = empty_rbac.get_role_permissions(RoleName.OWNER)
+        assert len(perms) == 0
