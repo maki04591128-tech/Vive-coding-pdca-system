@@ -12,7 +12,7 @@ import threading
 import time
 from typing import TYPE_CHECKING
 
-from vibe_pdca.llm.models import ProviderHealthStatus, ProviderStatus, ProviderType
+from vibe_pdca.llm.models import ProviderHealthStatus, ProviderStatus
 
 if TYPE_CHECKING:
     from vibe_pdca.llm.providers import BaseLLMProvider

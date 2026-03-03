@@ -7,11 +7,9 @@ from vibe_pdca.llm.gateway import (
     CloudLLMUnavailableError,
     CostLimitExceededError,
     LLMGateway,
-    LocalLLMUnavailableError,
 )
 from vibe_pdca.llm.models import LLMRequest, LLMResponse, ProviderType, Role
 from vibe_pdca.llm.providers import BaseLLMProvider, CloudLLMProvider, LocalLLMProvider
-
 
 # ============================================================
 # モックプロバイダ

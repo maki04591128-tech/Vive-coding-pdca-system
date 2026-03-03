@@ -103,10 +103,10 @@ class CloudLLMProvider(BaseLLMProvider):
                     timeout=self.timeout,
                 )
                 return self._client
-            except ImportError:
+            except ImportError as e:
                 raise RuntimeError(
                     "anthropic パッケージが必要です: pip install anthropic"
-                )
+                ) from e
 
         # OpenAI 互換 SDK (OpenAI / xAI / その他)
         try:
@@ -117,10 +117,10 @@ class CloudLLMProvider(BaseLLMProvider):
                 kwargs["base_url"] = self.base_url
             self._client = openai.OpenAI(**kwargs)
             return self._client
-        except ImportError:
+        except ImportError as e:
             raise RuntimeError(
                 "openai パッケージが必要です: pip install openai"
-            )
+            ) from e
 
     def call(self, request: LLMRequest) -> LLMResponse:
         """クラウド LLM に API 呼び出しを行う。"""
@@ -259,10 +259,10 @@ class LocalLLMProvider(BaseLLMProvider):
                 timeout=self.timeout,
             )
             return self._client
-        except ImportError:
+        except ImportError as e:
             raise RuntimeError(
                 "openai パッケージが必要です: pip install openai"
-            )
+            ) from e
 
     def call(self, request: LLMRequest) -> LLMResponse:
         """ローカル LLM に呼び出しを行う。"""

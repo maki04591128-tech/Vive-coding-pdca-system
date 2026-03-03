@@ -65,8 +65,8 @@ def load_config(
     """
     try:
         import yaml
-    except ImportError:
-        raise RuntimeError("PyYAML が必要です: pip install pyyaml")
+    except ImportError as e:
+        raise RuntimeError("PyYAML が必要です: pip install pyyaml") from e
 
     config_dir = Path(config_dir)
     env = env or os.environ.get(f"{ENV_PREFIX}ENV", "dev")

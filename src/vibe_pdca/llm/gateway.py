@@ -17,7 +17,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-from vibe_pdca.llm.circuit_breaker import CircuitBreaker, CircuitBreakerConfig, CircuitState
+from vibe_pdca.llm.circuit_breaker import CircuitBreaker, CircuitBreakerConfig
 from vibe_pdca.llm.health import HealthChecker
 from vibe_pdca.llm.models import (
     LLMRequest,
@@ -70,13 +70,26 @@ class CostTracker:
     def check_limits(self) -> tuple[bool, str]:
         """コスト上限チェック。超過時は (False, 理由) を返す。"""
         if self.daily_cost_usd >= self.daily_limit_usd:
-            return False, f"日次コスト上限超過: ${self.daily_cost_usd:.2f} >= ${self.daily_limit_usd:.2f}"
+            return (
+                False,
+                f"日次コスト上限超過: ${self.daily_cost_usd:.2f} >= ${self.daily_limit_usd:.2f}",
+            )
         if self.cycle_cost_usd >= self.per_cycle_limit_usd:
-            return False, f"サイクルコスト上限超過: ${self.cycle_cost_usd:.2f} >= ${self.per_cycle_limit_usd:.2f}"
+            return (
+                False,
+                f"サイクルコスト上限超過: ${self.cycle_cost_usd:.2f}"
+                f" >= ${self.per_cycle_limit_usd:.2f}",
+            )
         if self.daily_calls >= self.max_calls_per_day:
-            return False, f"日次呼び出し上限超過: {self.daily_calls} >= {self.max_calls_per_day}"
+            return (
+                False,
+                f"日次呼び出し上限超過: {self.daily_calls} >= {self.max_calls_per_day}",
+            )
         if self.cycle_calls >= self.max_calls_per_cycle:
-            return False, f"サイクル呼び出し上限超過: {self.cycle_calls} >= {self.max_calls_per_cycle}"
+            return (
+                False,
+                f"サイクル呼び出し上限超過: {self.cycle_calls} >= {self.max_calls_per_cycle}",
+            )
         return True, ""
 
     def reset_cycle(self) -> None:
@@ -307,7 +320,9 @@ class LLMGateway:
                 "全クラウドプロバイダ利用不可 → ローカルLLMへ自動フォールバック (role=%s)",
                 request.role.value,
             )
-            return self._call_local(request, fallback=True, fallback_reason="クラウドLLM全プロバイダ障害")
+            return self._call_local(
+                request, fallback=True, fallback_reason="クラウドLLM全プロバイダ障害",
+            )
 
         raise CloudLLMUnavailableError(
             f"クラウドLLMが全て利用不可 (role={request.role.value}): {last_error}"

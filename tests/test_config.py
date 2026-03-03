@@ -1,10 +1,6 @@
 """設定ローダーのユニットテスト。"""
 
-import os
-import tempfile
-from pathlib import Path
 
-import pytest
 
 from vibe_pdca.config.loader import deep_merge, load_config, resolve_env_vars
 

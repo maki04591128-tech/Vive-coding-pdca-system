@@ -15,8 +15,8 @@ from __future__ import annotations
 import logging
 import threading
 import time
-from enum import Enum
 from dataclasses import dataclass, field
+from enum import Enum
 
 logger = logging.getLogger(__name__)
 
@@ -107,10 +107,12 @@ class CircuitBreaker:
             self._metrics.consecutive_successes += 1
             self._metrics.last_success_time = time.monotonic()
 
-            if self._state == CircuitState.HALF_OPEN:
-                if self._metrics.consecutive_successes >= self.config.success_threshold:
-                    self._transition_to(CircuitState.CLOSED)
-                    self._half_open_calls = 0
+            if (
+                self._state == CircuitState.HALF_OPEN
+                and self._metrics.consecutive_successes >= self.config.success_threshold
+            ):
+                self._transition_to(CircuitState.CLOSED)
+                self._half_open_calls = 0
 
             logger.debug(
                 "CircuitBreaker[%s] 成功記録: state=%s, consecutive_successes=%d",
