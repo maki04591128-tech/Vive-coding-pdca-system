@@ -7,6 +7,7 @@ Flet ウィジェットの構造・ロジックを検証する。
 import flet as ft
 
 from vibe_pdca.gui.app import APP_VERSION, create_app
+from vibe_pdca.gui.components.pdca_card import PDCAStatusCard
 from vibe_pdca.gui.components.status_card import CostCard, StatusCard
 from vibe_pdca.gui.views.dashboard import DashboardView
 
@@ -136,6 +137,86 @@ class TestDashboardView:
         event = type("Event", (), {"control": type("Ctrl", (), {"value": True})()})()
         dashboard._handle_mode_toggle(event)
         assert captured == ["local"]
+
+    def test_update_pdca_status(self):
+        dashboard = DashboardView()
+        dashboard.update_pdca_status({
+            "milestone_id": "ms-001",
+            "milestone_status": "in_progress",
+            "cycle_count": 3,
+            "current_phase": "check",
+            "current_cycle_number": 3,
+            "current_cycle_status": "running",
+            "is_stopped": False,
+            "stop_reason": None,
+        })
+        assert "CHECK" in dashboard._pdca_card._phase_text.value
+
+    def test_update_pdca_status_stopped(self):
+        dashboard = DashboardView()
+        dashboard.update_pdca_status({
+            "milestone_id": "ms-002",
+            "milestone_status": "in_progress",
+            "cycle_count": 1,
+            "current_phase": "do",
+            "current_cycle_number": 1,
+            "current_cycle_status": "stopped",
+            "is_stopped": True,
+            "stop_reason": "ci_consecutive_failure",
+        })
+        assert "停止中" in dashboard._pdca_card._status_text.value
+
+
+# ============================================================
+# PDCAStatusCard テスト
+# ============================================================
+
+
+class TestPDCAStatusCard:
+    def test_creates_without_errors(self):
+        card = PDCAStatusCard()
+        assert isinstance(card, ft.Card)
+
+    def test_update_plan_phase(self):
+        card = PDCAStatusCard()
+        card.update_pdca_status({
+            "current_phase": "plan",
+            "current_cycle_number": 1,
+            "current_cycle_status": "running",
+            "milestone_id": "ms-001",
+            "milestone_status": "in_progress",
+            "is_stopped": False,
+            "stop_reason": None,
+        })
+        assert "PLAN" in card._phase_text.value
+        assert "#1" in card._cycle_text.value
+
+    def test_update_stopped_state(self):
+        card = PDCAStatusCard()
+        card.update_pdca_status({
+            "current_phase": "do",
+            "current_cycle_number": 2,
+            "current_cycle_status": "stopped",
+            "milestone_id": "ms-001",
+            "milestone_status": "in_progress",
+            "is_stopped": True,
+            "stop_reason": "user_stop",
+        })
+        assert "停止中" in card._status_text.value
+        assert card._status_text.color == ft.Colors.RED
+
+    def test_update_not_started(self):
+        card = PDCAStatusCard()
+        card.update_pdca_status({
+            "current_phase": None,
+            "current_cycle_number": None,
+            "current_cycle_status": None,
+            "milestone_id": "ms-001",
+            "milestone_status": "open",
+            "is_stopped": False,
+            "stop_reason": None,
+        })
+        assert "未開始" in card._phase_text.value
 
 
 # ============================================================

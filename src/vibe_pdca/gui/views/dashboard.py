@@ -1,4 +1,4 @@
-"""ダッシュボードビュー – ゲートウェイ状態の一覧・操作 UI。"""
+"""ダッシュボードビュー – ゲートウェイ・PDCAサイクル状態の一覧・操作 UI。"""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ from typing import Any
 
 import flet as ft
 
+from vibe_pdca.gui.components.pdca_card import PDCAStatusCard
 from vibe_pdca.gui.components.status_card import CostCard, StatusCard
 
 
@@ -43,6 +44,7 @@ class DashboardView(ft.Column):
         self._cloud_card = StatusCard(title="☁️ クラウドLLM")
         self._local_card = StatusCard(title="🖥️ ローカルLLM")
         self._cost_card = CostCard()
+        self._pdca_card = PDCAStatusCard()
 
         # ── ログ表示 ──
         self._log_list = ft.ListView(
@@ -74,7 +76,7 @@ class DashboardView(ft.Column):
                     padding=ft.Padding.symmetric(horizontal=16, vertical=8),
                 ),
                 ft.Divider(height=1),
-                # カード群
+                # カード群（上段: LLM状態）
                 ft.ResponsiveRow(
                     controls=[
                         ft.Container(
@@ -88,6 +90,15 @@ class DashboardView(ft.Column):
                         ft.Container(
                             content=self._cost_card,
                             col={"sm": 12, "md": 4},
+                        ),
+                    ],
+                ),
+                # カード群（下段: PDCA状態）
+                ft.ResponsiveRow(
+                    controls=[
+                        ft.Container(
+                            content=self._pdca_card,
+                            col={"sm": 12, "md": 6},
                         ),
                     ],
                 ),
@@ -139,6 +150,16 @@ class DashboardView(ft.Column):
 
         cost = status.get("cost", {})
         self._cost_card.update_cost(cost, cost)
+
+    def update_pdca_status(self, pdca_status: dict[str, Any]) -> None:
+        """PDCAサイクルの状態を更新する。
+
+        Parameters
+        ----------
+        pdca_status : dict
+            ``PDCAStateMachine.get_status()`` の戻り値。
+        """
+        self._pdca_card.update_pdca_status(pdca_status)
 
     def add_log(self, message: str, level: str = "INFO") -> None:
         """ログメッセージを追加する。"""
