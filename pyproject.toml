@@ -24,9 +24,15 @@ dev = [
     "ruff>=0.8",
     "mypy>=1.13",
 ]
+gui = [
+    "flet>=0.25",
+]
 google = [
     "google-genai",
 ]
+
+[project.scripts]
+vibe-pdca = "vibe_pdca.gui.app:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

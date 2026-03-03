@@ -91,7 +91,11 @@ Runbook、Incident Playbook、Approval Checklist、Release Checklist、Suppress 
 ### 1. インストール
 
 ```bash
+# 基本（バックエンドのみ）
 pip install -e ".[dev]"
+
+# GUI 付き（デスクトップ / モバイルアプリ対応）
+pip install -e ".[dev,gui]"
 ```
 
 ### 2. 環境変数
@@ -318,9 +322,17 @@ vibe-pdca-llm-gateway/
 ├── src/
 │   └── vibe_pdca/
 │       ├── __init__.py
+│       ├── __main__.py              # python -m vibe_pdca で GUI 起動
 │       ├── config/
 │       │   ├── __init__.py
 │       │   └── loader.py            # 設定階層マージ・バリデーション
+│       ├── gui/                     # GUI モジュール（Flet ベース）
+│       │   ├── __init__.py
+│       │   ├── app.py               # メインアプリケーション
+│       │   ├── views/
+│       │   │   └── dashboard.py     # ダッシュボードビュー
+│       │   └── components/
+│       │       └── status_card.py   # ステータス表示コンポーネント
 │       └── llm/
 │           ├── __init__.py
 │           ├── models.py            # データモデル定義
@@ -331,12 +343,64 @@ vibe-pdca-llm-gateway/
 ├── tests/
 │   ├── test_circuit_breaker.py
 │   ├── test_gateway.py
-│   └── test_config.py
+│   ├── test_config.py
+│   └── test_gui.py                  # GUI ユニットテスト
 ├── .env.example
 ├── .gitignore
 ├── pyproject.toml
 └── README.md
 ```
+
+## GUI アプリケーション
+
+本システムは [Flet](https://flet.dev/) フレームワークにより、デスクトップ（Windows / macOS / Linux）およびモバイル（Android / iOS）向けの GUI アプリケーションとしてビルド・配布できます。
+
+### GUI の起動
+
+```bash
+# GUI 依存のインストール
+pip install -e ".[gui]"
+
+# 方法1: モジュール実行
+python -m vibe_pdca
+
+# 方法2: コマンド（pip install 後）
+vibe-pdca
+```
+
+### デスクトップアプリ (.exe / .app) のビルド
+
+```bash
+# Windows 用 .exe
+flet pack src/vibe_pdca/gui/app.py --name VibePDCA --icon assets/icon.png
+
+# macOS 用 .app
+flet pack src/vibe_pdca/gui/app.py --name VibePDCA --icon assets/icon.png
+```
+
+> `flet pack` は [PyInstaller](https://pyinstaller.org/) を内部で使用します。
+
+### モバイルアプリ (.apk / .ipa) のビルド
+
+```bash
+# Android 用 .apk
+flet build apk
+
+# iOS 用 .ipa
+flet build ipa
+```
+
+> モバイルビルドには [Flutter SDK](https://flutter.dev/) のインストールが必要です。
+> 詳細は [Flet ビルドガイド](https://flet.dev/docs/publish) を参照してください。
+
+### GUI 機能一覧
+
+| 機能 | 説明 |
+|------|------|
+| ダッシュボード | クラウド/ローカル全プロバイダのステータス一覧 |
+| モード切替 | ワンタッチでクラウド ↔ ローカルを切替 |
+| コスト表示 | 日次コスト・呼び出し回数のリアルタイム表示 |
+| ログ表示 | 操作履歴・エラーログの表示 |
 
 ## 関連ドキュメント
 
