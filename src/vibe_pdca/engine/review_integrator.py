@@ -76,9 +76,7 @@ class ReviewIntegrator:
         persona_weights: dict[str, float] | None = None,
         similarity_threshold: float = _SIMILARITY_THRESHOLD,
     ) -> None:
-        self._weights = {
-            **(persona_weights or DEFAULT_PERSONA_WEIGHTS),
-        }
+        self._weights = dict(persona_weights or DEFAULT_PERSONA_WEIGHTS)
         self._similarity_threshold = similarity_threshold
 
     @property
