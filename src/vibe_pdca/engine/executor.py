@@ -94,7 +94,6 @@ def classify_change_type(file_path: str) -> ChangeType:
     # 依存関係ファイルを先にチェック（.txt拡張子より優先）
     if any(lower.endswith(ext) for ext in (".lock", "requirements.txt", "Pipfile")):
         return ChangeType.DEPENDENCY
-        return ChangeType.DEPENDENCY
     if lower.endswith((".md", ".rst", ".txt", ".adoc")):
         return ChangeType.DOCUMENTATION
     if "pyproject.toml" in lower and "dependencies" in lower:
