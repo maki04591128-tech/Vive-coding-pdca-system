@@ -246,3 +246,12 @@ class TestGatewayStatus:
         assert "auto_fallback_enabled" in status
         assert "cloud_providers" in status
         assert "cost" in status
+
+    def test_local_providers_include_model_info(self, gateway_with_providers):
+        gw, _, _ = gateway_with_providers
+        status = gw.get_status()
+
+        assert "local_providers" in status
+        assert "mock-local" in status["local_providers"]
+        local_info = status["local_providers"]["mock-local"]
+        assert local_info["model"] == "mock-local-model"

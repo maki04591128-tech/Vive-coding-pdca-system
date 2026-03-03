@@ -388,12 +388,15 @@ class LLMGateway:
             }
 
         local_status = {}
-        if self._health_checker:
-            for name in self._local_providers:
+        for name, provider in self._local_providers.items():
+            info: dict[str, Any] = {
+                "model": provider.model,
+                "base_url": getattr(provider, "base_url", None),
+            }
+            if self._health_checker:
                 hs = self._health_checker.get_status(name)
-                local_status[name] = {
-                    "status": hs.status.value if hs else "unknown",
-                }
+                info["status"] = hs.status.value if hs else "unknown"
+            local_status[name] = info
 
         return {
             "preferred_mode": self._preferred_mode.value,
