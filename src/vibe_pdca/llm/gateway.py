@@ -27,8 +27,14 @@ from vibe_pdca.llm.models import (
     Role,
 )
 from vibe_pdca.llm.providers import BaseLLMProvider, CloudLLMProvider, LocalLLMProvider
+from vibe_pdca.prompts import JAPANESE_RESPONSE_DIRECTIVE
 
 logger = logging.getLogger(__name__)
+
+# 応答言語 → システム指示のマッピング
+_LANGUAGE_DIRECTIVES: dict[str, str] = {
+    "ja": JAPANESE_RESPONSE_DIRECTIVE,
+}
 
 
 # ============================================================
@@ -139,6 +145,9 @@ class LLMGateway:
         self._preferred_mode: ProviderType = ProviderType.CLOUD
         self._auto_fallback_enabled: bool = True
 
+        # 応答言語設定（デフォルト: 日本語）
+        self._response_language: str | None = self._config.get("response_language", "ja")
+
     # ── プロバイダ登録 ──
 
     def register_cloud_provider(
@@ -211,7 +220,16 @@ class LLMGateway:
     def set_auto_fallback(self, enabled: bool) -> None:
         """自動フォールバックの有効 / 無効を設定する。"""
         self._auto_fallback_enabled = enabled
-        logger.info("自動フォールバック: %s", "有効" if enabled else "無効")
+
+    @property
+    def response_language(self) -> str | None:
+        """応答言語設定を返す。"""
+        return self._response_language
+
+    def set_response_language(self, language: str | None) -> None:
+        """応答言語を設定する。Noneで言語強制を無効化する。"""
+        self._response_language = language
+        logger.info("応答言語設定: %s", language or "なし（無効）")
 
     # ── ヘルスチェック ──
 
@@ -254,10 +272,14 @@ class LLMGateway:
     def call(self, request: LLMRequest) -> LLMResponse:
         """LLM 呼び出しを実行する。
 
-        1. コスト上限チェック
-        2. 優先モードのプロバイダで呼び出し
-        3. 失敗時、auto_fallback が有効なら代替プロバイダで再試行
+        1. 応答言語指示の自動注入
+        2. コスト上限チェック
+        3. 優先モードのプロバイダで呼び出し
+        4. 失敗時、auto_fallback が有効なら代替プロバイダで再試行
         """
+        # 応答言語指示の自動注入（未付加の場合のみ）
+        request = self._inject_language_directive(request)
+
         # コスト上限チェック
         within_limit, reason = self.cost_tracker.check_limits()
         if not within_limit:
@@ -268,6 +290,37 @@ class LLMGateway:
             return self._call_with_cloud_fallback(request)
         else:
             return self._call_with_local_fallback(request)
+
+    def _inject_language_directive(self, request: LLMRequest) -> LLMRequest:
+        """応答言語指示をシステムプロンプトに自動注入する。
+
+        既に指示が含まれている場合（PromptBuilder経由等）はスキップする。
+        """
+        if not self._response_language:
+            return request
+
+        directive = _LANGUAGE_DIRECTIVES.get(self._response_language)
+        if not directive:
+            return request
+
+        # 既に含まれていればスキップ（PromptBuilder経由の重複防止）
+        if directive in request.system_prompt:
+            return request
+
+        # system_prompt の先頭に注入
+        if request.system_prompt:
+            new_system = f"{directive}\n\n{request.system_prompt}"
+        else:
+            new_system = directive
+        return LLMRequest(
+            role=request.role,
+            system_prompt=new_system,
+            user_prompt=request.user_prompt,
+            max_tokens=request.max_tokens,
+            temperature=request.temperature,
+            response_format=request.response_format,
+            metadata=request.metadata,
+        )
 
     def _call_with_cloud_fallback(self, request: LLMRequest) -> LLMResponse:
         """クラウド優先で呼び出し、失敗時はローカルへフォールバック。"""
@@ -401,6 +454,7 @@ class LLMGateway:
         return {
             "preferred_mode": self._preferred_mode.value,
             "auto_fallback_enabled": self._auto_fallback_enabled,
+            "response_language": self._response_language,
             "cloud_providers": cloud_status,
             "local_providers": local_status,
             "cost": {

@@ -148,6 +148,15 @@ def build_gateway_from_config(config: dict[str, Any]):
     gateway.cost_tracker.max_calls_per_cycle = cost_conf.get("max_calls_per_cycle", 80)
     gateway.cost_tracker.max_calls_per_day = cost_conf.get("max_calls_per_day", 500)
 
+    # 応答言語設定（環境変数 > 設定ファイル、デフォルト: "ja"）
+    response_lang_env = os.environ.get(f"{ENV_PREFIX}RESPONSE_LANGUAGE")
+    if response_lang_env is not None:
+        # "none" / "" → None（言語強制無効）
+        lang = None if response_lang_env.lower() in ("none", "") else response_lang_env
+    else:
+        lang = llm_config.get("response_language", "ja")
+    gateway.set_response_language(lang)
+
     # クラウドプロバイダ登録
     for p_conf in llm_config.get("cloud_providers", []):
         provider = CloudLLMProvider(
