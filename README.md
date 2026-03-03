@@ -1,0 +1,263 @@
+# vibe-pdca-llm-gateway
+
+バイブコーディングPDCA自動開発システムのドキュメントリポジトリです。
+要件定義書・実装手順書・ADR・運用ドキュメント等の全ドキュメントを含みます。
+
+## ドキュメント一覧（全24件）
+
+### コアドキュメント
+- `docs/バイブコーディングPDCAシステム_要件定義書_v6.md` — VCS-REQ-001（全27章）
+- `docs/バイブコーディングPDCA_実装手順書_v3.md` — VCS-IMPL-001（全14章、22件のギャップ反映済み）
+
+### ADR（docs/adr/）
+ADR-001〜008：モデル選定、プロジェクト種別、脆弱性スキャン、RAG検索、GitHub App権限、マルチプロジェクト隔離、サンドボックス設計、クラウド/ローカルLLM切替
+
+### 運用ドキュメント（docs/ops/）
+Runbook、Incident Playbook、Approval Checklist、Release Checklist、Suppress List運用ルール、フォールバック運用ガイド
+
+### 設計・仕様
+システムアーキテクチャ図、ロール権限マトリクス、プロンプトテンプレート仕様、オンボーディングガイド、必要なドキュメント一覧、ドキュメント精査レポート
+
+### テンプレート（docs/templates/）
+フィードバックログ テンプレ、統括レビュー要約 テンプレ
+
+## 概要
+
+本モジュールは ADR-001（マルチLLMモデル選定）および要件定義書 §4.2 / §13.2 に基づき、以下の機能を実装します。
+
+**手動切替**: 設定ファイル (`config/default.yml`) または実行時APIで、クラウドLLM ↔ ローカルLLMを切り替えられます。
+
+**自動フォールバック**: クラウドLLMの接続障害・API障害を検知すると、サーキットブレーカーパターンにより自動でローカルLLMへ切り替わります。障害復旧後は自動的にクラウドLLMへ復帰します。
+
+**役割別マルチモデル**: ADR-001 に従い、PM / 書記 / プログラマ / デザイナ / ユーザ / DO の各役割に最適なLLMモデルを割り当てます。
+
+## アーキテクチャ
+
+```
+┌──────────────┐     ┌──────────────────────────────────────────┐
+│  PDCA        │     │            LLM ゲートウェイ               │
+│  オーケスト  │────→│                                          │
+│  レータ      │     │  ┌─────────┐  ┌──────────────────────┐  │
+│              │     │  │ コスト   │  │  役割→プロバイダ     │  │
+│              │     │  │ 追跡     │  │  マッピング          │  │
+│              │     │  └─────────┘  └──────────────────────┘  │
+│              │     │                                          │
+│              │     │  ┌──────────────────────────────────┐   │
+│              │     │  │    サーキットブレーカー            │   │
+│              │     │  │  CLOSED ←→ OPEN ←→ HALF_OPEN    │   │
+│              │     │  └──────────────────────────────────┘   │
+│              │     │          │                │              │
+│              │     │    ┌─────┴──────┐  ┌─────┴──────┐      │
+│              │     │    │ クラウドLLM │  │ ローカルLLM │      │
+│              │     │    │ (優先)      │  │ (フォール   │      │
+│              │     │    │            │  │  バック)     │      │
+│              │     │    └────────────┘  └────────────┘      │
+│              │     │          │                │              │
+│              │     │  ┌───────┴────────────────┴──────┐      │
+│              │     │  │      ヘルスチェッカー          │      │
+│              │     │  │  (定期的な死活監視)            │      │
+│              │     │  └───────────────────────────────┘      │
+│              │     └──────────────────────────────────────────┘
+└──────────────┘
+         ↕                      ↕                    ↕
+   ┌──────────┐         ┌────────────┐       ┌──────────────┐
+   │ GitHub   │         │ OpenAI     │       │ Ollama       │
+   │ API      │         │ Anthropic  │       │ llama.cpp    │
+   │          │         │ Google     │       │ vLLM         │
+   └──────────┘         └────────────┘       └──────────────┘
+```
+
+## セットアップ
+
+### 1. インストール
+
+```bash
+pip install -e ".[dev]"
+```
+
+### 2. 環境変数
+
+`.env.example` を `.env` にコピーして API キーを設定してください。
+
+```bash
+cp .env.example .env
+# .env を編集して各プロバイダの API キーを設定
+```
+
+### 3. ローカルLLM（Ollama）のセットアップ
+
+自動フォールバック先として Ollama を推奨します。
+
+```bash
+# Ollama インストール
+curl -fsSL https://ollama.com/install.sh | sh
+
+# モデルのダウンロード
+ollama pull llama3.3:70b
+ollama pull qwen2.5:32b
+```
+
+### 4. 動作確認
+
+```bash
+pytest tests/ -v
+```
+
+## 設定
+
+### 設定ファイル階層（§17.5 準拠）
+
+```
+config/default.yml              ← グローバルデフォルト
+config/environments/dev.yml     ← 開発環境（ローカル優先）
+config/environments/prod.yml    ← 本番環境（クラウド優先）
+.vibe-pdca/config.yml           ← プロジェクト固有設定
+```
+
+下位の設定ファイルが上位を上書きします。ただしポリシーの「緩和」は人間承認が必要です（§17.5）。
+
+### 主要な設定項目
+
+| 項目 | 説明 | デフォルト |
+|------|------|-----------|
+| `llm.preferred_mode` | 優先モード (`cloud` / `local`) | `cloud` |
+| `llm.auto_fallback` | 自動フォールバック有効化 | `true` |
+| `llm.circuit_breaker.failure_threshold` | OPEN遷移の連続失敗回数 | `3` |
+| `llm.circuit_breaker.recovery_timeout` | OPEN→HALF_OPEN待機秒数 | `60.0` |
+| `llm.cost.daily_limit_usd` | 日次コスト上限 (USD) | `30.0` |
+
+## 使い方
+
+### 基本的な使用例
+
+```python
+from vibe_pdca.config import load_config, build_gateway_from_config
+from vibe_pdca.llm.models import LLMRequest, ProviderType, Role
+
+# 設定ファイルからゲートウェイを構築
+config = load_config(config_dir="config", env="dev")
+gateway = build_gateway_from_config(config)
+
+# LLM 呼び出し
+request = LLMRequest(
+    role=Role.PM,
+    system_prompt="あなたはプロジェクトマネージャーです。",
+    user_prompt="このタスクを分解してください。",
+)
+response = gateway.call(request)
+print(response.content)
+print(f"Provider: {response.provider_type.value}")
+print(f"Fallback: {response.fallback_used}")
+```
+
+### 手動モード切替
+
+```python
+# ローカルLLMモードへ切替
+gateway.set_mode(ProviderType.LOCAL, reason="コスト削減のためローカルへ切替")
+
+# クラウドLLMモードへ復帰
+gateway.set_mode(ProviderType.CLOUD, reason="品質優先でクラウドへ復帰")
+```
+
+### CLI からのモード切替
+
+```bash
+# ローカルモードへ切替
+python -m vibe_pdca.cli mode set \
+  --project-id <PROJECT_ID> \
+  --llm-mode local \
+  --reason "オフライン作業のためローカルへ切替"
+```
+
+### ステータス確認
+
+```python
+status = gateway.get_status()
+# {
+#   "preferred_mode": "cloud",
+#   "auto_fallback_enabled": true,
+#   "cloud_providers": {
+#     "openai-gpt5.1": {"circuit_state": "closed", ...},
+#     ...
+#   },
+#   "cost": {"daily_cost_usd": 1.23, ...}
+# }
+```
+
+## 自動フォールバックの仕組み
+
+### サーキットブレーカー状態遷移
+
+```
+[CLOSED 正常]
+  │  クラウドLLMへリクエスト送信
+  │
+  ├──(連続失敗 >= failure_threshold)──→ [OPEN 遮断]
+  │                                       │  ローカルLLMへ自動フォールバック
+  │                                       │
+  │                                       ├──(recovery_timeout 経過)──→ [HALF_OPEN 試行]
+  │                                       │                              │  クラウドLLMへ試行
+  │                                       │                              │
+  │                                       │                   成功 ←─────┤
+  │                                       │                              │
+  ←────────(success_threshold 回成功)──────┘                   失敗 ──→ [OPEN へ戻る]
+```
+
+### 縮退モードとの連動（§13.2）
+
+```
+[正常]        ──(クラウドLLM 1障害)──→  [軽度縮退: フォールバック稼働]
+[軽度縮退]    ──(クラウドLLM 3+障害)──→ [重度縮退: DOフェーズ停止]
+[重度縮退]    ──(GitHub障害)──→         [全停止]
+[全停止]      ──(手動再開)──→           [正常]
+```
+
+## ディレクトリ構造
+
+```
+vibe-pdca-llm-gateway/
+├── config/
+│   ├── default.yml                  # グローバルデフォルト設定
+│   └── environments/
+│       ├── dev.yml                  # 開発環境設定
+│       └── prod.yml                 # 本番環境設定
+├── docs/
+│   ├── ADR-008_クラウドローカルLLM切替設計.md
+│   └── フォールバック運用ガイド.md
+├── src/
+│   └── vibe_pdca/
+│       ├── __init__.py
+│       ├── config/
+│       │   ├── __init__.py
+│       │   └── loader.py            # 設定階層マージ・バリデーション
+│       └── llm/
+│           ├── __init__.py
+│           ├── models.py            # データモデル定義
+│           ├── providers.py         # クラウド/ローカルプロバイダ実装
+│           ├── gateway.py           # 統一ゲートウェイ本体
+│           ├── circuit_breaker.py   # サーキットブレーカー
+│           └── health.py            # ヘルスチェッカー
+├── tests/
+│   ├── test_circuit_breaker.py
+│   ├── test_gateway.py
+│   └── test_config.py
+├── .env.example
+├── .gitignore
+├── pyproject.toml
+└── README.md
+```
+
+## 関連ドキュメント
+
+| ドキュメント | 内容 |
+|-------------|------|
+| ADR-001 | マルチLLMモデル選定・フォールバック順 |
+| ADR-008 | クラウド/ローカルLLM切替設計（本機能） |
+| 要件定義書 §4.2 | LLMゲートウェイの統一インターフェース |
+| 要件定義書 §13.2 | 信頼性・SLO・縮退モード |
+| Runbook §8 | モード切替の運用手順 |
+
+## ライセンス
+
+MIT
