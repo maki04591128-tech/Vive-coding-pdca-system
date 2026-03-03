@@ -41,7 +41,7 @@ Runbook、Incident Playbook、Approval Checklist、Release Checklist、Suppress 
 | ollama-qwen2.5 | **qwen2.5:32b** | 32B | 軽量応急用 | PM, 書記, デザイナ, ユーザ |
 
 - **実行基盤**: [Ollama](https://ollama.com/)（OpenAI 互換 API: `http://localhost:11434/v1`）
-- **選定理由**: llama3.3:70b は全役割をカバーできる汎用性と高い日本語能力を持つ。qwen2.5:32b は軽量で応急対応に適するが、コード生成精度の制約からプログラマ・DO担当には割り当てない（ADR-001 / ADR-008 参照）
+- **選定理由**: llama3.3:70b は全役割をカバーできる汎用性と高い日本語能力を持ち、コード生成・推論においても十分な精度がある。qwen2.5:32b は軽量で応急対応に適するが、コード生成精度の制約からプログラマ・DO担当には割り当てない（ADR-001 / ADR-008 参照）
 - **コスト**: ローカル実行のため API 利用料 $0（ハードウェアコストは別途）
 - **モデル差し替え**: 環境変数 `VIBE_PDCA_LOCAL_LLM_MODEL` で一括変更可能（[詳細](#ローカルllmのモデル差し替え)）
 
