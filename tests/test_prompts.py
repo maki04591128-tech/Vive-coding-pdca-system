@@ -103,13 +103,20 @@ class TestPromptBuilder:
         assert "追加の制約" in prompt.system_prompt
 
     def test_available_templates(self):
-        """利用可能なテンプレート一覧が取得できること。"""
+        """利用可能なテンプレート一覧が取得できること。
+
+        期待テンプレート: pm/plan, do/do, programmer/check, pm/check,
+        scribe/check, designer/check, user/check, pm/act の8種。
+        """
         builder = PromptBuilder()
         templates = builder.get_available_templates()
-        assert len(templates) >= 7  # pm/plan, do/do, 5×check, pm/act
+        assert len(templates) >= 7
         assert ("pm", "plan") in templates
         assert ("do", "do") in templates
         assert ("pm", "act") in templates
+        # 5ペルソナCHECK
+        for role in ["programmer", "pm", "scribe", "designer", "user"]:
+            assert (role, "check") in templates
 
     def test_empty_context_and_input(self):
         """コンテキストとタスク入力が空でも構築できること。"""
