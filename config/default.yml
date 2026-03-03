@@ -100,34 +100,65 @@ llm:
       roles:
         - "do"
 
-  # ── ローカルLLMプロバイダ（手動切替 / フォールバック先） ──
+  # ── ローカルLLMプロバイダ（役割別特化 / 手動切替 / フォールバック先） ──
+  # クラウド版と同様に、各役割の得意分野に合わせたモデルを割り当てる。
   # preferred_mode: "local" または環境変数 VIBE_PDCA_LLM_MODE=local で優先使用可能
-  # モデル差し替え: 環境変数 VIBE_PDCA_LOCAL_LLM_MODEL で全プロバイダのモデルを一括変更可能
+  #
+  # モデル差し替え:
+  #   全プロバイダ一括:  環境変数 VIBE_PDCA_LOCAL_LLM_MODEL
+  #   役割別に個別指定:  環境変数 VIBE_PDCA_LOCAL_LLM_MODEL_{ROLE}
+  #     例: VIBE_PDCA_LOCAL_LLM_MODEL_PM=qwen3:72b
+  #         VIBE_PDCA_LOCAL_LLM_MODEL_PROGRAMMER=codestral:22b
+  #   優先順位: 役割別環境変数 > 一括環境変数 > 設定ファイル
   # URL差し替え:   環境変数 VIBE_PDCA_LOCAL_LLM_BASE_URL で接続先サーバーを変更可能
   local_providers:
-    # Ollama (汎用フォールバック)
-    - name: "ollama-llama3.3"
+    # PM: 日本語・推論に強いモデル（タスク分解・リスク列挙）
+    - name: "ollama-pm"
+      model: "qwen3:72b"
+      base_url: "http://localhost:11434/v1"
+      timeout: 300.0
+      roles:
+        - "pm"
+
+    # 書記: 長文処理・要約に優れるモデル（ドキュメント間の矛盾検出）
+    - name: "ollama-scribe"
+      model: "qwen3:72b"
+      base_url: "http://localhost:11434/v1"
+      timeout: 300.0
+      roles:
+        - "scribe"
+
+    # プログラマ: コード生成・欠陥検出に特化したモデル
+    - name: "ollama-programmer"
+      model: "codestral:22b"
+      base_url: "http://localhost:11434/v1"
+      timeout: 300.0
+      roles:
+        - "programmer"
+
+    # デザイナ: UI・UX理解に優れる汎用高品質モデル
+    - name: "ollama-designer"
       model: "llama3.3:70b"
       base_url: "http://localhost:11434/v1"
       timeout: 300.0
       roles:
-        - "pm"
-        - "scribe"
-        - "programmer"
         - "designer"
-        - "user"
-        - "do"
 
-    # 軽量モデル（応急用）
-    - name: "ollama-qwen2.5"
-      model: "qwen2.5:32b"
+    # ユーザ: エンドユーザ視点で指摘できる軽量モデル
+    - name: "ollama-user"
+      model: "gemma3:27b"
       base_url: "http://localhost:11434/v1"
       timeout: 300.0
       roles:
-        - "pm"
-        - "scribe"
-        - "designer"
         - "user"
+
+    # DO（実装）: コード実装・テスト生成に特化したモデル
+    - name: "ollama-do"
+      model: "codestral:22b"
+      base_url: "http://localhost:11434/v1"
+      timeout: 300.0
+      roles:
+        - "do"
 
 # ── ログ設定 ──
 logging:

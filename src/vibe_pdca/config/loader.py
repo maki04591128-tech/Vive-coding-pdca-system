@@ -165,10 +165,22 @@ def build_gateway_from_config(config: dict[str, Any]):
         )
 
     # ローカルプロバイダ登録（環境変数でモデル / URL を上書き可能）
+    # 優先順位: 役割別環境変数 > 一括環境変数 > 設定ファイル
     local_model_override = os.environ.get(f"{ENV_PREFIX}LOCAL_LLM_MODEL")
     local_url_override = os.environ.get(f"{ENV_PREFIX}LOCAL_LLM_BASE_URL")
     for p_conf in llm_config.get("local_providers", []):
-        model = local_model_override or p_conf["model"]
+        roles_str = p_conf.get("roles", [])
+
+        # 役割別環境変数を確認（最初にマッチした役割の値を使用）
+        role_model_override = None
+        for r in roles_str:
+            env_key = f"{ENV_PREFIX}LOCAL_LLM_MODEL_{r.upper()}"
+            role_override = os.environ.get(env_key)
+            if role_override:
+                role_model_override = role_override
+                break
+
+        model = role_model_override or local_model_override or p_conf["model"]
         base_url = local_url_override or p_conf.get("base_url", "http://localhost:11434/v1")
         provider = LocalLLMProvider(
             name=p_conf["name"],
@@ -176,7 +188,7 @@ def build_gateway_from_config(config: dict[str, Any]):
             base_url=base_url,
             timeout=p_conf.get("timeout", 300.0),
         )
-        roles = [Role(r) for r in p_conf.get("roles", [])]
+        roles = [Role(r) for r in roles_str]
         gateway.register_local_provider(provider, roles=roles)
 
     # ヘルスチェッカー初期化

@@ -33,17 +33,21 @@ Runbook、Incident Playbook、Approval Checklist、Release Checklist、Suppress 
 
 ## 使用するローカルLLM
 
-本システムでは、クラウドLLM障害時の自動フォールバック先および手動切替先として、以下のローカルLLMを使用します。
+本システムでは、クラウド版と同様にローカルLLMも各役割の得意分野に合わせたモデルを割り当てます。
+クラウドLLM障害時の自動フォールバック先、または手動切替先として使用します。
 
-| プロバイダ名 | モデル | パラメータ数 | 用途 | 対応役割 |
-|-------------|--------|------------|------|---------|
-| ollama-llama3.3 | **llama3.3:70b** | 70B | 汎用フォールバック（メイン） | PM, 書記, プログラマ, デザイナ, ユーザ, DO |
-| ollama-qwen2.5 | **qwen2.5:32b** | 32B | 軽量応急用 | PM, 書記, デザイナ, ユーザ |
+| 役割 | プロバイダ名 | デフォルトモデル | パラメータ数 | 選定理由 |
+|------|-------------|-----------------|------------|---------|
+| **PM** | ollama-pm | `qwen3:72b` | 72B | 日本語・推論に強い。タスク分解・リスク列挙に最適 |
+| **書記** | ollama-scribe | `qwen3:72b` | 72B | 長文処理・要約に優れる。ドキュメント間の矛盾検出に適する |
+| **プログラマ** | ollama-programmer | `codestral:22b` | 22B | コード生成・欠陥検出に特化。軽量で高速 |
+| **デザイナ** | ollama-designer | `llama3.3:70b` | 70B | 汎用性が高く高品質。UI・UX設計理解に適する |
+| **ユーザ** | ollama-user | `gemma3:27b` | 27B | 軽量。エンドユーザ視点での指摘に十分な能力 |
+| **DO（実装）** | ollama-do | `codestral:22b` | 22B | コード実装・テスト生成に特化 |
 
 - **実行基盤**: [Ollama](https://ollama.com/)（OpenAI 互換 API: `http://localhost:11434/v1`）
-- **選定理由**: llama3.3:70b は全役割をカバーできる汎用性と高い日本語能力を持ち、コード生成・推論においても十分な精度がある。qwen2.5:32b は軽量で応急対応に適するが、コード生成精度の制約からプログラマ・DO担当には割り当てない（ADR-001 / ADR-008 参照）
 - **コスト**: ローカル実行のため API 利用料 $0（ハードウェアコストは別途）
-- **モデル差し替え**: 環境変数 `VIBE_PDCA_LOCAL_LLM_MODEL` で一括変更可能（[詳細](#ローカルllmのモデル差し替え)）
+- **モデル差し替え**: 役割別に環境変数で個別指定可能（[詳細](#ローカルllmのモデル差し替え)）
 
 ## アーキテクチャ
 
@@ -107,14 +111,15 @@ cp .env.example .env
 # Ollama インストール
 curl -fsSL https://ollama.com/install.sh | sh
 
-# デフォルトモデルのダウンロード
-ollama pull llama3.3:70b
-ollama pull qwen2.5:32b
+# 役割別デフォルトモデルのダウンロード
+ollama pull qwen3:72b       # PM・書記用（日本語・推論に強い）
+ollama pull codestral:22b   # プログラマ・DO用（コード特化・軽量）
+ollama pull llama3.3:70b    # デザイナ用（汎用・高品質）
+ollama pull gemma3:27b      # ユーザ用（軽量・高品質）
 
-# 高性能モデルへの差し替え（例）
-ollama pull deepseek-r1:70b   # コード生成に強い
-ollama pull codestral:22b     # 軽量コード特化
-ollama pull qwen3:72b         # 日本語・推論に強い
+# 代替モデル（お好みで差し替え）
+ollama pull deepseek-r1:70b   # コード生成・推論に優れる
+ollama pull qwen2.5:32b       # 軽量応急用
 ```
 
 ### 4. 動作確認
@@ -142,7 +147,8 @@ config/environments/prod.yml    ← 本番環境（クラウド優先）
 |------|------|-----------|----------------------|
 | `llm.preferred_mode` | 優先モード (`cloud` / `local`) | `cloud` | `VIBE_PDCA_LLM_MODE` |
 | `llm.auto_fallback` | 自動フォールバック有効化 | `true` | `VIBE_PDCA_LLM_AUTO_FALLBACK` |
-| `llm.local_providers[].model` | ローカルLLMモデル名 | `llama3.3:70b` | `VIBE_PDCA_LOCAL_LLM_MODEL` |
+| `llm.local_providers[].model` | ローカルLLMモデル名 | 役割別 | `VIBE_PDCA_LOCAL_LLM_MODEL_{ROLE}` |
+| （全プロバイダ一括） | 全ローカルLLMモデル一括変更 | — | `VIBE_PDCA_LOCAL_LLM_MODEL` |
 | `llm.local_providers[].base_url` | ローカルLLMサーバーURL | `http://localhost:11434/v1` | `VIBE_PDCA_LOCAL_LLM_BASE_URL` |
 | `llm.circuit_breaker.failure_threshold` | OPEN遷移の連続失敗回数 | `3` | — |
 | `llm.circuit_breaker.recovery_timeout` | OPEN→HALF_OPEN待機秒数 | `60.0` | — |
@@ -213,25 +219,41 @@ python -m vibe_pdca.cli mode set \
 
 ### ローカルLLMのモデル差し替え
 
-環境変数でローカルLLMのモデルを差し替えできます（YAML 設定の編集不要）。
+環境変数でローカルLLMのモデルを役割別に差し替えできます（YAML 設定の編集不要）。
+
+#### 役割別に差し替え（推奨）
 
 ```bash
-# 高性能モデルへ差し替え（Ollama でモデルを pull 済みであること）
-export VIBE_PDCA_LOCAL_LLM_MODEL=deepseek-r1:70b
+# 役割ごとに得意なモデルを指定
+export VIBE_PDCA_LOCAL_LLM_MODEL_PM=qwen3:72b
+export VIBE_PDCA_LOCAL_LLM_MODEL_SCRIBE=qwen3:72b
+export VIBE_PDCA_LOCAL_LLM_MODEL_PROGRAMMER=deepseek-r1:70b
+export VIBE_PDCA_LOCAL_LLM_MODEL_DESIGNER=llama3.3:70b
+export VIBE_PDCA_LOCAL_LLM_MODEL_USER=gemma3:27b
+export VIBE_PDCA_LOCAL_LLM_MODEL_DO=deepseek-r1:70b
+```
+
+#### 全プロバイダ一括差し替え
+
+```bash
+# 全役割を同じモデルで統一する場合
+export VIBE_PDCA_LOCAL_LLM_MODEL=llama3.3:70b
 
 # vLLM / llama.cpp / LM Studio 等の別サーバーを使う場合
 export VIBE_PDCA_LOCAL_LLM_BASE_URL=http://localhost:8000/v1
 ```
 
-推奨モデル例：
+> **優先順位**: 役割別環境変数 > 一括環境変数 > 設定ファイル
 
-| モデル | サイズ | 特徴 |
-|--------|--------|------|
-| `llama3.3:70b` | 70B | デフォルト。汎用性が高い |
-| `deepseek-r1:70b` | 70B | コード生成・推論に優れる |
-| `qwen3:72b` | 72B | 日本語・推論に強い |
-| `codestral:22b` | 22B | 軽量・コード特化 |
-| `gemma3:27b` | 27B | 軽量・高品質 |
+役割別推奨モデル例：
+
+| 役割 | 推奨モデル | サイズ | 特徴 |
+|------|-----------|--------|------|
+| PM・書記 | `qwen3:72b` | 72B | 日本語・推論に強い |
+| プログラマ・DO | `codestral:22b` | 22B | コード生成特化・軽量 |
+| プログラマ・DO | `deepseek-r1:70b` | 70B | コード生成・推論に優れる |
+| デザイナ | `llama3.3:70b` | 70B | 汎用性が高い |
+| ユーザ | `gemma3:27b` | 27B | 軽量・高品質 |
 
 ### ステータス確認
 
@@ -245,8 +267,9 @@ status = gateway.get_status()
 #     ...
 #   },
 #   "local_providers": {
-#     "ollama-llama3.3": {"model": "llama3.3:70b", "base_url": "http://localhost:11434/v1"},
-#     "ollama-qwen2.5": {"model": "qwen2.5:32b", "base_url": "http://localhost:11434/v1"},
+#     "ollama-pm": {"model": "qwen3:72b", "base_url": "http://localhost:11434/v1"},
+#     "ollama-programmer": {"model": "codestral:22b", "base_url": "http://localhost:11434/v1"},
+#     ...
 #   },
 #   "cost": {"daily_cost_usd": 1.23, ...}
 # }

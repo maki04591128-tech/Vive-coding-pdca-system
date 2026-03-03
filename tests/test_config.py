@@ -158,3 +158,75 @@ class TestBuildGatewayLocalLLMOverride:
         gw = build_gateway_from_config(config)
         assert gw._local_providers["ollama-1"].model == "qwen3:72b"
         assert gw._local_providers["ollama-2"].model == "qwen3:72b"
+
+
+class TestBuildGatewayLocalLLMPerRoleOverride:
+    """役割別環境変数によるローカルLLMモデル差し替えのテスト。"""
+
+    def _config_with_role_providers(self):
+        return {
+            "llm": {
+                "local_providers": [
+                    {"name": "ollama-pm", "model": "qwen3:72b", "roles": ["pm"]},
+                    {
+                        "name": "ollama-programmer",
+                        "model": "codestral:22b",
+                        "roles": ["programmer"],
+                    },
+                    {"name": "ollama-designer", "model": "llama3.3:70b", "roles": ["designer"]},
+                ],
+            },
+        }
+
+    def test_per_role_env_var_overrides_specific_provider(self, monkeypatch):
+        """VIBE_PDCA_LOCAL_LLM_MODEL_PM がPM役割のプロバイダのみ上書きする。"""
+        monkeypatch.setenv("VIBE_PDCA_LOCAL_LLM_MODEL_PM", "deepseek-r1:70b")
+        config = self._config_with_role_providers()
+        gw = build_gateway_from_config(config)
+        assert gw._local_providers["ollama-pm"].model == "deepseek-r1:70b"
+        assert gw._local_providers["ollama-programmer"].model == "codestral:22b"
+        assert gw._local_providers["ollama-designer"].model == "llama3.3:70b"
+
+    def test_per_role_env_var_overrides_multiple_roles(self, monkeypatch):
+        """複数の役割別環境変数がそれぞれのプロバイダを上書きする。"""
+        monkeypatch.setenv("VIBE_PDCA_LOCAL_LLM_MODEL_PM", "deepseek-r1:70b")
+        monkeypatch.setenv("VIBE_PDCA_LOCAL_LLM_MODEL_PROGRAMMER", "qwen2.5-coder:32b")
+        config = self._config_with_role_providers()
+        gw = build_gateway_from_config(config)
+        assert gw._local_providers["ollama-pm"].model == "deepseek-r1:70b"
+        assert gw._local_providers["ollama-programmer"].model == "qwen2.5-coder:32b"
+        assert gw._local_providers["ollama-designer"].model == "llama3.3:70b"
+
+    def test_per_role_env_var_takes_precedence_over_global(self, monkeypatch):
+        """役割別環境変数が一括環境変数より優先される。"""
+        monkeypatch.setenv("VIBE_PDCA_LOCAL_LLM_MODEL", "gemma3:27b")
+        monkeypatch.setenv("VIBE_PDCA_LOCAL_LLM_MODEL_PM", "deepseek-r1:70b")
+        config = self._config_with_role_providers()
+        gw = build_gateway_from_config(config)
+        # PM: 役割別環境変数が優先
+        assert gw._local_providers["ollama-pm"].model == "deepseek-r1:70b"
+        # PROGRAMMER: 役割別未設定なので一括環境変数が適用
+        assert gw._local_providers["ollama-programmer"].model == "gemma3:27b"
+        # DESIGNER: 役割別未設定なので一括環境変数が適用
+        assert gw._local_providers["ollama-designer"].model == "gemma3:27b"
+
+    def test_global_env_var_used_when_no_per_role(self, monkeypatch):
+        """役割別環境変数が未設定の場合、一括環境変数が適用される。"""
+        monkeypatch.setenv("VIBE_PDCA_LOCAL_LLM_MODEL", "gemma3:27b")
+        config = self._config_with_role_providers()
+        gw = build_gateway_from_config(config)
+        assert gw._local_providers["ollama-pm"].model == "gemma3:27b"
+        assert gw._local_providers["ollama-programmer"].model == "gemma3:27b"
+        assert gw._local_providers["ollama-designer"].model == "gemma3:27b"
+
+    def test_config_used_when_no_env_vars(self, monkeypatch):
+        """環境変数が未設定の場合、設定ファイルのモデル名が使われる。"""
+        monkeypatch.delenv("VIBE_PDCA_LOCAL_LLM_MODEL", raising=False)
+        monkeypatch.delenv("VIBE_PDCA_LOCAL_LLM_MODEL_PM", raising=False)
+        monkeypatch.delenv("VIBE_PDCA_LOCAL_LLM_MODEL_PROGRAMMER", raising=False)
+        monkeypatch.delenv("VIBE_PDCA_LOCAL_LLM_MODEL_DESIGNER", raising=False)
+        config = self._config_with_role_providers()
+        gw = build_gateway_from_config(config)
+        assert gw._local_providers["ollama-pm"].model == "qwen3:72b"
+        assert gw._local_providers["ollama-programmer"].model == "codestral:22b"
+        assert gw._local_providers["ollama-designer"].model == "llama3.3:70b"
