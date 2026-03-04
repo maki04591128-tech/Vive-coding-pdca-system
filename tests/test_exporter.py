@@ -43,6 +43,31 @@ class TestReviewExport:
         assert result.item_count == 1
 
 
+class TestMarkdownFormatExport:
+    """MARKDOWN形式でのデータエクスポートテスト。"""
+
+    def test_audit_log_markdown(self):
+        exp = Exporter()
+        entries = [
+            {"sequence": 0, "action": "start"},
+            {"sequence": 1, "action": "end"},
+        ]
+        result = exp.export_audit_log(entries, ExportFormat.MARKDOWN)
+        assert result.format == ExportFormat.MARKDOWN
+        assert result.item_count == 2
+        # 各エントリが "- " で始まるリスト形式であること
+        lines = result.content.strip().split("\n")
+        assert all(line.startswith("- ") for line in lines)
+
+    def test_reviews_markdown(self):
+        exp = Exporter()
+        reviews = [{"reviewer": "PM", "finding": "issue"}]
+        result = exp.export_reviews(reviews, ExportFormat.MARKDOWN)
+        assert result.format == ExportFormat.MARKDOWN
+        assert result.item_count == 1
+        assert "PM" in result.content
+
+
 class TestMarkdownReport:
     def test_markdown_report(self):
         exp = Exporter()

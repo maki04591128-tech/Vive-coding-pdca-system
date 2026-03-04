@@ -45,3 +45,20 @@ class TestDryRun:
         dr.execute("テスト1", ["条件1"])
         dr.execute("テスト2", ["条件1"])
         assert dr.run_count == 2
+
+
+class TestDryRunMarkdownBlockersAndWarnings:
+    """ブロッカーと警告の両方があるドライラン結果のMarkdownテスト。"""
+
+    def test_markdown_with_blockers_and_warnings(self):
+        dr = DryRunExecutor()
+        # 受入条件15件でブロッカー発生、制約なしで警告発生
+        result = dr.execute(
+            goal_purpose="大規模テスト",
+            acceptance_criteria=[f"条件{i}" for i in range(15)],
+        )
+        md = result.to_markdown()
+        assert "潜在ブロッカー" in md
+        assert "⚠️" in md
+        assert "警告" in md
+        assert "制約が未定義です" in md
