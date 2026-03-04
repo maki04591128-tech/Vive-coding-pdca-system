@@ -357,7 +357,7 @@ def build_exe(
             capture_output=True,
             timeout=30,
         )
-    except (subprocess.CalledProcessError, FileNotFoundError) as e:
+    except (subprocess.CalledProcessError, FileNotFoundError):
         logger.info("PyInstaller をインストール中...")
         subprocess.run(  # noqa: S603
             [sys.executable, "-m", "pip", "install", "pyinstaller>=6.0"],
@@ -365,7 +365,7 @@ def build_exe(
             capture_output=True,
             timeout=300,
         )
-        logger.info("PyInstaller のインストール完了: %s", e)
+        logger.info("PyInstaller のインストール完了")
 
     pi_cfg = (config or {}).get("installer", {}).get("pyinstaller", {})
     app_name = pi_cfg.get("app_name", APP_NAME)

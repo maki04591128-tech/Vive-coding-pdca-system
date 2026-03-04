@@ -138,8 +138,11 @@ class TestSha256File:
 class TestCheckPythonVersion:
     """check_python_version のテスト。"""
 
+    @pytest.mark.skipif(
+        __import__("sys").version_info < (3, 12),
+        reason="Python 3.12+ が必要なテスト",
+    )
     def test_current_version_ok(self) -> None:
-        # テスト実行環境は Python 3.12+ のはず
         assert check_python_version() is True
 
     def test_get_python_info(self) -> None:
