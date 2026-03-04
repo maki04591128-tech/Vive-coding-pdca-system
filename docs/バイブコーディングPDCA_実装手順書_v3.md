@@ -1,7 +1,7 @@
 # バイブコーディングPDCA自動開発システム 実装手順書
 
 **文書番号**：VCS-IMPL-001
-**版**：3.1
+**版**：3.2
 **作成日**：2026-02-27
 **前提文書**：VCS-REQ-001 v2.4（要件定義書）
 
@@ -15,6 +15,7 @@
 | 2.0 | 2026-02-26 | 全面改訂：タスク依存関係の明示 / GitHubステートストア設計 / レビュー統合アルゴリズム / テスト戦略 / エラーハンドリング方針 / トレーサビリティ設計 / 環境分離手順 / 運転モード実装を追加 |
 | 3.0 | 2026-02-27 | ギャップ分析A8件+B9件+C5件の全件反映：RBAC実装(A1) / マルチプロジェクトプロセス分離(A2) / 介入操作(A3) / ペルソナNO処理(A4) / エクスポート機能(A5) / プラグイン設計(A6) / CI失敗分類(A7) / 用語集管理(A8) / 進捗レポートテンプレ(B1) / Discord通知テンプレ(B2) / スタック検知(B3) / 差分質問(B4) / ペルソナ重み調整フロー(B5) / 保持期間管理(B6) / 仮想キー(B7) / インシデントレポート生成(B8) / 再現性設計(B9) / 継続改善スケジュール(C1) / トレーサビリティ補完(C2) / JSONスキーマ運用(C3) / バックアップリポ管理(C4) / エラーハンドリング補完(C5) |
 | 3.1 | 2026-03-04 | 追加機能提案書（提案16〜30）のうち高優先度6件を実装：ロールバック体系化(16) / 設定ホットリロード(17) / タイムアウト精緻化(18) / サンドボックスリソース管理(19) / トークン管理強化(20) / LLM品質スコアリング(22) / §15追加 |
+| 3.2 | 2026-03-04 | 追加機能提案書の残り9件を実装：タスク依存関係グラフ(21) / 変更影響分析(23) / ユーザーフィードバック(24) / コンプライアンスエンジン(25) / マルチリポジトリ(26) / ファインチューニング(27) / チャットオプス(28) / リプレイ(29) / エッジケース探索(30) / 提案16〜30全件完了 |
 
 ---
 
@@ -449,7 +450,16 @@ PDCA 3サイクル以上正常完了
 | X-18 | 18 | タイムアウト戦略の精緻化 | `engine/timeout_strategy.py`（新規） | `test_timeout_strategy.py` |
 | X-19 | 19 | サンドボックスリソース制限・監視 | `engine/sandbox_resource.py`（新規） | `test_sandbox_resource.py` |
 | X-20 | 20 | GitHub Appトークン管理強化 | `github/token_manager.py`（新規） | `test_token_manager.py` |
+| X-21 | 21 | タスク依存関係グラフ・クリティカルパス | `engine/task_dependency.py`（新規） | `test_task_dependency.py` |
 | X-22 | 22 | LLMレスポンス品質スコアリング | `engine/quality_scorer.py`（新規） | `test_quality_scorer.py` |
+| X-23 | 23 | 変更影響分析の自動化 | `engine/impact_analysis.py`（新規） | `test_impact_analysis.py` |
+| X-24 | 24 | ユーザーフィードバック収集 | `engine/user_feedback.py`（新規） | `test_user_feedback.py` |
+| X-25 | 25 | コンプライアンステンプレート | `engine/compliance.py`（新規） | `test_compliance.py` |
+| X-26 | 26 | マルチリポジトリ・モノレポ対応 | `engine/multi_repo.py`（新規） | `test_multi_repo.py` |
+| X-27 | 27 | AIモデルファインチューニング | `engine/fine_tuning.py`（新規） | `test_fine_tuning.py` |
+| X-28 | 28 | 自然言語チャットオプス | `engine/chatops.py`（新規） | `test_chatops.py` |
+| X-29 | 29 | サイクルリプレイ・デバッグモード | `engine/replay.py`（新規） | `test_replay.py` |
+| X-30 | 30 | エッジケース自動探索 | `engine/edge_case_explorer.py`（新規） | `test_edge_case_explorer.py` |
 
 ### 15.2 モジュール構成の拡張
 
@@ -462,7 +472,16 @@ src/vibe_pdca/
 │   ├── intervention.py    ← 拡張（提案16: ロールバック体系化）
 │   ├── timeout_strategy.py ← 新規（提案18）
 │   ├── sandbox_resource.py ← 新規（提案19）
+│   ├── task_dependency.py  ← 新規（提案21）
 │   ├── quality_scorer.py  ← 新規（提案22）
+│   ├── impact_analysis.py ← 新規（提案23）
+│   ├── user_feedback.py   ← 新規（提案24）
+│   ├── compliance.py      ← 新規（提案25）
+│   ├── multi_repo.py      ← 新規（提案26）
+│   ├── fine_tuning.py     ← 新規（提案27）
+│   ├── chatops.py         ← 新規（提案28）
+│   ├── replay.py          ← 新規（提案29）
+│   ├── edge_case_explorer.py ← 新規（提案30）
 │   └── ...（既存モジュール変更なし）
 └── github/
     ├── __init__.py         ← 既存（変更なし）
@@ -478,11 +497,20 @@ src/vibe_pdca/
 | 18 | §6.6, §13.2（停止条件・縮退） | `engine/timeout_strategy.py` |
 | 19 | §12（セキュリティ）, ADR-007 | `engine/sandbox_resource.py` |
 | 20 | §9.6（GitHub App）, ADR-005 | `github/token_manager.py` |
+| 21 | §6.2, §7.1（タスク依存関係） | `engine/task_dependency.py` |
 | 22 | §8（ペルソナレビュー品質） | `engine/quality_scorer.py` |
+| 23 | §9.3（変更種別・影響分析） | `engine/impact_analysis.py` |
+| 24 | §26.8（フィードバックループ） | `engine/user_feedback.py` |
+| 25 | §17, §25（ガバナンス・コンプライアンス） | `engine/compliance.py` |
+| 26 | §26.1, ADR-006（マルチプロジェクト） | `engine/multi_repo.py` |
+| 27 | §5.3（モデル劣化閾値） | `engine/fine_tuning.py` |
+| 28 | §18（Discord通知・承認） | `engine/chatops.py` |
+| 29 | §26.10（再現性・説明可能性） | `engine/replay.py` |
+| 30 | §8, §12（品質・セキュリティ） | `engine/edge_case_explorer.py` |
 
 ---
 
-*以上。本文書はバイブコーディングPDCA自動開発システムの実装手順書（v3.1）である。*
+*以上。本文書はバイブコーディングPDCA自動開発システムの実装手順書（v3.2）である。*
 *要件定義書（VCS-REQ-001 v2.4）の全27章をカバーし、v2.0で検出された22件のギャップ（A8件+B9件+C5件）をすべて反映済み。*
-*追加機能提案書（提案16〜30）のうち高優先度6件（提案16/17/18/19/20/22）を実装済み。*
+*追加機能提案書（提案16〜30）の全15件を実装済み。*
 *M0〜M4 の順に実装を進める。*
