@@ -44,9 +44,30 @@
     "review_findings": {
       "type": "array",
       "items": {
-        "$ref": "review_finding.schema.json"
+        "type": "object",
+        "required": ["severity", "category", "basis", "suggestion", "confidence"],
+        "properties": {
+          "severity": {
+            "type": "string",
+            "enum": ["blocker", "major", "minor"]
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "correctness", "security", "performance",
+              "maintainability", "ux", "accessibility",
+              "consistency", "documentation", "testing", "ops"
+            ]
+          },
+          "basis": { "type": "string", "minLength": 1 },
+          "suggestion": { "type": "string", "minLength": 1 },
+          "confidence": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+          "file_path": { "type": "string" },
+          "line_range": { "type": "string" }
+        },
+        "additionalProperties": false
       },
-      "description": "5ペルソナレビュー指摘リスト"
+      "description": "5ペルソナレビュー指摘リスト（review_finding.schema.json と同一構造）"
     },
     "dod_evaluation": {
       "type": "object",
