@@ -1,0 +1,76 @@
+# =============================================================
+# Vibe-PDCA ダウンローダー/インストーラー設定
+# =============================================================
+
+installer:
+  app_name: "VibePDCA"
+  version: "0.1.0"
+  description: "バイブコーディングPDCA自動開発システム"
+
+  # ── ダウンロード元 ──
+  github:
+    owner: "maki04591128-tech"
+    repo: "Vive-coding-pdca-system"
+    # リリースタグ（"latest" で最新リリースを自動取得）
+    release_tag: "latest"
+
+  # ── インストール先 ──
+  install:
+    # デフォルトインストール先（ユーザーが変更可能）
+    default_dir_windows: "%LOCALAPPDATA%\\VibePDCA"
+    default_dir_macos: "~/Applications/VibePDCA"
+    default_dir_linux: "~/.local/share/VibePDCA"
+
+  # ── 必要な Python バージョン ──
+  python:
+    min_version: "3.12"
+    embedded_url_windows: "https://www.python.org/ftp/python/3.12.8/python-3.12.8-embed-amd64.zip"
+
+  # ── ダウンロードするリソース ──
+  resources:
+    # ソースコード（GitHub Release の tarball）
+    - name: "source"
+      type: "github_release"
+      asset_pattern: "*.tar.gz"
+      extract: true
+
+    # 設定ファイル
+    - name: "config"
+      type: "directory"
+      source: "config/"
+
+    # Docker 設定
+    - name: "docker"
+      type: "directory"
+      source: "docker/"
+
+  # ── PyInstaller ビルド設定 ──
+  pyinstaller:
+    main_script: "src/vibe_pdca/gui/app.py"
+    app_name: "VibePDCA"
+    icon: null  # アイコンファイルのパス（オプション）
+    onefile: true
+    console: false
+    hidden_imports:
+      - "vibe_pdca"
+      - "vibe_pdca.gui"
+      - "vibe_pdca.gui.app"
+      - "vibe_pdca.gui.views"
+      - "vibe_pdca.gui.views.dashboard"
+      - "vibe_pdca.gui.components"
+      - "vibe_pdca.gui.components.pdca_card"
+      - "vibe_pdca.gui.components.status_card"
+      - "vibe_pdca.llm"
+      - "vibe_pdca.llm.gateway"
+      - "vibe_pdca.llm.models"
+      - "vibe_pdca.llm.providers"
+      - "vibe_pdca.llm.circuit_breaker"
+      - "vibe_pdca.llm.health"
+      - "vibe_pdca.config"
+      - "vibe_pdca.config.loader"
+      - "vibe_pdca.engine"
+      - "vibe_pdca.models"
+      - "flet"
+    additional_data:
+      - "config/:config/"
+      - "docker/:docker/"
