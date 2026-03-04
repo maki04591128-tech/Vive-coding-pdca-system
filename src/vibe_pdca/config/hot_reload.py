@@ -117,7 +117,9 @@ class ConfigValidator:
         provider_list_fields : list[str] | None
             空でないことが必要なリスト型フィールド（ドット区切り）。
         """
-        self.required_fields = required_fields or self.DEFAULT_REQUIRED_FIELDS
+        self.required_fields = (
+            required_fields if required_fields is not None else self.DEFAULT_REQUIRED_FIELDS
+        )
         self.numeric_ranges = numeric_ranges or {}
         self.provider_list_fields = provider_list_fields or []
 
