@@ -1,0 +1,25 @@
+# =============================================================
+# ステージング環境用設定（config/default.yml を上書き）
+# 実装手順書 §3 準拠
+# =============================================================
+
+llm:
+  preferred_mode: "cloud"
+  auto_fallback: true
+
+  circuit_breaker:
+    failure_threshold: 3
+    recovery_timeout: 90.0      # stgは本番より短めに復旧試行
+    success_threshold: 2
+
+  health_check:
+    interval: 30.0              # stgはデフォルトと同一
+
+  cost:
+    daily_limit_usd: 20.0       # stgは本番より低いコスト上限
+    per_cycle_limit_usd: 3.0
+    max_calls_per_cycle: 50
+    max_calls_per_day: 300
+
+logging:
+  level: "DEBUG"

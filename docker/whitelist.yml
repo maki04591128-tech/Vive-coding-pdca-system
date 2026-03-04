@@ -1,0 +1,66 @@
+# =============================================================
+# ネットワークホワイトリスト – M0 タスク 0-3
+# 要件定義書 §12 準拠
+#
+# サンドボックスコンテナからの外部通信許可リスト。
+# 記載以外のすべての外部通信はデフォルト拒否する。
+# ホワイトリストの変更はA操作（人間承認必須）。
+# =============================================================
+
+# 許可する外部通信先
+allowed_hosts:
+  # GitHub API – PR作成・CI取得
+  - host: "api.github.com"
+    port: 443
+    protocol: "https"
+    purpose: "GitHub API操作（PR作成・Issue管理・CI取得）"
+
+  - host: "github.com"
+    port: 443
+    protocol: "https"
+    purpose: "Gitリポジトリ操作"
+
+  # パッケージレジストリ – 依存解決
+  - host: "pypi.org"
+    port: 443
+    protocol: "https"
+    purpose: "Pythonパッケージ取得"
+
+  - host: "files.pythonhosted.org"
+    port: 443
+    protocol: "https"
+    purpose: "Pythonパッケージダウンロード"
+
+  - host: "registry.npmjs.org"
+    port: 443
+    protocol: "https"
+    purpose: "npmパッケージ取得"
+
+  # LLM API – モデル呼び出し
+  - host: "api.anthropic.com"
+    port: 443
+    protocol: "https"
+    purpose: "Anthropic API（Claude / DO担当）"
+
+  - host: "api.openai.com"
+    port: 443
+    protocol: "https"
+    purpose: "OpenAI API（PM等）"
+
+  - host: "generativelanguage.googleapis.com"
+    port: 443
+    protocol: "https"
+    purpose: "Google Gemini API（書記・デザイナ）"
+
+  - host: "api.x.ai"
+    port: 443
+    protocol: "https"
+    purpose: "xAI Grok API（ユーザ）"
+
+# デフォルトポリシー
+default_policy: "deny"
+
+# 変更管理
+governance:
+  change_level: "A"  # ホワイトリスト変更はA操作（人間承認必須）
+  approval_required: true
