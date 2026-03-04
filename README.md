@@ -1,90 +1,102 @@
-# vibe-pdca-llm-gateway
+# バイブコーディングPDCA自動開発システム
 
-バイブコーディングPDCA自動開発システムのドキュメントリポジトリです。
-要件定義書・実装手順書・ADR・運用ドキュメント等の全ドキュメントを含みます。
-
-## ドキュメント一覧（全24件）
-
-### コアドキュメント
-- `docs/バイブコーディングPDCAシステム_要件定義書_v6.md` — VCS-REQ-001（全27章）
-- `docs/バイブコーディングPDCA_実装手順書_v3.md` — VCS-IMPL-001（全14章、22件のギャップ反映済み）
-
-### ADR（docs/adr/）
-ADR-001〜008：モデル選定、プロジェクト種別、脆弱性スキャン、RAG検索、GitHub App権限、マルチプロジェクト隔離、サンドボックス設計、クラウド/ローカルLLM切替
-
-### 運用ドキュメント（docs/ops/）
-Runbook、Incident Playbook、Approval Checklist、Release Checklist、Suppress List運用ルール、フォールバック運用ガイド
-
-### 設計・仕様
-システムアーキテクチャ図、ロール権限マトリクス、プロンプトテンプレート仕様、オンボーディングガイド、必要なドキュメント一覧、ドキュメント精査レポート
-
-### テンプレート（docs/templates/）
-フィードバックログ テンプレ、統括レビュー要約 テンプレ
+[![テスト](https://img.shields.io/badge/tests-523%20passed-brightgreen)](tests/)
+[![Python](https://img.shields.io/badge/python-3.12%2B-blue)](pyproject.toml)
 
 ## 概要
 
-本モジュールは ADR-001（マルチLLMモデル選定）および要件定義書 §4.2 / §13.2 に基づき、以下の機能を実装します。
+バイブコーディングPDCA自動開発システムは、**目標（最終到達点）を入力するだけで PLAN→DO→CHECK→ACT の自動PDCAサイクルを回し、ソフトウェアを自律的に開発**するシステムです。
 
-**手動切替**: 設定ファイル (`config/default.yml`) または実行時APIで、クラウドLLM ↔ ローカルLLMを切り替えられます。
+5ペルソナ（PM/Architect/Security/QA/UX）による自動レビュー、ガバナンス承認ワークフロー、監査ログによる完全追跡、コスト管理、セキュリティ強化を備えています。
 
-**自動フォールバック**: クラウドLLMの接続障害・API障害を検知すると、サーキットブレーカーパターンにより自動でローカルLLMへ切り替わります。障害復旧後は自動的にクラウドLLMへ復帰します。
-
-**役割別マルチモデル**: ADR-001 に従い、PM / 書記 / プログラマ / デザイナ / ユーザ / DO の各役割に最適なLLMモデルを割り当てます。
-
-## 使用するローカルLLM
-
-本システムでは、クラウド版と同様にローカルLLMも各役割の得意分野に合わせたモデルを割り当てます。
-クラウドLLM障害時の自動フォールバック先、または手動切替先として使用します。
-
-| 役割 | プロバイダ名 | デフォルトモデル | パラメータ数 | 選定理由 |
-|------|-------------|-----------------|------------|---------|
-| **PM** | ollama-pm | `qwen3:72b` | 72B | 日本語・推論に強い。タスク分解・リスク列挙に最適 |
-| **書記** | ollama-scribe | `qwen3:72b` | 72B | 長文処理・要約に優れる。ドキュメント間の矛盾検出に適する |
-| **プログラマ** | ollama-programmer | `codestral:22b` | 22B | コード生成・欠陥検出に特化。軽量で高速 |
-| **デザイナ** | ollama-designer | `llama3.3:70b` | 70B | 汎用性が高く高品質。UI・UX設計理解に適する |
-| **ユーザ** | ollama-user | `gemma3:27b` | 27B | 軽量。エンドユーザ視点での指摘に十分な能力 |
-| **DO（実装）** | ollama-do | `codestral:22b` | 22B | コード実装・テスト生成に特化 |
-
-- **実行基盤**: [Ollama](https://ollama.com/)（OpenAI 互換 API: `http://localhost:11434/v1`）
-- **コスト**: ローカル実行のため API 利用料 $0（ハードウェアコストは別途）
-- **モデル差し替え**: 役割別に環境変数で個別指定可能（[詳細](#ローカルllmのモデル差し替え)）
-
-## アーキテクチャ
+## システムアーキテクチャ
 
 ```
-┌──────────────┐     ┌──────────────────────────────────────────┐
-│  PDCA        │     │            LLM ゲートウェイ               │
-│  オーケスト  │────→│                                          │
-│  レータ      │     │  ┌─────────┐  ┌──────────────────────┐  │
-│              │     │  │ コスト   │  │  役割→プロバイダ     │  │
-│              │     │  │ 追跡     │  │  マッピング          │  │
-│              │     │  └─────────┘  └──────────────────────┘  │
-│              │     │                                          │
-│              │     │  ┌──────────────────────────────────┐   │
-│              │     │  │    サーキットブレーカー            │   │
-│              │     │  │  CLOSED ←→ OPEN ←→ HALF_OPEN    │   │
-│              │     │  └──────────────────────────────────┘   │
-│              │     │          │                │              │
-│              │     │    ┌─────┴──────┐  ┌─────┴──────┐      │
-│              │     │    │ クラウドLLM │  │ ローカルLLM │      │
-│              │     │    │ (優先)      │  │ (手動切替/  │      │
-│              │     │    │            │  │  フォール   │      │
-│              │     │    │            │  │  バック)    │      │
-│              │     │    └────────────┘  └────────────┘      │
-│              │     │          │                │              │
-│              │     │  ┌───────┴────────────────┴──────┐      │
-│              │     │  │      ヘルスチェッカー          │      │
-│              │     │  │  (定期的な死活監視)            │      │
-│              │     │  └───────────────────────────────┘      │
-│              │     └──────────────────────────────────────────┘
-└──────────────┘
-         ↕                      ↕                    ↕
-   ┌──────────┐         ┌────────────┐       ┌──────────────┐
-   │ GitHub   │         │ OpenAI     │       │ Ollama       │
-   │ API      │         │ Anthropic  │       │ llama.cpp    │
-   │          │         │ Google     │       │ vLLM         │
-   └──────────┘         └────────────┘       └──────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                    バイブコーディングPDCA                              │
+│                                                                      │
+│  ┌─────────┐    ┌─────────┐    ┌─────────┐    ┌─────────┐          │
+│  │  PLAN   │───→│   DO    │───→│  CHECK  │───→│   ACT   │──→繰返  │
+│  │ Planner │    │Executor │    │ Checker │    │Decision │          │
+│  └─────────┘    └─────────┘    └─────────┘    └─────────┘          │
+│       │              │              │              │                 │
+│       ▼              ▼              ▼              ▼                 │
+│  ┌──────────────────────────────────────────────────────┐           │
+│  │              監査ログ + トレーサビリティ               │           │
+│  └──────────────────────────────────────────────────────┘           │
+│                                                                      │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐                   │
+│  │ガバナンス    │ │コスト管理    │ │セキュリティ  │                   │
+│  │A/B/C分類    │ │$30/日上限   │ │入力バリデ   │                   │
+│  └─────────────┘ └─────────────┘ └─────────────┘                   │
+│                                                                      │
+│  ┌────────────────────────────────────────────────────────────┐     │
+│  │               LLMゲートウェイ（マルチモデル）               │     │
+│  │  クラウドLLM ←→ サーキットブレーカー ←→ ローカルLLM       │     │
+│  └────────────────────────────────────────────────────────────┘     │
+└──────────────────────────────────────────────────────────────────────┘
 ```
+
+## 機能一覧
+
+### M1: 基盤（データモデル・状態管理）
+| 機能 | モジュール | 説明 |
+|------|-----------|------|
+| PDCAデータモデル | `models/pdca.py` | Goal/Milestone/Task/Cycle/Decision/AuditEntry |
+| PDCA状態機械 | `engine/` | PLAN→DO→CHECK→ACT 自動遷移 |
+| 監査ログ | `audit/` | 追記専用・チェーンハッシュ・改ざん検知 |
+| プロンプト管理 | `prompts/` | 役割別テンプレート・バージョン管理 |
+| トレーサビリティ | `monitoring/` | Goal→MS→Task→PR→Review→Decision 双方向追跡 |
+| RBAC | `governance/` | Owner/Maintainer/Viewer ロール |
+| 用語集 | `glossary/` | 統一用語・エイリアス自動変換 |
+
+### M2: PDCAエンジン
+| 機能 | モジュール | 説明 |
+|------|-----------|------|
+| PLANフェーズ | `engine/planner.py` | ゴール→マイルストーン→タスク自動分解 |
+| DOフェーズ | `engine/executor.py` | タスク実行・変更種別分類・ゲート管理 |
+| CHECKフェーズ | `engine/checker.py` | CI統合・DoD判定・5ペルソナレビュー |
+| ACTフェーズ | `engine/decision.py` | 採否判定・次サイクル方針・進捗レポート |
+| レビュー統合 | `engine/review_integrator.py` | 5ペルソナ統合・重複クラスタリング・優先度付け |
+| ガバナンス | `engine/governance.py` | A/B/C操作分類・承認ワークフロー・代替案生成 |
+| Discord連携 | `engine/discord_liaison.py` | A操作承認(4/4合意)・B通知・サイクル完了通知 |
+| RAGコンテキスト | `engine/context_manager.py` | 5ファイル/2000トークン・10サイクル要約・100リセット |
+| 停止条件 | `engine/stop_conditions.py` | 6hスタック検知・5段縮退・自動停止 |
+| 要件確定 | `engine/requirements.py` | ギャップ検出→差分質問→5ペルソナレビュー→PDCA |
+| 運転モード | `engine/mode_controller.py` | 手動/半自動/全自動 切替 |
+| マルチプロジェクト | `engine/multi_project.py` | 物理隔離・重複検出・コスト上限 |
+| 介入操作 | `engine/intervention.py` | P0/P1/P2分類・根本原因分析・ロールバック |
+
+### M3: 品質と運用
+| 機能 | モジュール | 説明 |
+|------|-----------|------|
+| 保持期間管理 | `audit/retention.py` | 監査365日/メトリクス90日/レビュー180日・自動パージ |
+| 可観測性 | `monitoring/metrics.py` | サイクル成功率・CI率・モデル別メトリクス・アラート |
+| セキュリティ | `engine/security.py` | プロンプトインジェクション対策・パストラバーサル防止 |
+| コスト管理 | `engine/cost_manager.py` | 80回/サイクル・500回/日・$30/日・異常検知 |
+| バックアップ | `engine/backup.py` | B操作前自動作成・SHA-256整合性・180日保持 |
+| 劣化検知 | `engine/degradation.py` | 10サイクル連続観測・ペルソナ重み±0.05調整 |
+| ドライラン | `engine/dry_run.py` | PLAN→CHECKシミュレーション・外部書込なし |
+| コスト見積もり | `engine/cost_estimator.py` | MS/サイクル/タスク/LLMコスト推定 |
+| Suppress List | `engine/suppress_list.py` | 誤検知登録・A操作承認・有効期限 |
+| 学習FB | `engine/learning.py` | 10サイクルごと失敗パターン→PLANプロンプト |
+| 運用文書 | `engine/ops_docs.py` | Runbook/Playbook/Checklist テンプレート |
+| エクスポート | `engine/exporter.py` | JSON/JSONL/Markdown 監査/決定/レビュー |
+| インシデント | `engine/incident_report.py` | P0/P1定型レポート・是正措置・再開条件 |
+
+### M4: リリース
+| 機能 | テスト | 説明 |
+|------|-------|------|
+| 受入基準検証 | `tests/test_acceptance.py` | §23の12項目すべてを統合テストで検証 |
+| セキュリティ検証 | `tests/test_security_redteam.py` | プロンプト注入5パターン（Issue/PR/README/CI/依存） |
+
+### LLMゲートウェイ
+| 機能 | モジュール | 説明 |
+|------|-----------|------|
+| 統一ゲートウェイ | `llm/gateway.py` | 役割→プロバイダマッピング・コスト追跡 |
+| サーキットブレーカー | `llm/circuit_breaker.py` | CLOSED→OPEN→HALF_OPEN 自動フォールバック |
+| ヘルスチェック | `llm/health.py` | 定期死活監視 |
+| プロバイダ | `llm/providers.py` | クラウド(OpenAI/Anthropic/Google) + ローカル(Ollama) |
 
 ## セットアップ
 
@@ -109,56 +121,22 @@ cp .env.example .env
 
 ### 3. ローカルLLM（Ollama）のセットアップ
 
-自動フォールバック先・手動切替先として Ollama を推奨します。
-
 ```bash
 # Ollama インストール
 curl -fsSL https://ollama.com/install.sh | sh
 
 # 役割別デフォルトモデルのダウンロード
-ollama pull qwen3:72b       # PM・書記用（日本語・推論に強い）
-ollama pull codestral:22b   # プログラマ・DO用（コード特化・軽量）
-ollama pull llama3.3:70b    # デザイナ用（汎用・高品質）
-ollama pull gemma3:27b      # ユーザ用（軽量・高品質）
-
-# 代替モデル（お好みで差し替え）
-ollama pull deepseek-r1:70b   # コード生成・推論に優れる
-ollama pull qwen2.5:32b       # 軽量応急用
+ollama pull qwen3:72b       # PM・書記用
+ollama pull codestral:22b   # プログラマ・DO用
+ollama pull llama3.3:70b    # デザイナ用
+ollama pull gemma3:27b      # ユーザ用
 ```
 
-### 4. 動作確認
+### 4. テスト実行
 
 ```bash
 pytest tests/ -v
 ```
-
-## 設定
-
-### 設定ファイル階層（§17.5 準拠）
-
-```
-config/default.yml              ← グローバルデフォルト
-config/environments/dev.yml     ← 開発環境（ローカル優先）
-config/environments/prod.yml    ← 本番環境（クラウド優先）
-.vibe-pdca/config.yml           ← プロジェクト固有設定
-```
-
-下位の設定ファイルが上位を上書きします。ただしポリシーの「緩和」は人間承認が必要です（§17.5）。
-
-### 主要な設定項目
-
-| 項目 | 説明 | デフォルト | 環境変数オーバーライド |
-|------|------|-----------|----------------------|
-| `llm.preferred_mode` | 優先モード (`cloud` / `local`) | `cloud` | `VIBE_PDCA_LLM_MODE` |
-| `llm.auto_fallback` | 自動フォールバック有効化 | `true` | `VIBE_PDCA_LLM_AUTO_FALLBACK` |
-| `llm.local_providers[].model` | ローカルLLMモデル名 | 役割別 | `VIBE_PDCA_LOCAL_LLM_MODEL_{ROLE}` |
-| （全プロバイダ一括） | 全ローカルLLMモデル一括変更 | — | `VIBE_PDCA_LOCAL_LLM_MODEL` |
-| `llm.local_providers[].base_url` | ローカルLLMサーバーURL | `http://localhost:11434/v1` | `VIBE_PDCA_LOCAL_LLM_BASE_URL` |
-| `llm.circuit_breaker.failure_threshold` | OPEN遷移の連続失敗回数 | `3` | — |
-| `llm.circuit_breaker.recovery_timeout` | OPEN→HALF_OPEN待機秒数 | `60.0` | — |
-| `llm.cost.daily_limit_usd` | 日次コスト上限 (USD) | `30.0` | — |
-
-> **優先順位**: 環境変数 > プロジェクト固有設定 > 環境別設定 > グローバルデフォルト
 
 ## 使い方
 
@@ -166,7 +144,7 @@ config/environments/prod.yml    ← 本番環境（クラウド優先）
 
 ```python
 from vibe_pdca.config import load_config, build_gateway_from_config
-from vibe_pdca.llm.models import LLMRequest, ProviderType, Role
+from vibe_pdca.llm.models import LLMRequest, Role
 
 # 設定ファイルからゲートウェイを構築
 config = load_config(config_dir="config", env="dev")
@@ -180,237 +158,166 @@ request = LLMRequest(
 )
 response = gateway.call(request)
 print(response.content)
-print(f"Provider: {response.provider_type.value}")
-print(f"Fallback: {response.fallback_used}")
 ```
 
-### 手動モード切替
-
-#### 環境変数で切替（最も簡単）
-
-```bash
-# ローカルLLMモードで起動（設定ファイルの変更不要）
-export VIBE_PDCA_LLM_MODE=local
-
-# 自動フォールバックを無効化（ローカルのみで運用）
-export VIBE_PDCA_LLM_AUTO_FALLBACK=false
-```
-
-#### 設定ファイルで切替
-
-`config/default.yml` の `llm.preferred_mode` を `"local"` に変更するか、
-`config/environments/dev.yml` のように環境別設定で上書きします。
-
-#### Python API で実行時に切替
+### PDCAサイクルの実行例
 
 ```python
-# ローカルLLMモードへ切替
-gateway.set_mode(ProviderType.LOCAL, reason="コスト削減のためローカルへ切替")
+from vibe_pdca.engine.planner import Planner
+from vibe_pdca.engine.executor import Executor
+from vibe_pdca.engine.checker import Checker
+from vibe_pdca.engine.decision import ActDecisionMaker
+from vibe_pdca.models.pdca import Goal
 
-# クラウドLLMモードへ復帰
-gateway.set_mode(ProviderType.CLOUD, reason="品質優先でクラウドへ復帰")
+# 1. PLAN: ゴール → マイルストーン → タスク
+planner = Planner()
+goal = Goal(id="g-1", purpose="REST APIサーバー構築",
+            acceptance_criteria=["認証", "CRUD", "テスト"])
+milestones = planner.generate_milestones(goal)
+
+# 2. DO: タスク実行
+executor = Executor()
+tasks = planner.generate_tasks(milestones[0])
+result = executor.execute_tasks(tasks)
+
+# 3. CHECK: CI + レビュー + DoD判定
+checker = Checker()
+check_result = checker.run_check(context)
+
+# 4. ACT: 採否判定 → 次サイクル
+decision_maker = ActDecisionMaker()
+decision = decision_maker.make_decision(check_result)
 ```
 
-### CLI からのモード切替
-
-```bash
-# ローカルモードへ切替
-python -m vibe_pdca.cli mode set \
-  --project-id <PROJECT_ID> \
-  --llm-mode local \
-  --reason "オフライン作業のためローカルへ切替"
-```
-
-### ローカルLLMのモデル差し替え
-
-環境変数でローカルLLMのモデルを役割別に差し替えできます（YAML 設定の編集不要）。
-
-#### 役割別に差し替え（推奨）
-
-```bash
-# 役割ごとに得意なモデルを指定
-export VIBE_PDCA_LOCAL_LLM_MODEL_PM=qwen3:72b
-export VIBE_PDCA_LOCAL_LLM_MODEL_SCRIBE=qwen3:72b
-export VIBE_PDCA_LOCAL_LLM_MODEL_PROGRAMMER=deepseek-r1:70b
-export VIBE_PDCA_LOCAL_LLM_MODEL_DESIGNER=llama3.3:70b
-export VIBE_PDCA_LOCAL_LLM_MODEL_USER=gemma3:27b
-export VIBE_PDCA_LOCAL_LLM_MODEL_DO=deepseek-r1:70b
-```
-
-#### 全プロバイダ一括差し替え
-
-```bash
-# 全役割を同じモデルで統一する場合
-export VIBE_PDCA_LOCAL_LLM_MODEL=llama3.3:70b
-
-# vLLM / llama.cpp / LM Studio 等の別サーバーを使う場合
-export VIBE_PDCA_LOCAL_LLM_BASE_URL=http://localhost:8000/v1
-```
-
-> **優先順位**: 役割別環境変数 > 一括環境変数 > 設定ファイル
-
-役割別推奨モデル例：
-
-| 役割 | 推奨モデル | サイズ | 特徴 |
-|------|-----------|--------|------|
-| PM・書記 | `qwen3:72b` | 72B | 日本語・推論に強い |
-| プログラマ・DO | `codestral:22b` | 22B | コード生成特化・軽量 |
-| プログラマ・DO | `deepseek-r1:70b` | 70B | コード生成・推論に優れる |
-| デザイナ | `llama3.3:70b` | 70B | 汎用性が高い |
-| ユーザ | `gemma3:27b` | 27B | 軽量・高品質 |
-
-### ステータス確認
+### コスト管理
 
 ```python
-status = gateway.get_status()
-# {
-#   "preferred_mode": "cloud",
-#   "auto_fallback_enabled": true,
-#   "cloud_providers": {
-#     "openai-gpt5.1": {"circuit_state": "closed", ...},
-#     ...
-#   },
-#   "local_providers": {
-#     "ollama-pm": {"model": "qwen3:72b", "base_url": "http://localhost:11434/v1"},
-#     "ollama-programmer": {"model": "codestral:22b", "base_url": "http://localhost:11434/v1"},
-#     ...
-#   },
-#   "cost": {"daily_cost_usd": 1.23, ...}
-# }
+from vibe_pdca.engine.cost_manager import CostManager, CostAction
+
+cm = CostManager(daily_cost_limit_usd=30.0)
+result = cm.record_call(tokens=500, cost_usd=0.15)
+if result.action == CostAction.STOP:
+    print(result.reason)
 ```
 
-## 自動フォールバックの仕組み
+### ドライラン（外部書込なし）
 
-### サーキットブレーカー状態遷移
+```python
+from vibe_pdca.engine.dry_run import DryRunExecutor
 
-```
-[CLOSED 正常]
-  │  クラウドLLMへリクエスト送信
-  │
-  ├──(連続失敗 >= failure_threshold)──→ [OPEN 遮断]
-  │                                       │  ローカルLLMへ自動フォールバック
-  │                                       │
-  │                                       ├──(recovery_timeout 経過)──→ [HALF_OPEN 試行]
-  │                                       │                              │  クラウドLLMへ試行
-  │                                       │                              │
-  │                                       │                   成功 ←─────┤
-  │                                       │                              │
-  ←────────(success_threshold 回成功)──────┘                   失敗 ──→ [OPEN へ戻る]
+dr = DryRunExecutor()
+result = dr.execute("APIサーバー構築", ["認証", "CRUD", "テスト"])
+print(result.to_markdown())
 ```
 
-### 縮退モードとの連動（§13.2）
+## 設定
+
+### 設定ファイル階層（§17.5 準拠）
 
 ```
-[正常]        ──(クラウドLLM 1障害)──→  [軽度縮退: フォールバック稼働]
-[軽度縮退]    ──(クラウドLLM 3+障害)──→ [重度縮退: DOフェーズ停止]
-[重度縮退]    ──(GitHub障害)──→         [全停止]
-[全停止]      ──(手動再開)──→           [正常]
+config/default.yml              ← グローバルデフォルト
+config/environments/dev.yml     ← 開発環境（ローカル優先）
+config/environments/prod.yml    ← 本番環境（クラウド優先）
+.vibe-pdca/config.yml           ← プロジェクト固有設定
 ```
+
+> **優先順位**: 環境変数 > プロジェクト固有設定 > 環境別設定 > グローバルデフォルト
 
 ## ディレクトリ構造
 
 ```
-vibe-pdca-llm-gateway/
-├── config/
-│   ├── default.yml                  # グローバルデフォルト設定
+vibe-pdca/
+├── config/                         # 設定ファイル
+│   ├── default.yml
 │   └── environments/
-│       ├── dev.yml                  # 開発環境設定
-│       └── prod.yml                 # 本番環境設定
-├── docs/
-│   ├── ADR-008_クラウドローカルLLM切替設計.md
-│   └── フォールバック運用ガイド.md
-├── src/
-│   └── vibe_pdca/
-│       ├── __init__.py
-│       ├── __main__.py              # python -m vibe_pdca で GUI 起動
-│       ├── config/
-│       │   ├── __init__.py
-│       │   └── loader.py            # 設定階層マージ・バリデーション
-│       ├── gui/                     # GUI モジュール（Flet ベース）
-│       │   ├── __init__.py
-│       │   ├── app.py               # メインアプリケーション
-│       │   ├── views/
-│       │   │   └── dashboard.py     # ダッシュボードビュー
-│       │   └── components/
-│       │       └── status_card.py   # ステータス表示コンポーネント
-│       └── llm/
-│           ├── __init__.py
-│           ├── models.py            # データモデル定義
-│           ├── providers.py         # クラウド/ローカルプロバイダ実装
-│           ├── gateway.py           # 統一ゲートウェイ本体
-│           ├── circuit_breaker.py   # サーキットブレーカー
-│           └── health.py            # ヘルスチェッカー
-├── tests/
-│   ├── test_circuit_breaker.py
-│   ├── test_gateway.py
-│   ├── test_config.py
-│   └── test_gui.py                  # GUI ユニットテスト
+├── docs/                           # ドキュメント
+│   ├── バイブコーディングPDCAシステム_要件定義書_v6.md
+│   ├── バイブコーディングPDCA_実装手順書_v3.md
+│   ├── adr/                        # ADR-001〜008
+│   ├── ops/                        # Runbook, Playbook 等
+│   └── templates/                  # テンプレート
+├── src/vibe_pdca/
+│   ├── audit/                      # 監査ログ・保持期間管理
+│   │   ├── __init__.py             # AuditLog (追記専用/チェーンハッシュ)
+│   │   └── retention.py            # RetentionManager (365/90/180日)
+│   ├── config/                     # 設定ロード
+│   │   └── loader.py
+│   ├── engine/                     # PDCAエンジン
+│   │   ├── planner.py              # PLANフェーズ
+│   │   ├── executor.py             # DOフェーズ
+│   │   ├── checker.py              # CHECKフェーズ
+│   │   ├── decision.py             # ACTフェーズ
+│   │   ├── review_integrator.py    # 5ペルソナレビュー統合
+│   │   ├── governance.py           # A/B/C操作分類
+│   │   ├── discord_liaison.py      # Discord連携
+│   │   ├── context_manager.py      # RAGコンテキスト
+│   │   ├── stop_conditions.py      # 停止条件・縮退
+│   │   ├── requirements.py         # 要件確定フロー
+│   │   ├── mode_controller.py      # 運転モード制御
+│   │   ├── multi_project.py        # マルチプロジェクト
+│   │   ├── intervention.py         # 介入操作
+│   │   ├── cost_manager.py         # コスト管理
+│   │   ├── cost_estimator.py       # コスト見積もり
+│   │   ├── backup.py               # バックアップ
+│   │   ├── degradation.py          # モデル劣化検知
+│   │   ├── dry_run.py              # ドライランモード
+│   │   ├── security.py             # セキュリティ強化
+│   │   ├── suppress_list.py        # Suppress List
+│   │   ├── learning.py             # 学習フィードバック
+│   │   ├── exporter.py             # エクスポート
+│   │   ├── incident_report.py      # インシデントレポート
+│   │   └── ops_docs.py             # 運用文書テンプレート
+│   ├── glossary/                   # 用語集
+│   ├── governance/                 # RBAC
+│   ├── gui/                        # GUI (Flet)
+│   │   ├── app.py
+│   │   ├── views/dashboard.py
+│   │   └── components/
+│   ├── llm/                        # LLMゲートウェイ
+│   │   ├── gateway.py
+│   │   ├── circuit_breaker.py
+│   │   ├── health.py
+│   │   ├── models.py
+│   │   └── providers.py
+│   ├── models/pdca.py              # データモデル
+│   ├── monitoring/                 # トレーサビリティ・メトリクス
+│   │   ├── __init__.py             # TraceLinkManager
+│   │   └── metrics.py              # MetricsCollector
+│   └── prompts/                    # プロンプトテンプレート
+├── tests/                          # 523テスト
+│   ├── test_acceptance.py          # 受入基準12項目
+│   ├── test_security_redteam.py    # セキュリティ検証5パターン
+│   └── ...                         # 各モジュールのユニットテスト
 ├── .env.example
-├── .gitignore
 ├── pyproject.toml
 └── README.md
 ```
 
-## GUI アプリケーション
+## 受入基準（§23）
 
-本システムは [Flet](https://flet.dev/) フレームワークにより、デスクトップ（Windows / macOS / Linux）およびモバイル（Android / iOS）向けの GUI アプリケーションとしてビルド・配布できます。
-
-### GUI の起動
-
-```bash
-# GUI 依存のインストール
-pip install -e ".[gui]"
-
-# 方法1: モジュール実行
-python -m vibe_pdca
-
-# 方法2: コマンド（pip install 後）
-vibe-pdca
-```
-
-### デスクトップアプリ (.exe / .app) のビルド
-
-```bash
-# Windows 用 .exe
-flet pack src/vibe_pdca/gui/app.py --name VibePDCA --icon assets/icon.png
-
-# macOS 用 .app
-flet pack src/vibe_pdca/gui/app.py --name VibePDCA --icon assets/icon.png
-```
-
-> `flet pack` は [PyInstaller](https://pyinstaller.org/) を内部で使用します。
-
-### モバイルアプリ (.apk / .ipa) のビルド
-
-```bash
-# Android 用 .apk
-flet build apk
-
-# iOS 用 .ipa
-flet build ipa
-```
-
-> モバイルビルドには [Flutter SDK](https://flutter.dev/) のインストールが必要です。
-> 詳細は [Flet ビルドガイド](https://flet.dev/docs/publish) を参照してください。
-
-### GUI 機能一覧
-
-| 機能 | 説明 |
-|------|------|
-| ダッシュボード | クラウド/ローカル全プロバイダのステータス一覧 |
-| モード切替 | ワンタッチでクラウド ↔ ローカルを切替 |
-| コスト表示 | 日次コスト・呼び出し回数のリアルタイム表示 |
-| ログ表示 | 操作履歴・エラーログの表示 |
+| # | 基準 | 状態 |
+|---|------|------|
+| 1 | ゴール入力→マイルストーン+DoD自動生成 | ✅ |
+| 2 | PDCAサイクル自動進行・成果物記録 | ✅ |
+| 3 | 5ペルソナレビュー統合 | ✅ |
+| 4 | ACT採否・次サイクル方針（理由付き） | ✅ |
+| 5 | 停止条件動作・自動停止 | ✅ |
+| 6 | 監査ログ追跡（何が・なぜ・いつ） | ✅ |
+| 7 | 停止/再開/モード切替操作 | ✅ |
+| 8 | インシデント時自動停止・原因・再開条件 | ✅ |
+| 9 | 意思決定・レビュー統合・ポリシー変更追跡 | ✅ |
+| 10 | DoD機械判定可能形式 | ✅ |
+| 11 | A操作承認要求 | ✅ |
+| 12 | 入力→決定→成果のTraceLink追跡 | ✅ |
 
 ## 関連ドキュメント
 
 | ドキュメント | 内容 |
 |-------------|------|
-| ADR-001 | マルチLLMモデル選定・フォールバック順 |
-| ADR-008 | クラウド/ローカルLLM切替設計（本機能） |
-| 要件定義書 §4.2 | LLMゲートウェイの統一インターフェース |
-| 要件定義書 §13.2 | 信頼性・SLO・縮退モード |
-| Runbook §8 | モード切替の運用手順 |
+| `docs/バイブコーディングPDCAシステム_要件定義書_v6.md` | 全27章の要件定義 |
+| `docs/バイブコーディングPDCA_実装手順書_v3.md` | M0〜M4の実装手順 |
+| `docs/adr/` | ADR-001〜008（設計判断記録） |
+| `docs/ops/` | Runbook, Incident Playbook, Checklist |
 
 ## ライセンス
 
