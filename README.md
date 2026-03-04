@@ -1,6 +1,5 @@
 # バイブコーディングPDCA自動開発システム
 
-[![テスト](https://img.shields.io/badge/tests-523%20passed-brightgreen)](tests/)
 [![Python](https://img.shields.io/badge/python-3.12%2B-blue)](pyproject.toml)
 
 ## 概要

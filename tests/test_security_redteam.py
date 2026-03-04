@@ -82,6 +82,14 @@ class TestPromptInjectionViaCI:
         )
         assert not result.valid
 
+    def test_normal_ci_config(self):
+        """通常のCI設定は許可される。"""
+        v = InputValidator()
+        result = v.validate_text(
+            "run: pytest tests/ -v --tb=short\nrun: ruff check src/"
+        )
+        assert result.valid
+
 
 class TestPromptInjectionViaDependency:
     """依存パッケージ経由のプロンプトインジェクション。"""

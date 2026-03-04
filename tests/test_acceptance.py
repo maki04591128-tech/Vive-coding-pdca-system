@@ -6,6 +6,8 @@ M4 タスク 9.1: 要件定義書 §23 準拠。
 
 from __future__ import annotations
 
+import time
+
 from vibe_pdca.audit import AuditLog
 from vibe_pdca.engine.checker import CheckResult, CIStatus, CISummary
 from vibe_pdca.engine.decision import ActDecisionMaker
@@ -182,7 +184,6 @@ class TestAc05StopConditions:
         assert dm.should_stop
 
     def test_stack_detection(self):
-        import time
         detector = StackDetector(timeout_seconds=1)
         detector._last_heartbeat = time.time() - 10
         assert detector.is_stacked()
