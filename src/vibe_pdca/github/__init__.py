@@ -120,12 +120,13 @@ class GitHubAppAuth:
 
         now = int(time.time())
         payload = {
-            "iat": now - 60,             # 発行時刻（60秒前にずらす）
+            # システム間のクロックスキューを吸収するため60秒前を発行時刻とする
+            "iat": now - 60,
             "exp": now + (10 * 60),      # 有効期限（10分後）
             "iss": self._config.app_id,  # 発行者（App ID）
         }
-        # 実際のJWT署名はPyJWTライブラリで実施
-        # ここではペイロード構造のみ定義（依存を最小化）
+        # NOTE: 本番ではPyJWTライブラリでRS256署名する。
+        # 現在はスタブ実装（依存を最小化するため）。
         logger.info("JWT生成: app_id=%s, exp=%d", self._config.app_id, payload["exp"])
         return f"jwt-placeholder-{self._config.app_id}-{now}"
 
@@ -153,9 +154,10 @@ class GitHubAppAuth:
             return self._token
 
         _jwt = self.generate_jwt()
-        # 実際にはGitHub APIを呼び出してトークンを取得する:
-        # POST /app/installations/{installation_id}/access_tokens
-        # Authorization: Bearer {_jwt}
+        # NOTE: 本番ではGitHub APIを呼び出してトークンを取得する:
+        #   POST /app/installations/{installation_id}/access_tokens
+        #   Authorization: Bearer {_jwt}
+        # 現在はスタブ実装。
         self._token = f"ghs_placeholder_{self._config.installation_id}_{int(now)}"
         self._token_expires_at = now + 3600  # 1時間有効
         logger.info(

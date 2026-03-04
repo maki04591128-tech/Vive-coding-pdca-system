@@ -27,7 +27,7 @@ WORKDIR /workspace
 
 # Python依存のキャッシュレイヤー
 COPY pyproject.toml /workspace/
-RUN pip install --no-cache-dir -e ".[dev]" || true
+RUN pip install --no-cache-dir -e ".[dev]"
 
 # 非rootユーザーに切替
 USER sandbox

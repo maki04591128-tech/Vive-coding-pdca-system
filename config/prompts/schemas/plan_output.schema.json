@@ -43,7 +43,7 @@
         },
         "additionalProperties": false
       },
-      "description": "タスク配列（最大7件）"
+      "description": "タスク配列（最大7件 – §6.2: 1サイクルあたり最大7タスク）"
     },
     "risks": {
       "type": "array",
