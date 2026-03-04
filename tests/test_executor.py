@@ -12,7 +12,7 @@ from vibe_pdca.engine.executor import (
 from vibe_pdca.models.pdca import Task, TaskStatus
 
 # ============================================================
-# Fixtures
+# フィクスチャ
 # ============================================================
 
 

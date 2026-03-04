@@ -3,7 +3,7 @@
     "id": "RF-001",
     "reviewer_role": "programmer",
     "severity": "major",
-    "category": "bug",
+    "category": "correctness",
     "description": "入力バリデーション未実装"
   },
   {
@@ -16,7 +16,7 @@
   {
     "id": "RF-003",
     "reviewer_role": "security",
-    "severity": "critical",
+    "severity": "blocker",
     "category": "security",
     "description": "SQLインジェクション脆弱性"
   }

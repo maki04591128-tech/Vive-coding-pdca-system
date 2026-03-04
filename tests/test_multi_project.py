@@ -9,7 +9,7 @@ from vibe_pdca.engine.multi_project import (
 )
 
 # ============================================================
-# Fixtures
+# フィクスチャ
 # ============================================================
 
 
@@ -93,7 +93,7 @@ class TestIsolation:
 
     def test_verify_isolation_same_project(self, mgr, project_a):
         mgr.register_project(project_a)
-        mgr.verify_isolation("proj-a", "proj-a")  # Should not raise
+        mgr.verify_isolation("proj-a", "proj-a")  # 例外が発生しないこと
 
     def test_verify_isolation_cross_project(self, mgr, project_a, project_b):
         mgr.register_project(project_a)
