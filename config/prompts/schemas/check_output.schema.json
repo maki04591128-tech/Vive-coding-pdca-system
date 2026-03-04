@@ -1,0 +1,87 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "check_output.schema.json",
+  "title": "CheckOutput",
+  "description": "CHECKフェーズ全体出力スキーマ（§6.4 / §4.4準拠）",
+  "type": "object",
+  "required": ["ci_summary", "review_findings", "dod_evaluation"],
+  "properties": {
+    "ci_summary": {
+      "type": "object",
+      "required": ["total_jobs", "passed_jobs", "failed_jobs", "overall_status"],
+      "properties": {
+        "total_jobs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "CI総ジョブ数"
+        },
+        "passed_jobs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "成功ジョブ数"
+        },
+        "failed_jobs": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "失敗ジョブ数"
+        },
+        "overall_status": {
+          "type": "string",
+          "enum": ["success", "failure", "error", "cancelled", "pending"],
+          "description": "CI全体ステータス"
+        },
+        "failure_categories": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "description": "失敗カテゴリ別集計"
+        }
+      },
+      "additionalProperties": false,
+      "description": "CI結果サマリ"
+    },
+    "review_findings": {
+      "type": "array",
+      "items": {
+        "$ref": "review_finding.schema.json"
+      },
+      "description": "5ペルソナレビュー指摘リスト"
+    },
+    "dod_evaluation": {
+      "type": "object",
+      "required": ["achieved", "unmet_reasons"],
+      "properties": {
+        "achieved": {
+          "type": "boolean",
+          "description": "DoD達成判定"
+        },
+        "unmet_reasons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "未達理由リスト"
+        }
+      },
+      "additionalProperties": false,
+      "description": "DoD達成評価"
+    },
+    "blocker_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "blocker指摘数"
+    },
+    "major_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "major指摘数"
+    },
+    "minor_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "minor指摘数"
+    }
+  },
+  "additionalProperties": false
+}
