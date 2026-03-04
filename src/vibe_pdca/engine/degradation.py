@@ -19,6 +19,15 @@ WEIGHT_ADJUSTMENT_STEP = 0.05
 MIN_WEIGHT = 0.1
 MAX_WEIGHT = 2.0
 
+# トレンド識別子
+TREND_DEGRADING = "degrading"
+TREND_STABLE = "stable"
+TREND_IMPROVING = "improving"
+TREND_INSUFFICIENT_DATA = "insufficient_data"
+
+# サイクル分析で除外するトレンド（調整不要）
+_SKIP_TRENDS = frozenset({TREND_STABLE, TREND_INSUFFICIENT_DATA})
+
 
 @dataclass
 class ModelObservation:
@@ -109,7 +118,7 @@ class ModelDegradationDetector:
             return DegradationReport(
                 model_name=model_name,
                 persona_role=persona_role,
-                trend="insufficient_data",
+                trend=TREND_INSUFFICIENT_DATA,
                 observation_count=len(observations),
             )
 
@@ -128,13 +137,13 @@ class ModelDegradationDetector:
         diff = second_half_avg - first_half_avg
 
         if diff < -0.1:
-            trend = "degrading"
+            trend = TREND_DEGRADING
             weight_change = -self._weight_step
         elif diff > 0.1:
-            trend = "improving"
+            trend = TREND_IMPROVING
             weight_change = self._weight_step
         else:
-            trend = "stable"
+            trend = TREND_STABLE
             weight_change = 0.0
 
         return DegradationReport(
@@ -203,7 +212,7 @@ class ModelDegradationDetector:
             調整が推奨されるレポート（trend が stable 以外）のリスト。
         """
         reports = self.get_all_reports()
-        return [r for r in reports if r.trend not in ("stable", "insufficient_data")]
+        return [r for r in reports if r.trend not in _SKIP_TRENDS]
 
     def auto_adjust_weights(self) -> list[WeightAdjustmentResult]:
         """分析結果に基づきペルソナ重みを一括自動調整する（B操作）。

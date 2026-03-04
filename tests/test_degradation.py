@@ -1,6 +1,10 @@
 """モデル劣化検知のテスト。"""
 
 from vibe_pdca.engine.degradation import (
+    TREND_DEGRADING,
+    TREND_IMPROVING,
+    TREND_INSUFFICIENT_DATA,
+    TREND_STABLE,
     ModelDegradationDetector,
     ModelObservation,
     WeightAdjustmentResult,
@@ -14,7 +18,7 @@ class TestDegradationDetection:
             ModelObservation(model_name="claude", persona_role="PM", quality_score=0.8),
         )
         report = det.analyze("claude", "PM")
-        assert report.trend == "insufficient_data"
+        assert report.trend == TREND_INSUFFICIENT_DATA
 
     def test_stable_trend(self):
         det = ModelDegradationDetector(window_size=10)
@@ -26,7 +30,7 @@ class TestDegradationDetection:
                 quality_score=0.8,
             ))
         report = det.analyze("claude", "PM")
-        assert report.trend == "stable"
+        assert report.trend == TREND_STABLE
 
     def test_degrading_trend(self):
         det = ModelDegradationDetector(window_size=10)
@@ -39,7 +43,7 @@ class TestDegradationDetection:
                 quality_score=score,
             ))
         report = det.analyze("claude", "PM")
-        assert report.trend == "degrading"
+        assert report.trend == TREND_DEGRADING
 
     def test_improving_trend(self):
         det = ModelDegradationDetector(window_size=10)
@@ -52,7 +56,7 @@ class TestDegradationDetection:
                 quality_score=score,
             ))
         report = det.analyze("claude", "PM")
-        assert report.trend == "improving"
+        assert report.trend == TREND_IMPROVING
 
 
 class TestWeightAdjustment:
@@ -113,7 +117,7 @@ class TestRunCycleAnalysis:
             ))
         results = det.run_cycle_analysis()
         assert len(results) == 1
-        assert results[0].trend == "degrading"
+        assert results[0].trend == TREND_DEGRADING
 
     def test_multiple_personas(self):
         """複数ペルソナの同時分析が正しく動作する。"""
@@ -131,7 +135,7 @@ class TestRunCycleAnalysis:
             det.record_observation(ModelObservation(
                 cycle_number=i + 1,
                 model_name="gpt",
-                persona_role="pm",
+                persona_role="PM",
                 quality_score=0.8,
             ))
         results = det.run_cycle_analysis()
@@ -212,11 +216,11 @@ class TestAutoAdjustWeights:
             det.record_observation(ModelObservation(
                 cycle_number=i + 1,
                 model_name="gpt",
-                persona_role="pm",
+                persona_role="PM",
                 quality_score=0.7,
             ))
         reports = det.get_all_reports()
         assert len(reports) == 2
         roles = {r.persona_role for r in reports}
         assert "programmer" in roles
-        assert "pm" in roles
+        assert "PM" in roles
