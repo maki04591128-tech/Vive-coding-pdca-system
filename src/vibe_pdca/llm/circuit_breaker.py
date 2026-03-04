@@ -17,6 +17,7 @@ import threading
 import time
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +51,7 @@ class CircuitBreakerMetrics:
     consecutive_successes: int = 0
     last_failure_time: float = 0.0
     last_success_time: float = 0.0
-    state_changes: list[dict] = field(default_factory=list)
+    state_changes: list[dict[str, Any]] = field(default_factory=list)
 
 
 class CircuitBreaker:

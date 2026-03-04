@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 import time
 from abc import ABC, abstractmethod
+from typing import Any
 
 from vibe_pdca.llm.models import (
     LLMRequest,
@@ -86,9 +87,9 @@ class CloudLLMProvider(BaseLLMProvider):
         self.cost_per_1k_input = cost_per_1k_input
         self.cost_per_1k_output = cost_per_1k_output
         self.timeout = timeout
-        self._client = None
+        self._client: Any = None
 
-    def _get_client(self):
+    def _get_client(self) -> Any:
         """遅延初期化で API クライアントを取得する。"""
         if self._client is not None:
             return self._client
@@ -112,10 +113,17 @@ class CloudLLMProvider(BaseLLMProvider):
         try:
             import openai
 
-            kwargs = {"api_key": self.api_key, "timeout": self.timeout}
             if self.base_url:
-                kwargs["base_url"] = self.base_url
-            self._client = openai.OpenAI(**kwargs)
+                self._client = openai.OpenAI(
+                    api_key=self.api_key,
+                    timeout=self.timeout,
+                    base_url=self.base_url,
+                )
+            else:
+                self._client = openai.OpenAI(
+                    api_key=self.api_key,
+                    timeout=self.timeout,
+                )
             return self._client
         except ImportError as e:
             raise RuntimeError(
@@ -243,9 +251,9 @@ class LocalLLMProvider(BaseLLMProvider):
         self.model = model
         self.base_url = base_url
         self.timeout = timeout
-        self._client = None
+        self._client: Any = None
 
-    def _get_client(self):
+    def _get_client(self) -> Any:
         """遅延初期化で OpenAI 互換クライアントを取得する。"""
         if self._client is not None:
             return self._client
@@ -320,7 +328,7 @@ class LocalLLMProvider(BaseLLMProvider):
                 method="GET",
             )
             with urllib.request.urlopen(req, timeout=5) as resp:
-                return resp.status == 200
+                return bool(resp.status == 200)
         except Exception:
             # OpenAI 互換エンドポイントで /models を試す
             try:

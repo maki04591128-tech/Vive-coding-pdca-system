@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import logging
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -237,7 +238,7 @@ class LLMGateway:
     def init_health_checker(
         self,
         interval: float = 30.0,
-        on_status_change: callable | None = None,
+        on_status_change: Callable[..., Any] | None = None,
     ) -> HealthChecker:
         """ヘルスチェッカーを初期化する。"""
         all_providers: dict[str, BaseLLMProvider] = {}
@@ -251,7 +252,7 @@ class LLMGateway:
         )
         return self._health_checker
 
-    def _on_health_status_change(self, name, old_status, new_status) -> None:
+    def _on_health_status_change(self, name: str, old_status: Any, new_status: Any) -> None:
         """ヘルスステータス変化時のデフォルトコールバック。"""
         logger.info(
             "ヘルスステータス変化 [%s]: %s → %s",

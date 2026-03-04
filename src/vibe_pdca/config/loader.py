@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 ENV_PREFIX = "VIBE_PDCA_"
 
 
-def deep_merge(base: dict, override: dict) -> dict:
+def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
     """辞書の深いマージ。override が base を上書きする。"""
     merged = base.copy()
     for key, value in override.items():
@@ -30,9 +30,9 @@ def deep_merge(base: dict, override: dict) -> dict:
     return merged
 
 
-def resolve_env_vars(config: dict) -> dict:
+def resolve_env_vars(config: dict[str, Any]) -> dict[str, Any]:
     """設定値内の ${ENV_VAR} を環境変数で解決する。"""
-    resolved = {}
+    resolved: dict[str, Any] = {}
     for key, value in config.items():
         if isinstance(value, dict):
             resolved[key] = resolve_env_vars(value)
@@ -41,7 +41,7 @@ def resolve_env_vars(config: dict) -> dict:
             env_value = os.environ.get(env_name)
             if env_value is None:
                 logger.warning("環境変数 %s が未設定です", env_name)
-            resolved[key] = env_value or value
+            resolved[key] = env_value if env_value is not None else value
         else:
             resolved[key] = value
     return resolved
@@ -102,7 +102,7 @@ def load_config(
     return config
 
 
-def build_gateway_from_config(config: dict[str, Any]):
+def build_gateway_from_config(config: dict[str, Any]) -> Any:
     """設定辞書から LLMGateway を構築する。"""
     from vibe_pdca.llm.circuit_breaker import CircuitBreakerConfig
     from vibe_pdca.llm.gateway import LLMGateway
@@ -192,14 +192,14 @@ def build_gateway_from_config(config: dict[str, Any]):
 
         model = role_model_override or local_model_override or p_conf["model"]
         base_url = local_url_override or p_conf.get("base_url", "http://localhost:11434/v1")
-        provider = LocalLLMProvider(
+        local_provider = LocalLLMProvider(
             name=p_conf["name"],
             model=model,
             base_url=base_url,
             timeout=p_conf.get("timeout", 300.0),
         )
         roles = [Role(r) for r in role_names]
-        gateway.register_local_provider(provider, roles=roles)
+        gateway.register_local_provider(local_provider, roles=roles)
 
     # ヘルスチェッカー初期化
     hc_conf = llm_config.get("health_check", {})

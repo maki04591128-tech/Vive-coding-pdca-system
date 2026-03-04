@@ -10,7 +10,8 @@ from __future__ import annotations
 import logging
 import threading
 import time
-from typing import TYPE_CHECKING
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
 from vibe_pdca.llm.models import ProviderHealthStatus, ProviderStatus
 
@@ -36,7 +37,7 @@ class HealthChecker:
         self,
         providers: dict[str, BaseLLMProvider],
         interval: float = DEFAULT_INTERVAL,
-        on_status_change: callable | None = None,
+        on_status_change: Callable[..., Any] | None = None,
     ) -> None:
         self._providers = providers
         self._interval = interval

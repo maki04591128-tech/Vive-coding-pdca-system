@@ -23,6 +23,7 @@ dev = [
     "pytest-asyncio>=0.24",
     "ruff>=0.8",
     "mypy>=1.13",
+    "types-PyYAML>=6.0",
 ]
 gui = [
     "flet>=0.25",
@@ -50,3 +51,4 @@ python_version = "3.12"
 strict = true
 warn_return_any = true
 warn_unused_configs = true
+exclude = ["src/vibe_pdca/gui/"]

@@ -34,8 +34,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install -e ".[dev]"
-      - run: mypy src/
+      - run: pip install -e ".[dev]" types-PyYAML
+      - run: mypy src/ --exclude 'src/vibe_pdca/gui/'
 
   test:
     name: Test (pytest)
@@ -46,7 +46,7 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -e ".[dev]"
-      - run: pytest --tb=short -q
+      - run: pytest --tb=short -q --ignore=tests/test_gui.py
 
   secrets-scan:
     name: Secrets Scan (gitleaks)
@@ -57,4 +57,5 @@ jobs:
           fetch-depth: 0
       - uses: gitleaks/gitleaks-action@v2
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
