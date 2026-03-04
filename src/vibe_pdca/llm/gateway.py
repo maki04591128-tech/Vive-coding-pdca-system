@@ -14,10 +14,11 @@ from __future__ import annotations
 
 import logging
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
-from vibe_pdca.llm.circuit_breaker import CircuitBreaker, CircuitBreakerConfig, CircuitState
+from vibe_pdca.llm.circuit_breaker import CircuitBreaker, CircuitBreakerConfig
 from vibe_pdca.llm.health import HealthChecker
 from vibe_pdca.llm.models import (
     LLMRequest,
@@ -27,8 +28,14 @@ from vibe_pdca.llm.models import (
     Role,
 )
 from vibe_pdca.llm.providers import BaseLLMProvider, CloudLLMProvider, LocalLLMProvider
+from vibe_pdca.prompts import JAPANESE_RESPONSE_DIRECTIVE
 
 logger = logging.getLogger(__name__)
+
+# 応答言語 → システム指示のマッピング
+_LANGUAGE_DIRECTIVES: dict[str, str] = {
+    "ja": JAPANESE_RESPONSE_DIRECTIVE,
+}
 
 
 # ============================================================
@@ -70,13 +77,26 @@ class CostTracker:
     def check_limits(self) -> tuple[bool, str]:
         """コスト上限チェック。超過時は (False, 理由) を返す。"""
         if self.daily_cost_usd >= self.daily_limit_usd:
-            return False, f"日次コスト上限超過: ${self.daily_cost_usd:.2f} >= ${self.daily_limit_usd:.2f}"
+            return (
+                False,
+                f"日次コスト上限超過: ${self.daily_cost_usd:.2f} >= ${self.daily_limit_usd:.2f}",
+            )
         if self.cycle_cost_usd >= self.per_cycle_limit_usd:
-            return False, f"サイクルコスト上限超過: ${self.cycle_cost_usd:.2f} >= ${self.per_cycle_limit_usd:.2f}"
+            return (
+                False,
+                f"サイクルコスト上限超過: ${self.cycle_cost_usd:.2f}"
+                f" >= ${self.per_cycle_limit_usd:.2f}",
+            )
         if self.daily_calls >= self.max_calls_per_day:
-            return False, f"日次呼び出し上限超過: {self.daily_calls} >= {self.max_calls_per_day}"
+            return (
+                False,
+                f"日次呼び出し上限超過: {self.daily_calls} >= {self.max_calls_per_day}",
+            )
         if self.cycle_calls >= self.max_calls_per_cycle:
-            return False, f"サイクル呼び出し上限超過: {self.cycle_calls} >= {self.max_calls_per_cycle}"
+            return (
+                False,
+                f"サイクル呼び出し上限超過: {self.cycle_calls} >= {self.max_calls_per_cycle}",
+            )
         return True, ""
 
     def reset_cycle(self) -> None:
@@ -125,6 +145,9 @@ class LLMGateway:
         # 動作モード
         self._preferred_mode: ProviderType = ProviderType.CLOUD
         self._auto_fallback_enabled: bool = True
+
+        # 応答言語設定（デフォルト: 日本語）
+        self._response_language: str | None = self._config.get("response_language", "ja")
 
     # ── プロバイダ登録 ──
 
@@ -200,12 +223,22 @@ class LLMGateway:
         self._auto_fallback_enabled = enabled
         logger.info("自動フォールバック: %s", "有効" if enabled else "無効")
 
+    @property
+    def response_language(self) -> str | None:
+        """応答言語設定を返す。"""
+        return self._response_language
+
+    def set_response_language(self, language: str | None) -> None:
+        """応答言語を設定する。Noneで言語強制を無効化する。"""
+        self._response_language = language
+        logger.info("応答言語設定: %s", language or "なし（無効）")
+
     # ── ヘルスチェック ──
 
     def init_health_checker(
         self,
         interval: float = 30.0,
-        on_status_change: callable | None = None,
+        on_status_change: Callable[..., Any] | None = None,
     ) -> HealthChecker:
         """ヘルスチェッカーを初期化する。"""
         all_providers: dict[str, BaseLLMProvider] = {}
@@ -219,7 +252,7 @@ class LLMGateway:
         )
         return self._health_checker
 
-    def _on_health_status_change(self, name, old_status, new_status) -> None:
+    def _on_health_status_change(self, name: str, old_status: Any, new_status: Any) -> None:
         """ヘルスステータス変化時のデフォルトコールバック。"""
         logger.info(
             "ヘルスステータス変化 [%s]: %s → %s",
@@ -241,10 +274,14 @@ class LLMGateway:
     def call(self, request: LLMRequest) -> LLMResponse:
         """LLM 呼び出しを実行する。
 
-        1. コスト上限チェック
-        2. 優先モードのプロバイダで呼び出し
-        3. 失敗時、auto_fallback が有効なら代替プロバイダで再試行
+        1. 応答言語指示の自動注入
+        2. コスト上限チェック
+        3. 優先モードのプロバイダで呼び出し
+        4. 失敗時、auto_fallback が有効なら代替プロバイダで再試行
         """
+        # 応答言語指示の自動注入（未付加の場合のみ）
+        request = self._inject_language_directive(request)
+
         # コスト上限チェック
         within_limit, reason = self.cost_tracker.check_limits()
         if not within_limit:
@@ -255,6 +292,37 @@ class LLMGateway:
             return self._call_with_cloud_fallback(request)
         else:
             return self._call_with_local_fallback(request)
+
+    def _inject_language_directive(self, request: LLMRequest) -> LLMRequest:
+        """応答言語指示をシステムプロンプトに自動注入する。
+
+        既に指示が含まれている場合（PromptBuilder経由等）はスキップする。
+        """
+        if not self._response_language:
+            return request
+
+        directive = _LANGUAGE_DIRECTIVES.get(self._response_language)
+        if not directive:
+            return request
+
+        # 既に含まれていればスキップ（PromptBuilder経由の重複防止）
+        if directive in request.system_prompt:
+            return request
+
+        # system_prompt の先頭に注入
+        if request.system_prompt:
+            new_system = f"{directive}\n\n{request.system_prompt}"
+        else:
+            new_system = directive
+        return LLMRequest(
+            role=request.role,
+            system_prompt=new_system,
+            user_prompt=request.user_prompt,
+            max_tokens=request.max_tokens,
+            temperature=request.temperature,
+            response_format=request.response_format,
+            metadata=request.metadata,
+        )
 
     def _call_with_cloud_fallback(self, request: LLMRequest) -> LLMResponse:
         """クラウド優先で呼び出し、失敗時はローカルへフォールバック。"""
@@ -307,7 +375,9 @@ class LLMGateway:
                 "全クラウドプロバイダ利用不可 → ローカルLLMへ自動フォールバック (role=%s)",
                 request.role.value,
             )
-            return self._call_local(request, fallback=True, fallback_reason="クラウドLLM全プロバイダ障害")
+            return self._call_local(
+                request, fallback=True, fallback_reason="クラウドLLM全プロバイダ障害",
+            )
 
         raise CloudLLMUnavailableError(
             f"クラウドLLMが全て利用不可 (role={request.role.value}): {last_error}"
@@ -373,16 +443,20 @@ class LLMGateway:
             }
 
         local_status = {}
-        if self._health_checker:
-            for name in self._local_providers:
+        for name, provider in self._local_providers.items():
+            info: dict[str, Any] = {
+                "model": provider.model,
+                "base_url": getattr(provider, "base_url", None),
+            }
+            if self._health_checker:
                 hs = self._health_checker.get_status(name)
-                local_status[name] = {
-                    "status": hs.status.value if hs else "unknown",
-                }
+                info["status"] = hs.status.value if hs else "unknown"
+            local_status[name] = info
 
         return {
             "preferred_mode": self._preferred_mode.value,
             "auto_fallback_enabled": self._auto_fallback_enabled,
+            "response_language": self._response_language,
             "cloud_providers": cloud_status,
             "local_providers": local_status,
             "cost": {

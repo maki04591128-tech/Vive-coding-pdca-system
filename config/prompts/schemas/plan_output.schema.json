@@ -1,0 +1,68 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "plan_output.schema.json",
+  "title": "PlanOutput",
+  "description": "PLANフェーズ出力スキーマ（§6.2 / §4.4準拠）",
+  "type": "object",
+  "required": ["tasks"],
+  "properties": {
+    "tasks": {
+      "type": "array",
+      "maxItems": 7,
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "dod"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "タスクID"
+          },
+          "title": {
+            "type": "string",
+            "description": "タスク名"
+          },
+          "dod": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "description": "達成条件（機械判定可能な形式）"
+          },
+          "risk": {
+            "type": "string",
+            "description": "リスクと回避策"
+          },
+          "dependencies": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "依存タスクIDリスト"
+          }
+        },
+        "additionalProperties": false
+      },
+      "description": "タスク配列（最大7件 – §6.2: 1サイクルあたり最大7タスク）"
+    },
+    "risks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "description": { "type": "string" },
+          "mitigation": { "type": "string" }
+        }
+      },
+      "description": "リスク配列"
+    },
+    "blockers": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "依存ブロッカー配列"
+    }
+  },
+  "additionalProperties": false
+}

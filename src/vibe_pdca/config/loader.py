@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 ENV_PREFIX = "VIBE_PDCA_"
 
 
-def deep_merge(base: dict, override: dict) -> dict:
+def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
     """辞書の深いマージ。override が base を上書きする。"""
     merged = base.copy()
     for key, value in override.items():
@@ -30,9 +30,9 @@ def deep_merge(base: dict, override: dict) -> dict:
     return merged
 
 
-def resolve_env_vars(config: dict) -> dict:
+def resolve_env_vars(config: dict[str, Any]) -> dict[str, Any]:
     """設定値内の ${ENV_VAR} を環境変数で解決する。"""
-    resolved = {}
+    resolved: dict[str, Any] = {}
     for key, value in config.items():
         if isinstance(value, dict):
             resolved[key] = resolve_env_vars(value)
@@ -41,7 +41,7 @@ def resolve_env_vars(config: dict) -> dict:
             env_value = os.environ.get(env_name)
             if env_value is None:
                 logger.warning("環境変数 %s が未設定です", env_name)
-            resolved[key] = env_value or value
+            resolved[key] = env_value if env_value is not None else value
         else:
             resolved[key] = value
     return resolved
@@ -65,8 +65,8 @@ def load_config(
     """
     try:
         import yaml
-    except ImportError:
-        raise RuntimeError("PyYAML が必要です: pip install pyyaml")
+    except ImportError as e:
+        raise RuntimeError("PyYAML が必要です: pip install pyyaml") from e
 
     config_dir = Path(config_dir)
     env = env or os.environ.get(f"{ENV_PREFIX}ENV", "dev")
@@ -102,7 +102,7 @@ def load_config(
     return config
 
 
-def build_gateway_from_config(config: dict[str, Any]):
+def build_gateway_from_config(config: dict[str, Any]) -> Any:
     """設定辞書から LLMGateway を構築する。"""
     from vibe_pdca.llm.circuit_breaker import CircuitBreakerConfig
     from vibe_pdca.llm.gateway import LLMGateway
@@ -112,13 +112,26 @@ def build_gateway_from_config(config: dict[str, Any]):
     llm_config = config.get("llm", {})
     gateway = LLMGateway(config=llm_config)
 
-    # 優先モード
-    mode_str = llm_config.get("preferred_mode", "cloud")
+    # 優先モード（環境変数 > 設定ファイル）
+    llm_mode_env_key = f"{ENV_PREFIX}LLM_MODE"
+    mode_str = os.environ.get(
+        llm_mode_env_key,
+        llm_config.get("preferred_mode", "cloud"),
+    )
+    mode_source = "環境変数" if llm_mode_env_key in os.environ else "設定ファイル"
     gateway.set_mode(
         ProviderType.CLOUD if mode_str == "cloud" else ProviderType.LOCAL,
-        reason="設定ファイルによる初期設定",
+        reason=f"{mode_source}による初期設定",
     )
-    gateway.set_auto_fallback(llm_config.get("auto_fallback", True))
+
+    # 自動フォールバック（環境変数 > 設定ファイル）
+    auto_fb_env = os.environ.get(f"{ENV_PREFIX}LLM_AUTO_FALLBACK")
+    if auto_fb_env is not None:
+        # "true" → True, "false"/"0"/"no" → False
+        auto_fb = auto_fb_env.lower() not in ("false", "0", "no")
+    else:
+        auto_fb = llm_config.get("auto_fallback", True)
+    gateway.set_auto_fallback(auto_fb)
 
     # サーキットブレーカー設定
     cb_conf = llm_config.get("circuit_breaker", {})
@@ -134,6 +147,16 @@ def build_gateway_from_config(config: dict[str, Any]):
     gateway.cost_tracker.per_cycle_limit_usd = cost_conf.get("per_cycle_limit_usd", 5.0)
     gateway.cost_tracker.max_calls_per_cycle = cost_conf.get("max_calls_per_cycle", 80)
     gateway.cost_tracker.max_calls_per_day = cost_conf.get("max_calls_per_day", 500)
+
+    # 応答言語設定（環境変数 > 設定ファイル、デフォルト: "ja"）
+    response_lang_env = os.environ.get(f"{ENV_PREFIX}RESPONSE_LANGUAGE")
+    if response_lang_env is not None:
+        # "none" / "" → None（言語強制無効）
+        lang_lower = str(response_lang_env).lower()
+        lang = None if lang_lower in ("none", "") else response_lang_env
+    else:
+        lang = llm_config.get("response_language", "ja")
+    gateway.set_response_language(lang)
 
     # クラウドプロバイダ登録
     for p_conf in llm_config.get("cloud_providers", []):
@@ -151,16 +174,32 @@ def build_gateway_from_config(config: dict[str, Any]):
             provider, roles=roles, circuit_breaker_config=cb_config,
         )
 
-    # ローカルプロバイダ登録
+    # ローカルプロバイダ登録（環境変数でモデル / URL を上書き可能）
+    # 優先順位: 役割別環境変数 > 一括環境変数 > 設定ファイル
+    local_model_override = os.environ.get(f"{ENV_PREFIX}LOCAL_LLM_MODEL")
+    local_url_override = os.environ.get(f"{ENV_PREFIX}LOCAL_LLM_BASE_URL")
     for p_conf in llm_config.get("local_providers", []):
-        provider = LocalLLMProvider(
+        role_names = p_conf.get("roles", [])
+
+        # 役割別環境変数を確認（最初にマッチした役割の値を使用）
+        role_model_override = None
+        for r in role_names:
+            env_key = f"{ENV_PREFIX}LOCAL_LLM_MODEL_{r.upper()}"
+            role_override = os.environ.get(env_key)
+            if role_override:
+                role_model_override = role_override
+                break
+
+        model = role_model_override or local_model_override or p_conf["model"]
+        base_url = local_url_override or p_conf.get("base_url", "http://localhost:11434/v1")
+        local_provider = LocalLLMProvider(
             name=p_conf["name"],
-            model=p_conf["model"],
-            base_url=p_conf.get("base_url", "http://localhost:11434/v1"),
+            model=model,
+            base_url=base_url,
             timeout=p_conf.get("timeout", 300.0),
         )
-        roles = [Role(r) for r in p_conf.get("roles", [])]
-        gateway.register_local_provider(provider, roles=roles)
+        roles = [Role(r) for r in role_names]
+        gateway.register_local_provider(local_provider, roles=roles)
 
     # ヘルスチェッカー初期化
     hc_conf = llm_config.get("health_check", {})

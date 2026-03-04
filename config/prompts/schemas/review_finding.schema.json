@@ -1,0 +1,49 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "review_finding.schema.json",
+  "title": "ReviewFinding",
+  "description": "ペルソナレビュー指摘の出力スキーマ（§8.2 / §4.4準拠）",
+  "type": "object",
+  "required": ["severity", "category", "basis", "suggestion", "confidence"],
+  "properties": {
+    "severity": {
+      "type": "string",
+      "enum": ["blocker", "major", "minor"],
+      "description": "重大度区分"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "correctness", "security", "performance",
+        "maintainability", "ux", "accessibility",
+        "consistency", "documentation", "testing", "ops"
+      ],
+      "description": "指摘カテゴリ"
+    },
+    "basis": {
+      "type": "string",
+      "minLength": 1,
+      "description": "根拠（diff/ログ/仕様のどこに基づくか）"
+    },
+    "suggestion": {
+      "type": "string",
+      "minLength": 1,
+      "description": "具体的な修正案"
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 1.0,
+      "description": "確信度（0.3未満は出力しない）"
+    },
+    "file_path": {
+      "type": "string",
+      "description": "対象ファイルパス（任意）"
+    },
+    "line_range": {
+      "type": "string",
+      "description": "対象行範囲（任意）"
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,47 @@
+"""ドライランのテスト。"""
+
+from vibe_pdca.engine.dry_run import DryRunExecutor
+
+
+class TestDryRun:
+    def test_basic_execution(self):
+        dr = DryRunExecutor()
+        result = dr.execute(
+            goal_purpose="テストシステム構築",
+            acceptance_criteria=["条件1", "条件2", "条件3"],
+        )
+        assert result.estimated_tasks == 3
+        assert result.estimated_cycles >= 1
+        assert result.estimated_cost_usd > 0
+
+    def test_warnings_without_constraints(self):
+        dr = DryRunExecutor()
+        result = dr.execute(
+            goal_purpose="テスト",
+            acceptance_criteria=["条件1"],
+        )
+        assert any("制約" in w for w in result.warnings)
+
+    def test_blockers_for_large_scope(self):
+        dr = DryRunExecutor()
+        result = dr.execute(
+            goal_purpose="大規模プロジェクト",
+            acceptance_criteria=[f"条件{i}" for i in range(15)],
+        )
+        assert len(result.potential_blockers) > 0
+
+    def test_to_markdown(self):
+        dr = DryRunExecutor()
+        result = dr.execute(
+            goal_purpose="テスト",
+            acceptance_criteria=["条件1"],
+            constraints=["制約1"],
+        )
+        md = result.to_markdown()
+        assert "ドライラン結果" in md
+
+    def test_run_count(self):
+        dr = DryRunExecutor()
+        dr.execute("テスト1", ["条件1"])
+        dr.execute("テスト2", ["条件1"])
+        assert dr.run_count == 2

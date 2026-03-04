@@ -7,11 +7,9 @@ from vibe_pdca.llm.gateway import (
     CloudLLMUnavailableError,
     CostLimitExceededError,
     LLMGateway,
-    LocalLLMUnavailableError,
 )
 from vibe_pdca.llm.models import LLMRequest, LLMResponse, ProviderType, Role
 from vibe_pdca.llm.providers import BaseLLMProvider, CloudLLMProvider, LocalLLMProvider
-
 
 # ============================================================
 # モックプロバイダ
@@ -248,3 +246,101 @@ class TestGatewayStatus:
         assert "auto_fallback_enabled" in status
         assert "cloud_providers" in status
         assert "cost" in status
+
+    def test_local_providers_include_model_info(self, gateway_with_providers):
+        gw, _, _ = gateway_with_providers
+        status = gw.get_status()
+
+        assert "local_providers" in status
+        assert "mock-local" in status["local_providers"]
+        local_info = status["local_providers"]["mock-local"]
+        assert local_info["model"] == "mock-local-model"
+
+    def test_status_includes_response_language(self, gateway_with_providers):
+        gw, _, _ = gateway_with_providers
+        status = gw.get_status()
+        assert "response_language" in status
+
+
+# ============================================================
+# テスト: 日本語応答強制（ゲートウェイレベル）
+# ============================================================
+
+
+class TestJapaneseEnforcementGateway:
+    """ゲートウェイレベルでの日本語応答強制テスト。"""
+
+    def test_injects_japanese_directive_by_default(self, request_pm):
+        """デフォルト設定（response_language="ja"）で日本語指示が注入されること。"""
+        gw = LLMGateway()
+        cloud = MockCloudProvider("mock-cloud")
+        gw.register_cloud_provider(
+            cloud, roles=[Role.PM],
+            circuit_breaker_config=CircuitBreakerConfig(failure_threshold=3),
+        )
+        gw.set_mode(ProviderType.CLOUD)
+
+        # _inject_language_directiveを直接テストして注入を確認
+        injected = gw._inject_language_directive(request_pm)
+        assert "日本語" in injected.system_prompt
+        assert injected.system_prompt.startswith("【重要】")
+
+    def test_does_not_duplicate_directive(self, request_pm):
+        """PromptBuilder経由で既に指示がある場合、重複注入しないこと。"""
+        from vibe_pdca.prompts import JAPANESE_RESPONSE_DIRECTIVE
+
+        gw = LLMGateway()
+        # 既にJAPANESE_RESPONSE_DIRECTIVEが含まれるリクエスト
+        request_with_directive = LLMRequest(
+            role=Role.PM,
+            system_prompt=f"{JAPANESE_RESPONSE_DIRECTIVE}\n\nPMとして計画を立案してください。",
+            user_prompt="テスト",
+        )
+        injected = gw._inject_language_directive(request_with_directive)
+        # 重複していないことを確認（出現回数が1回のみ）
+        assert injected.system_prompt.count("【重要】") == 1
+
+    def test_no_injection_when_disabled(self, request_pm):
+        """response_language=Noneで注入が無効化されること。"""
+        gw = LLMGateway()
+        gw.set_response_language(None)
+
+        injected = gw._inject_language_directive(request_pm)
+        assert "【重要】" not in injected.system_prompt
+        assert injected.system_prompt == request_pm.system_prompt
+
+    def test_preserves_original_system_prompt(self, request_pm):
+        """元のシステムプロンプトが保持されること。"""
+        gw = LLMGateway()
+        injected = gw._inject_language_directive(request_pm)
+        assert request_pm.system_prompt in injected.system_prompt
+
+    def test_handles_empty_system_prompt(self):
+        """空のシステムプロンプトでも正しく注入されること。"""
+        gw = LLMGateway()
+        request = LLMRequest(
+            role=Role.PM,
+            system_prompt="",
+            user_prompt="テスト",
+        )
+        injected = gw._inject_language_directive(request)
+        assert "日本語" in injected.system_prompt
+
+    def test_response_language_property(self):
+        """response_languageプロパティのget/set。"""
+        gw = LLMGateway()
+        assert gw.response_language == "ja"
+
+        gw.set_response_language(None)
+        assert gw.response_language is None
+
+        gw.set_response_language("ja")
+        assert gw.response_language == "ja"
+
+    def test_config_sets_response_language(self):
+        """config辞書からresponse_languageが設定されること。"""
+        gw = LLMGateway(config={"response_language": "ja"})
+        assert gw.response_language == "ja"
+
+        gw_none = LLMGateway(config={"response_language": None})
+        assert gw_none.response_language is None

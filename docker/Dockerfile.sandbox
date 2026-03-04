@@ -1,0 +1,40 @@
+# =============================================================
+# サンドボックス用 Dockerfile – M0 タスク 0-3
+# 要件定義書 §12, ADR-007 準拠
+#
+# 設計要件:
+#   - rootless（非rootユーザー必須）
+#   - ホワイトリスト外のネットワーク通信を遮断
+#   - ステートレス（サイクルごとに起動→破棄）
+#   - ホストマウントは読み取り専用かつ最小範囲
+# =============================================================
+
+FROM python:3.12-slim AS base
+
+# セキュリティ: 非rootユーザーの作成
+RUN groupadd --gid 1000 sandbox \
+    && useradd --uid 1000 --gid sandbox --create-home sandbox
+
+# 基本ツール（ビルド・テスト・静的解析に必要な最小セット）
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        git \
+        curl \
+        build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# 作業ディレクトリ
+WORKDIR /workspace
+
+# Python依存のキャッシュレイヤー
+COPY pyproject.toml /workspace/
+RUN pip install --no-cache-dir -e ".[dev]"
+
+# 非rootユーザーに切替
+USER sandbox
+
+# ヘルスチェック
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD python -c "import sys; sys.exit(0)"
+
+# デフォルトコマンド: テスト実行
+CMD ["pytest", "--tb=short", "-q"]

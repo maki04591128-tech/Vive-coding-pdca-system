@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "act_output.schema.json",
+  "title": "ActOutput",
+  "description": "ACTフェーズ出力スキーマ（§6.5 / §4.4準拠）",
+  "type": "object",
+  "required": ["decisions", "next_cycle_plan"],
+  "properties": {
+    "decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["finding_id", "action", "reason"],
+        "properties": {
+          "finding_id": {
+            "type": "string",
+            "description": "対象指摘ID"
+          },
+          "action": {
+            "type": "string",
+            "enum": ["accept", "reject", "defer"],
+            "description": "判定（accept/reject/defer）"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "description": "判定理由"
+          }
+        },
+        "additionalProperties": false
+      },
+      "description": "指摘ごとの採否判定"
+    },
+    "next_cycle_plan": {
+      "type": "object",
+      "properties": {
+        "priority_adjustments": {
+          "type": "string",
+          "description": "優先度調整"
+        },
+        "scope_changes": {
+          "type": "string",
+          "description": "スコープ変更"
+        }
+      },
+      "description": "次サイクルの方針"
+    },
+    "milestone_progress": {
+      "type": "object",
+      "properties": {
+        "current_milestone": { "type": "string" },
+        "completion_percentage": { "type": "number" },
+        "remaining_tasks": { "type": "integer" }
+      },
+      "description": "マイルストーン進捗更新"
+    },
+    "report": {
+      "type": "string",
+      "description": "進捗報告サマリ"
+    }
+  },
+  "additionalProperties": false
+}
