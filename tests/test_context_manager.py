@@ -107,3 +107,53 @@ class TestCycleManagement:
         status = ctx_mgr.get_status()
         assert status["max_files"] == MAX_CONTEXT_FILES
         assert status["max_tokens"] == MAX_TOTAL_TOKENS
+
+
+# ============================================================
+# テスト: コンテキスト構築のトランケーション
+# ============================================================
+
+
+class TestBuildContextTruncation:
+    """コンテキスト構築時のトークン上限トランケーション。"""
+
+    def test_truncates_when_exceeding_total_limit(self):
+        """合計トークン上限超過時にファイルがトランケーションされること。"""
+        mgr = ContextManager(max_files=5, max_tokens=100, file_head_tokens=80)
+        # 各ファイルが 80 トークン (320文字) を要求 → 合計 100 を超える
+        files = [
+            {"path": "a.py", "content": "x" * 400, "score": 0.9},
+            {"path": "b.py", "content": "y" * 400, "score": 0.8},
+            {"path": "c.py", "content": "z" * 400, "score": 0.7},
+        ]
+        result = mgr.build_context("query", files)
+        assert result.truncated is True
+        # トランケーション処理が実行されたことを確認
+        assert result.file_count <= 3
+
+    def test_truncated_partial_fit(self):
+        """残りトークンが部分的にある場合、ファイル内容が切り詰められること。"""
+        mgr = ContextManager(max_files=5, max_tokens=150, file_head_tokens=100)
+        files = [
+            {"path": "a.py", "content": "x" * 500, "score": 0.9},
+            {"path": "b.py", "content": "y" * 500, "score": 0.8},
+        ]
+        result = mgr.build_context("query", files)
+        assert result.file_count == 2
+        assert result.truncated is True
+        # 2番目のチャンクは切り詰められている
+        second_chunk = result.chunks[1]
+        assert second_chunk.token_count < 100
+
+    def test_breaks_when_no_remaining_tokens(self):
+        """残りトークンが0の場合、追加ファイルを処理しないこと。"""
+        # max_tokens を小さくして、1ファイル目で枯渇させる
+        mgr = ContextManager(max_files=5, max_tokens=10, file_head_tokens=60)
+        files = [
+            {"path": "a.py", "content": "x" * 300, "score": 0.9},
+            {"path": "b.py", "content": "y" * 300, "score": 0.8},
+        ]
+        result = mgr.build_context("query", files)
+        assert result.truncated is True
+        # max_tokens が非常に小さいため1ファイルのみ
+        assert result.file_count <= 1

@@ -60,6 +60,47 @@ class TestLoadConfig:
         config = load_config(config_dir=tmp_path, env="dev")
         assert config["llm"]["mode"] == "local"
 
+    def test_project_config_override(self, tmp_path):
+        """プロジェクト固有設定が環境別設定を上書きすること。"""
+        (tmp_path / "default.yml").write_text("llm:\n  mode: cloud\n  cost: 30\n")
+        proj_cfg = tmp_path / "project.yml"
+        proj_cfg.write_text("llm:\n  mode: project-override\n")
+        config = load_config(config_dir=tmp_path, project_config_path=proj_cfg)
+        assert config["llm"]["mode"] == "project-override"
+        assert config["llm"]["cost"] == 30  # default から継承
+
+    def test_env_from_environment_variable(self, tmp_path, monkeypatch):
+        """VIBE_PDCA_ENV 環境変数から環境名を取得すること。"""
+        (tmp_path / "default.yml").write_text("base: true\n")
+        env_dir = tmp_path / "environments"
+        env_dir.mkdir()
+        (env_dir / "stg.yml").write_text("env_name: stg\n")
+        monkeypatch.setenv("VIBE_PDCA_ENV", "stg")
+        config = load_config(config_dir=tmp_path)
+        assert config["env_name"] == "stg"
+
+    def test_missing_default_yml(self, tmp_path):
+        """default.yml が存在しない場合、空の設定で返すこと。"""
+        config = load_config(config_dir=tmp_path)
+        assert config == {}
+
+    def test_three_layer_merge(self, tmp_path):
+        """3層（default + env + project）マージのテスト。"""
+        (tmp_path / "default.yml").write_text(
+            "llm:\n  mode: cloud\n  cost: 30\n  timeout: 120\n"
+        )
+        env_dir = tmp_path / "environments"
+        env_dir.mkdir()
+        (env_dir / "dev.yml").write_text("llm:\n  mode: local\n  cost: 10\n")
+        proj_cfg = tmp_path / "project.yml"
+        proj_cfg.write_text("llm:\n  timeout: 300\n")
+        config = load_config(
+            config_dir=tmp_path, env="dev", project_config_path=proj_cfg,
+        )
+        assert config["llm"]["mode"] == "local"      # env で上書き
+        assert config["llm"]["cost"] == 10            # env で上書き
+        assert config["llm"]["timeout"] == 300        # project で上書き
+
 
 class TestBuildGatewayEnvOverride:
     """環境変数によるモード切替のテスト。"""
@@ -230,3 +271,60 @@ class TestBuildGatewayLocalLLMPerRoleOverride:
         assert gw._local_providers["ollama-pm"].model == "qwen3:72b"
         assert gw._local_providers["ollama-programmer"].model == "codestral:22b"
         assert gw._local_providers["ollama-designer"].model == "llama3.3:70b"
+
+
+class TestBuildGatewayResponseLanguage:
+    """応答言語設定の環境変数上書きテスト。"""
+
+    def test_env_var_overrides_response_language(self, monkeypatch):
+        """VIBE_PDCA_RESPONSE_LANGUAGE が設定ファイルを上書きする。"""
+        monkeypatch.setenv("VIBE_PDCA_RESPONSE_LANGUAGE", "ja")
+        config = {"llm": {"response_language": None}}
+        gw = build_gateway_from_config(config)
+        assert gw.response_language == "ja"
+
+    def test_env_var_none_disables_language(self, monkeypatch):
+        """VIBE_PDCA_RESPONSE_LANGUAGE=none で言語強制が無効化される。"""
+        monkeypatch.setenv("VIBE_PDCA_RESPONSE_LANGUAGE", "none")
+        config = {"llm": {"response_language": "ja"}}
+        gw = build_gateway_from_config(config)
+        assert gw.response_language is None
+
+    def test_env_var_empty_disables_language(self, monkeypatch):
+        """VIBE_PDCA_RESPONSE_LANGUAGE='' で言語強制が無効化される。"""
+        monkeypatch.setenv("VIBE_PDCA_RESPONSE_LANGUAGE", "")
+        config = {"llm": {"response_language": "ja"}}
+        gw = build_gateway_from_config(config)
+        assert gw.response_language is None
+
+    def test_config_used_when_no_env_var(self, monkeypatch):
+        """環境変数未設定時は設定ファイルの値が使われる。"""
+        monkeypatch.delenv("VIBE_PDCA_RESPONSE_LANGUAGE", raising=False)
+        config = {"llm": {"response_language": "ja"}}
+        gw = build_gateway_from_config(config)
+        assert gw.response_language == "ja"
+
+
+class TestBuildGatewayCloudProviders:
+    """クラウドプロバイダ登録のテスト。"""
+
+    def test_registers_cloud_providers(self, monkeypatch):
+        """設定ファイルからクラウドプロバイダが登録されること。"""
+        monkeypatch.delenv("VIBE_PDCA_LLM_MODE", raising=False)
+        config = {
+            "llm": {
+                "cloud_providers": [
+                    {
+                        "name": "test-cloud",
+                        "model": "test-model",
+                        "api_key": "test-key",
+                        "roles": ["pm"],
+                        "cost_per_1k_input": 0.01,
+                        "cost_per_1k_output": 0.03,
+                    },
+                ],
+            },
+        }
+        gw = build_gateway_from_config(config)
+        assert "test-cloud" in gw._cloud_providers
+        assert gw._cloud_providers["test-cloud"].model == "test-model"
