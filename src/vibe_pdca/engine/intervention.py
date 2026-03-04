@@ -17,7 +17,17 @@ from dataclasses import dataclass, field
 from enum import IntEnum, StrEnum
 from typing import Any
 
-from vibe_pdca.models.pdca import Milestone, StopReason
+from vibe_pdca.models.pdca import (
+    AuditEntry,
+    Cycle,
+    CycleStatus,
+    Milestone,
+    MilestoneStatus,
+    PDCAPhase,
+    StopReason,
+    Task,
+    TaskStatus,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +51,14 @@ class InterventionAction(StrEnum):
     REORDER_MILESTONES = "reorder_milestones"
 
 
+class RollbackLevel(StrEnum):
+    """ロールバック粒度レベル（提案16: §10.4）。"""
+
+    TASK = "task"          # PR単位のリバート
+    CYCLE = "cycle"        # サイクル状態のロールバック
+    MILESTONE = "milestone"  # 複数サイクルの一括取消
+
+
 @dataclass
 class RollbackCandidate:
     """ロールバック候補。"""
@@ -51,6 +69,7 @@ class RollbackCandidate:
     target_phase: str = ""
     impact_scope: str = ""
     risk_assessment: str = ""
+    level: RollbackLevel = RollbackLevel.CYCLE
 
 
 @dataclass
@@ -342,3 +361,235 @@ class InterventionManager:
         if priority == IncidentPriority.P1:
             return InterventionAction.STOP
         return InterventionAction.RESUME
+
+
+# ============================================================
+# 提案16: ロールバック戦略の体系化
+# ============================================================
+
+
+@dataclass
+class RollbackPreview:
+    """ロールバック実行前の影響プレビュー（提案16）。
+
+    ロールバック対象が及ぼす影響範囲を事前に可視化する。
+    """
+
+    candidate: RollbackCandidate
+    affected_pr_numbers: list[int] = field(default_factory=list)
+    changed_files: list[str] = field(default_factory=list)
+    dependent_task_ids: list[str] = field(default_factory=list)
+    estimated_risk: str = "low"
+
+    @staticmethod
+    def from_milestone(
+        candidate: RollbackCandidate,
+        milestone: Milestone,
+    ) -> RollbackPreview:
+        """マイルストーン情報からプレビューを生成する。
+
+        Parameters
+        ----------
+        candidate : RollbackCandidate
+            対象ロールバック候補。
+        milestone : Milestone
+            対象マイルストーン。
+
+        Returns
+        -------
+        RollbackPreview
+            影響プレビュー。
+        """
+        pr_numbers: list[int] = []
+        changed_files: list[str] = []
+        dependent_ids: list[str] = []
+
+        for cycle in milestone.cycles:
+            if cycle.cycle_number > candidate.target_cycle:
+                for task in cycle.tasks:
+                    if task.pr_number is not None:
+                        pr_numbers.append(task.pr_number)
+                    if task.dependencies:
+                        dependent_ids.extend(task.dependencies)
+
+        # リスク推定: 影響PR数に基づく
+        if len(pr_numbers) >= 5:
+            risk = "high"
+        elif len(pr_numbers) >= 2:
+            risk = "medium"
+        else:
+            risk = "low"
+
+        return RollbackPreview(
+            candidate=candidate,
+            affected_pr_numbers=pr_numbers,
+            changed_files=changed_files,
+            dependent_task_ids=dependent_ids,
+            estimated_risk=risk,
+        )
+
+
+class StateConsistencyChecker:
+    """ロールバック後の状態整合性を検証する（提案16）。
+
+    PDCA状態機械・監査ログ・GitHub Issue の整合性を確認し、
+    不整合があれば報告する。
+    """
+
+    def __init__(self) -> None:
+        self._errors: list[str] = []
+
+    @property
+    def errors(self) -> list[str]:
+        """検出された不整合の一覧。"""
+        return list(self._errors)
+
+    @property
+    def is_consistent(self) -> bool:
+        """全チェックに合格したか。"""
+        return len(self._errors) == 0
+
+    def check_all(
+        self,
+        milestone: Milestone,
+        audit_entries: list[AuditEntry] | None = None,
+    ) -> bool:
+        """全整合性チェックを実行する。
+
+        Parameters
+        ----------
+        milestone : Milestone
+            対象マイルストーン。
+        audit_entries : list[AuditEntry] | None
+            監査ログエントリ（任意）。
+
+        Returns
+        -------
+        bool
+            全チェック合格なら True。
+        """
+        self._errors.clear()
+        self._check_phase_consistency(milestone)
+        self._check_cycle_numbering(milestone)
+        self._check_task_status_consistency(milestone)
+        if audit_entries is not None:
+            self._check_audit_chain(audit_entries)
+        return self.is_consistent
+
+    def _check_phase_consistency(self, milestone: Milestone) -> None:
+        """サイクルのフェーズ整合性を検証する。"""
+        for cycle in milestone.cycles:
+            if cycle.status == CycleStatus.RUNNING:
+                valid_phases = {
+                    PDCAPhase.PLAN, PDCAPhase.DO,
+                    PDCAPhase.CHECK, PDCAPhase.ACT,
+                }
+                if cycle.phase not in valid_phases:
+                    self._errors.append(
+                        f"サイクル{cycle.cycle_number}: "
+                        f"RUNNING状態で不正なフェーズ '{cycle.phase}'"
+                    )
+            if cycle.status == CycleStatus.COMPLETED and cycle.completed_at is None:
+                self._errors.append(
+                    f"サイクル{cycle.cycle_number}: "
+                    f"COMPLETED状態だが completed_at が未設定"
+                )
+
+    def _check_cycle_numbering(self, milestone: Milestone) -> None:
+        """サイクル番号の連続性を検証する。"""
+        for i, cycle in enumerate(milestone.cycles):
+            expected = i + 1
+            if cycle.cycle_number != expected:
+                self._errors.append(
+                    f"サイクル番号不整合: 期待={expected}, "
+                    f"実際={cycle.cycle_number}"
+                )
+
+    def _check_task_status_consistency(self, milestone: Milestone) -> None:
+        """完了サイクル内のタスク状態を検証する。"""
+        for cycle in milestone.cycles:
+            if cycle.status != CycleStatus.COMPLETED:
+                continue
+            for task in cycle.tasks:
+                if task.status == TaskStatus.IN_PROGRESS:
+                    self._errors.append(
+                        f"サイクル{cycle.cycle_number}: "
+                        f"COMPLETED状態だがタスク '{task.id}' が IN_PROGRESS"
+                    )
+
+    def _check_audit_chain(self, entries: list[AuditEntry]) -> None:
+        """監査ログのチェーンハッシュ整合性を検証する。"""
+        for i, entry in enumerate(entries):
+            if i == 0:
+                continue
+            prev = entries[i - 1]
+            if entry.previous_hash and entry.previous_hash != prev.entry_hash:
+                self._errors.append(
+                    f"監査ログ seq={entry.sequence}: "
+                    f"previous_hash 不整合 "
+                    f"(期待={prev.entry_hash[:16]}…, "
+                    f"実際={entry.previous_hash[:16]}…)"
+                )
+
+
+@dataclass
+class RollbackChainLink:
+    """ロールバック連鎖の1リンク。"""
+
+    task_id: str
+    reason: str
+
+
+class RollbackChainDetector:
+    """ロールバック連鎖を検出する（提案16）。
+
+    あるタスクのロールバックが他のタスクに波及するかを分析し、
+    連鎖的に必要となるロールバック対象を特定する。
+    """
+
+    def detect(
+        self,
+        target_task_id: str,
+        milestone: Milestone,
+    ) -> list[RollbackChainLink]:
+        """指定タスクのロールバックで連鎖的に影響を受けるタスクを検出する。
+
+        Parameters
+        ----------
+        target_task_id : str
+            ロールバック対象タスクID。
+        milestone : Milestone
+            対象マイルストーン。
+
+        Returns
+        -------
+        list[RollbackChainLink]
+            連鎖的にロールバックが必要なタスクのリスト。
+        """
+        chain: list[RollbackChainLink] = []
+        visited: set[str] = set()
+        self._walk(target_task_id, milestone, chain, visited)
+        return chain
+
+    def _walk(
+        self,
+        task_id: str,
+        milestone: Milestone,
+        chain: list[RollbackChainLink],
+        visited: set[str],
+    ) -> None:
+        """依存グラフを再帰的に辿る。"""
+        if task_id in visited:
+            return
+        visited.add(task_id)
+
+        for cycle in milestone.cycles:
+            for task in cycle.tasks:
+                if task_id in task.dependencies and task.id not in visited:
+                    chain.append(RollbackChainLink(
+                        task_id=task.id,
+                        reason=(
+                            f"タスク '{task.id}' は '{task_id}' に依存"
+                        ),
+                    ))
+                    self._walk(task.id, milestone, chain, visited)
