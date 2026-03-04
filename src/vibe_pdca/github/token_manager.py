@@ -14,8 +14,8 @@ from __future__ import annotations
 import logging
 import re
 import time
-from dataclasses import dataclass, field
-from typing import Callable
+from collections.abc import Callable
+from dataclasses import dataclass
 
 from vibe_pdca.models.pdca import PDCAPhase
 

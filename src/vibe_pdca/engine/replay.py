@@ -233,7 +233,7 @@ class ReplayEngine:
         if len_a != len_b:
             differences.append(f"フェーズ数が異なる: {len_a} vs {len_b}")
 
-        for i, (pa, pb) in enumerate(zip(snap_a.snapshots, snap_b.snapshots)):
+        for i, (pa, pb) in enumerate(zip(snap_a.snapshots, snap_b.snapshots, strict=False)):
             if pa.phase != pb.phase:
                 differences.append(f"フェーズ[{i}] の種類が異なる: '{pa.phase}' vs '{pb.phase}'")
             if pa.response != pb.response:
@@ -284,10 +284,7 @@ class DebugSession:
 
         steps: list[tuple[str, PhaseSnapshot]] = []
         for ps in snapshot.snapshots:
-            if ps.phase in self._breakpoints:
-                label = f"[BREAK] {ps.phase}"
-            else:
-                label = ps.phase
+            label = f"[BREAK] {ps.phase}" if ps.phase in self._breakpoints else ps.phase
             steps.append((label, ps))
 
         logger.info("サイクル %d のステップ実行完了 (%d ステップ)", cycle_number, len(steps))

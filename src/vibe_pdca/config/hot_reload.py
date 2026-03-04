@@ -13,10 +13,11 @@ import copy
 import logging
 import threading
 import time
-from dataclasses import dataclass, field
+from collections.abc import Callable
+from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -150,10 +151,16 @@ class ConfigValidator:
             if value is None:
                 continue
             if not isinstance(value, (int, float)):
-                errors.append(f"'{path}' は数値である必要があります（実際: {type(value).__name__}）")
+                errors.append(
+                    f"'{path}' は数値である必要があります"
+                    f"（実際: {type(value).__name__}）"
+                )
                 continue
             if not (lo <= value <= hi):
-                errors.append(f"'{path}' は {lo}〜{hi} の範囲内である必要があります（実際: {value}）")
+                errors.append(
+                    f"'{path}' は {lo}〜{hi} の範囲内である必要があります"
+                    f"（実際: {value}）"
+                )
         return errors
 
     def _check_provider_lists(self, config: dict[str, Any]) -> list[str]:
@@ -255,7 +262,10 @@ class ConfigVersionStore:
             config=target.snapshot,
             description=f"バージョン {version} からのロールバック",
         )
-        logger.info("バージョン %d にロールバックしました（新バージョン %d）", version, restored.version)
+        logger.info(
+            "バージョン %d にロールバックしました（新バージョン %d）",
+            version, restored.version,
+        )
         return restored
 
 

@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 # ============================================================
 
 
-class IntentType(str, enum.Enum):
+class IntentType(enum.StrEnum):
     """ユーザー入力のインテント種別。"""
 
     QUERY = "query"

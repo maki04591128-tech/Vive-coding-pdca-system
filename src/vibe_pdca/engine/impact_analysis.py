@@ -84,8 +84,7 @@ class StaticDependencyAnalyzer:
             if isinstance(node, ast.Import):
                 for alias in node.names:
                     imports.append(alias.name)
-            elif isinstance(node, ast.ImportFrom):
-                if node.module:
+            elif isinstance(node, ast.ImportFrom) and node.module:
                     imports.append(node.module)
         return imports
 
@@ -117,9 +116,11 @@ class StaticDependencyAnalyzer:
         for fpath, info in dep_map.items():
             for imp in info.imports:
                 for other_path in dep_map:
-                    if self._module_matches_file(imp, other_path):
-                        if fpath not in dep_map[other_path].imported_by:
-                            dep_map[other_path].imported_by.append(fpath)
+                    if (
+                        self._module_matches_file(imp, other_path)
+                        and fpath not in dep_map[other_path].imported_by
+                    ):
+                        dep_map[other_path].imported_by.append(fpath)
         return dep_map
 
     def find_affected_files(
@@ -293,8 +294,7 @@ class TestTargetFinder:
                 if not test_base:
                     continue
                 # test_foo.py ↔ foo.py
-                if test_base == f"test_{base}" or test_base == base:
-                    if test not in related:
+                if (test_base == f"test_{base}" or test_base == base) and test not in related:
                         related.append(test)
         return sorted(related)
 

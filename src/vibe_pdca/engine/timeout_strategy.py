@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import IntEnum
 
 from vibe_pdca.models.pdca import PDCAPhase
@@ -227,7 +227,11 @@ class TimeoutManager:
         self._phase_start_times[phase] = current
         self._fired_escalations[phase] = set()
         self._extension.reset()
-        logger.info("フェーズ開始: %s (実効タイムアウト: %.0f秒)", phase.value, self.get_effective_timeout(phase))
+        effective = self.get_effective_timeout(phase)
+        logger.info(
+            "フェーズ開始: %s (実効タイムアウト: %.0f秒)",
+            phase.value, effective,
+        )
 
     def end_phase(self, phase: PDCAPhase, now: float | None = None) -> None:
         """フェーズの計測を終了し、実績時間を記録する。"""
@@ -268,7 +272,7 @@ class TimeoutManager:
         fired = self._fired_escalations.setdefault(phase, set())
         events: list[EscalationEvent] = []
 
-        for level in sorted(TimeoutEscalation, key=lambda l: l.value):
+        for level in sorted(TimeoutEscalation, key=lambda lv: lv.value):
             if level in fired:
                 continue
             if ratio >= level.value:

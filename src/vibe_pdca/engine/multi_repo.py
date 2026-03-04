@@ -105,8 +105,11 @@ class MonorepoScopeResolver:
             normalized_pkg = pkg_path.rstrip("/")
             for changed in changed_files:
                 normalized_changed = changed.replace("\\", "/")
-                if normalized_changed.startswith(normalized_pkg + "/") or normalized_changed == normalized_pkg:
-                    if normalized_pkg not in affected:
+                is_match = (
+                    normalized_changed.startswith(normalized_pkg + "/")
+                    or normalized_changed == normalized_pkg
+                )
+                if is_match and normalized_pkg not in affected:
                         affected.append(normalized_pkg)
                         break
         if affected:
@@ -267,8 +270,11 @@ class ReleaseCoordinator:
         """
         repo_set = set(repos)
         for dep in dependencies:
-            if dep.source_repo in repo_set and dep.target_repo in repo_set:
-                if dep.dependency_type == "api":
+            if (
+                dep.source_repo in repo_set
+                and dep.target_repo in repo_set
+                and dep.dependency_type == "api"
+            ):
                     logger.info(
                         "API 依存のため同時リリース推奨: %s ↔ %s",
                         dep.source_repo,

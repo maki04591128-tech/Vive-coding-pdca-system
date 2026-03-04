@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 # ============================================================
 
 
-class ComplianceFramework(str, enum.Enum):
+class ComplianceFramework(enum.StrEnum):
     """対応するコンプライアンスフレームワーク。"""
 
     SOC2 = "SOC2"

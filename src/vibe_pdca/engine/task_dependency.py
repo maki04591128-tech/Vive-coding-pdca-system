@@ -15,8 +15,6 @@ import logging
 from collections import deque
 from dataclasses import dataclass, field
 
-from vibe_pdca.models.pdca import Task
-
 logger = logging.getLogger(__name__)
 
 DEFAULT_TASK_DURATION_SECONDS: float = 3600.0  # デフォルト所要時間: 1時間

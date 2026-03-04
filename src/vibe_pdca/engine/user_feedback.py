@@ -40,7 +40,7 @@ LOW_SATISFACTION_THRESHOLD = 3.0
 # ============================================================
 
 
-class FeedbackCategory(str, enum.Enum):
+class FeedbackCategory(enum.StrEnum):
     """フィードバックカテゴリ。"""
 
     CODE_QUALITY = "code_quality"
