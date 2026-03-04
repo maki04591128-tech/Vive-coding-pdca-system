@@ -14,6 +14,15 @@ from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
+__all__ = [
+    "RoleName",
+    "Permission",
+    "RolePermission",
+    "ROLE_PERMISSIONS",
+    "PermissionDeniedError",
+    "RBACManager",
+]
+
 
 class RoleName(StrEnum):
     """ユーザーロール名（§2）。"""

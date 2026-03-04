@@ -14,6 +14,12 @@ from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
+__all__ = [
+    "GlossaryChange",
+    "GlossaryEntry",
+    "GlossaryManager",
+]
+
 
 class GlossaryChange(BaseModel):
     """用語の変更履歴エントリ。"""

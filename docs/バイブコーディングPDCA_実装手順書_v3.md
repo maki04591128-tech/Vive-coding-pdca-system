@@ -196,26 +196,24 @@ vibe-pdca/
 ├── .github/workflows/          # CI設定
 ├── config/
 │   ├── default.yml             # デフォルト設定
-│   ├── dev.yml / stg.yml / prod.yml
+│   ├── environments/           # dev.yml / stg.yml / prod.yml
 │   └── prompts/                # テンプレート + schemas/
 ├── src/vibe_pdca/
-│   ├── main.py                 # エントリポイント
+│   ├── __main__.py             # エントリポイント
 │   ├── models/                 # Pydanticデータモデル
-│   ├── engine/                 # PDCAエンジン
-│   ├── review/                 # レビュー統合
-│   ├── gateway/                # LLMゲートウェイ
+│   ├── engine/                 # PDCAエンジン（レビュー統合・Discord連携・RAG・マルチプロジェクト含む）
+│   ├── llm/                    # LLMゲートウェイ
 │   ├── github/                 # GitHub連携
-│   ├── sandbox/                # サンドボックス
-│   ├── discord/                # Discord連携
 │   ├── governance/             # ガバナンス + RBAC
-│   ├── context/                # RAG
 │   ├── audit/                  # 監査ログ
 │   ├── config/                 # 設定管理
 │   ├── glossary/               # 用語集 [A8]
 │   ├── plugins/                # プラグイン [A6]
-│   ├── web/                    # Web UI
-│   └── multi_project/          # マルチプロジェクト [A2]
-├── tests/                      # unit/integration/e2e/security/fixtures
+│   ├── gui/                    # GUI（Flet）
+│   ├── monitoring/             # メトリクス・トレーサビリティ
+│   └── prompts/                # プロンプトテンプレート
+├── tests/                      # unit/integration/e2e/security
+│   └── fixtures/               # 共有テストデータ
 ├── docs/                       # adr/ops/templates
 └── docker/                     # Dockerfile.sandbox + whitelist.yml
 ```

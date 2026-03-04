@@ -1,0 +1,23 @@
+[
+  {
+    "id": "RF-001",
+    "reviewer_role": "programmer",
+    "severity": "major",
+    "category": "bug",
+    "description": "入力バリデーション未実装"
+  },
+  {
+    "id": "RF-002",
+    "reviewer_role": "designer",
+    "severity": "minor",
+    "category": "ux",
+    "description": "操作フロー不明確"
+  },
+  {
+    "id": "RF-003",
+    "reviewer_role": "security",
+    "severity": "critical",
+    "category": "security",
+    "description": "SQLインジェクション脆弱性"
+  }
+]

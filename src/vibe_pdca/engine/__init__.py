@@ -26,6 +26,14 @@ from vibe_pdca.models.pdca import (
 
 logger = logging.getLogger(__name__)
 
+__all__ = [
+    "PDCAStateMachine",
+    "PDCAStateMachineError",
+    "InvalidTransitionError",
+    "StopConditionError",
+    "STOP_THRESHOLDS",
+]
+
 # 停止条件の閾値（§6.6）
 STOP_THRESHOLDS: dict[str, int | float] = {
     "ci_consecutive_failure": 5,
