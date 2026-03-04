@@ -8,7 +8,7 @@ from vibe_pdca.engine.governance import (
 from vibe_pdca.models.pdca import GovernanceLevel
 
 # ============================================================
-# Fixtures
+# フィクスチャ
 # ============================================================
 
 

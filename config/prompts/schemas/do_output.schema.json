@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "do_output.schema.json",
+  "title": "DoOutput",
+  "description": "DOフェーズ出力スキーマ（§6.3 / §4.4準拠）",
+  "type": "object",
+  "required": ["changes"],
+  "properties": {
+    "changes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["filepath", "action", "content", "rationale"],
+        "properties": {
+          "filepath": {
+            "type": "string",
+            "minLength": 1,
+            "description": "変更対象ファイルパス"
+          },
+          "action": {
+            "type": "string",
+            "enum": ["create", "update", "delete"],
+            "description": "変更アクション"
+          },
+          "content": {
+            "type": "string",
+            "description": "変更内容（diff形式 or 全文）"
+          },
+          "rationale": {
+            "type": "string",
+            "minLength": 1,
+            "description": "変更理由"
+          }
+        },
+        "additionalProperties": false
+      },
+      "description": "変更ファイル配列"
+    },
+    "summary": {
+      "type": "string",
+      "description": "変更全体のサマリ"
+    },
+    "tests_added": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "追加されたテストファイルのリスト"
+    }
+  },
+  "additionalProperties": false
+}

@@ -17,6 +17,12 @@ from vibe_pdca.models.pdca import AuditEntry, GovernanceLevel
 
 logger = logging.getLogger(__name__)
 
+__all__ = [
+    "AuditLog",
+    "AuditLogIntegrityError",
+    "GENESIS_HASH",
+]
+
 # チェーンの初期ハッシュ（ジェネシス）
 GENESIS_HASH = hashlib.sha256(b"vibe-pdca-audit-genesis").hexdigest()
 

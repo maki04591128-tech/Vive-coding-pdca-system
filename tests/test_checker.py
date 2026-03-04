@@ -15,7 +15,7 @@ from vibe_pdca.engine.checker import (
 from vibe_pdca.models.pdca import DoDItem, Task, TaskStatus
 
 # ============================================================
-# Fixtures
+# フィクスチャ
 # ============================================================
 
 

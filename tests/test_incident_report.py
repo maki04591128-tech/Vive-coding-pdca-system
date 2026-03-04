@@ -1,6 +1,7 @@
 """インシデントレポートのテスト。"""
 
 from vibe_pdca.engine.incident_report import (
+    IncidentReport,
     IncidentReporter,
 )
 from vibe_pdca.engine.intervention import IncidentPriority
@@ -65,3 +66,46 @@ class TestReportFiltering:
 
         all_reports = reporter.get_reports()
         assert len(all_reports) == 3
+
+
+class TestAffectedServicesMarkdown:
+    """影響を受けたサービスのMarkdownレンダリングテスト。"""
+
+    def test_p0_with_affected_services(self):
+        reporter = IncidentReporter()
+        report = reporter.generate_p0_report(
+            title="LLMゲートウェイ障害",
+            summary="ゲートウェイ停止",
+            affected_services=["LLMゲートウェイ", "監査ログ"],
+        )
+        md = report.to_markdown()
+        assert "影響を受けたサービス" in md
+        assert "- LLMゲートウェイ" in md
+        assert "- 監査ログ" in md
+
+
+class TestTimelineMarkdown:
+    """タイムラインのMarkdownレンダリングテスト。"""
+
+    def test_report_with_timeline(self):
+        report = IncidentReport(
+            title="障害レポート",
+            summary="テスト",
+            timeline=[{"time": "12:00", "description": "障害発生"}],
+        )
+        md = report.to_markdown()
+        assert "タイムライン" in md
+        assert "**12:00**" in md
+        assert "障害発生" in md
+
+
+class TestReportCount:
+    """report_countプロパティのテスト。"""
+
+    def test_report_count(self):
+        reporter = IncidentReporter()
+        assert reporter.report_count == 0
+        reporter.generate_p0_report("P0", "テスト")
+        assert reporter.report_count == 1
+        reporter.generate_p1_report("P1", "テスト")
+        assert reporter.report_count == 2

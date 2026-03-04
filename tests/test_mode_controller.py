@@ -6,7 +6,7 @@ from vibe_pdca.engine.mode_controller import ModeController, OperationMode
 from vibe_pdca.models.pdca import GovernanceLevel, PDCAPhase
 
 # ============================================================
-# Fixtures
+# フィクスチャ
 # ============================================================
 
 

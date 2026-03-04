@@ -77,7 +77,7 @@ class TestAc02PdcaCycleProgression:
     def test_pdca_cycle_progression(self):
         audit = AuditLog()
 
-        # PLAN
+        # PLANフェーズ
         planner = Planner()
         goal = Goal(
             id="goal-003",
@@ -87,13 +87,13 @@ class TestAc02PdcaCycleProgression:
         planner.generate_milestones(goal)
         audit.append("planner", "plan_generated", "plan", "plan-1")
 
-        # DO
+        # DOフェーズ
         executor = Executor()
         tasks = [Task(id="task-1", title="テストタスク")]
         executor.execute_tasks(tasks)
         audit.append("executor", "task_executed", "task", "task-1")
 
-        # CHECK
+        # CHECKフェーズ
         check_result = CheckResult(
             review_summary=ReviewSummary(
                 blocker_count=0, major_count=0, minor_count=0,
@@ -107,7 +107,7 @@ class TestAc02PdcaCycleProgression:
         )
         audit.append("checker", "check_completed", "check", "check-1")
 
-        # ACT
+        # ACTフェーズ
         decision_maker = ActDecisionMaker()
         decision_maker.make_decision(check_result)
         audit.append("decision", "act_decided", "decision", "dec-1")

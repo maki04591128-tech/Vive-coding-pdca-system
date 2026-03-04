@@ -19,6 +19,14 @@ from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
+__all__ = [
+    "PluginCategory",
+    "PluginStatus",
+    "PluginMeta",
+    "PluginInterface",
+    "PluginManager",
+]
+
 
 # ============================================================
 # プラグインカテゴリ

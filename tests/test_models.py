@@ -123,12 +123,12 @@ class TestReviewFinding:
             severity=Severity.MAJOR,
             category=ReviewCategory.UX,
             description="操作フロー不明確",
-            file_path="src/web/views.py",
+            file_path="src/gui/views.py",
             line_range="10-25",
         )
         json_str = finding.model_dump_json()
         restored = ReviewFinding.model_validate_json(json_str)
-        assert restored.file_path == "src/web/views.py"
+        assert restored.file_path == "src/gui/views.py"
         assert restored.line_range == "10-25"
 
 

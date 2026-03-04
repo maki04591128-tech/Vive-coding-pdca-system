@@ -10,7 +10,7 @@ from vibe_pdca.engine.requirements import (
 from vibe_pdca.models.pdca import Goal, ReviewCategory, ReviewFinding, Severity
 
 # ============================================================
-# Fixtures
+# フィクスチャ
 # ============================================================
 
 
