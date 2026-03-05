@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import logging
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
@@ -73,13 +74,14 @@ class CIBuildResult:
 # ── CIAdapterBase ──
 
 
-class CIAdapterBase:
-    """CIアダプターの基底クラス。
+class CIAdapterBase(ABC):
+    """CIアダプターの抽象基底クラス。
 
     各CIプロバイダーの具象アダプターはこのクラスを継承し、
     get_status / normalize_result を実装する。
     """
 
+    @abstractmethod
     def get_status(self, build_id: str) -> CIBuildResult:
         """ビルドIDからビルド結果を取得する。
 
@@ -93,8 +95,9 @@ class CIAdapterBase:
         CIBuildResult
             正規化されたビルド結果。
         """
-        raise NotImplementedError
+        ...
 
+    @abstractmethod
     def normalize_result(self, raw: dict[str, Any]) -> CIBuildResult:
         """プロバイダー固有の生データを正規化する。
 
@@ -108,7 +111,7 @@ class CIAdapterBase:
         CIBuildResult
             正規化されたビルド結果。
         """
-        raise NotImplementedError
+        ...
 
 
 # ── GitHubActionsAdapter ──

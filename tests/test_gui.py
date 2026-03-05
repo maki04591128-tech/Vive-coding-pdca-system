@@ -4,12 +4,16 @@ Flet ウィジェットの構造・ロジックを検証する。
 実際の画面描画は行わず、コントロール構成とコールバックを検証する。
 """
 
-import flet as ft
+import pytest
 
-from vibe_pdca.gui.app import APP_VERSION, create_app
-from vibe_pdca.gui.components.pdca_card import PDCAStatusCard
-from vibe_pdca.gui.components.status_card import CostCard, StatusCard
-from vibe_pdca.gui.views.dashboard import DashboardView
+pytest.importorskip("flet", reason="flet が未インストールのためスキップ")
+
+import flet as ft  # noqa: E402
+
+from vibe_pdca.gui.app import APP_VERSION, create_app  # noqa: E402
+from vibe_pdca.gui.components.pdca_card import PDCAStatusCard  # noqa: E402
+from vibe_pdca.gui.components.status_card import CostCard, StatusCard  # noqa: E402
+from vibe_pdca.gui.views.dashboard import DashboardView  # noqa: E402
 
 # ============================================================
 # StatusCard テスト

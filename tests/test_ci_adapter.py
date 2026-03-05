@@ -82,15 +82,9 @@ class TestCIBuildResult:
 
 
 class TestCIAdapterBase:
-    def test_get_status_not_implemented(self):
-        adapter = CIAdapterBase()
-        with pytest.raises(NotImplementedError):
-            adapter.get_status("build-1")
-
-    def test_normalize_result_not_implemented(self):
-        adapter = CIAdapterBase()
-        with pytest.raises(NotImplementedError):
-            adapter.normalize_result({"status": "success"})
+    def test_cannot_instantiate_abstract_class(self):
+        with pytest.raises(TypeError, match="Can't instantiate abstract class"):
+            CIAdapterBase()  # type: ignore[abstract]
 
 
 # ============================================================
