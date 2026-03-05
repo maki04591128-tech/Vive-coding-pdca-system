@@ -6,7 +6,7 @@
 
 バイブコーディングPDCA自動開発システムは、**目標（最終到達点）を入力するだけで PLAN→DO→CHECK→ACT の自動PDCAサイクルを回し、ソフトウェアを自律的に開発**するシステムです。
 
-5ペルソナ（PM/Architect/Security/QA/UX）による自動レビュー、ガバナンス承認ワークフロー、監査ログによる完全追跡、コスト管理、セキュリティ強化を備えています。
+5ペルソナ（PM/書記/プログラマ/デザイナ/ユーザ）による自動レビュー、ガバナンス承認ワークフロー、監査ログによる完全追跡、コスト管理、セキュリティ強化を備えています。
 
 ## システムアーキテクチャ
 
@@ -46,7 +46,7 @@
 | 監査ログ | `audit/` | 追記専用・チェーンハッシュ・改ざん検知 |
 | プロンプト管理 | `prompts/` | 役割別テンプレート・バージョン管理 |
 | トレーサビリティ | `monitoring/` | Goal→MS→Task→PR→Review→Decision 双方向追跡 |
-| RBAC | `governance/` | Owner/Maintainer/Viewer ロール |
+| RBAC | `governance/` | Owner/Maintainer/Reviewer/Auditor ロール |
 | 用語集 | `glossary/` | 統一用語・エイリアス自動変換 |
 
 ### M2: PDCAエンジン
@@ -288,7 +288,7 @@ vibe-pdca/
 │   │   ├── __init__.py             # TraceLinkManager
 │   │   └── metrics.py              # MetricsCollector
 │   └── prompts/                    # プロンプトテンプレート
-├── tests/                          # 523テスト
+├── tests/                          # テスト
 │   ├── test_acceptance.py          # 受入基準12項目
 │   ├── test_security_redteam.py    # セキュリティ検証5パターン
 │   └── ...                         # 各モジュールのユニットテスト
