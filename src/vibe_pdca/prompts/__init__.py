@@ -12,7 +12,10 @@ from __future__ import annotations
 
 import logging
 import re
+from pathlib import Path
+from typing import Any
 
+import yaml
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
@@ -24,6 +27,7 @@ __all__ = [
     "PromptBuilder",
     "detect_injection_patterns",
     "wrap_untrusted_input",
+    "load_templates_from_yaml",
     "JAPANESE_RESPONSE_DIRECTIVE",
     "UNTRUSTED_INPUT_HEADER",
     "UNTRUSTED_INPUT_FOOTER",
@@ -325,6 +329,29 @@ class PromptBuilder:
         self._l1_templates = l1_templates or dict(_L1_TEMPLATES)
         self._enforce_japanese = enforce_japanese
 
+    @classmethod
+    def from_yaml(
+        cls,
+        yaml_path: str | Path,
+        enforce_japanese: bool = True,
+    ) -> PromptBuilder:
+        """YAMLファイルからテンプレートを読み込んで構築する。
+
+        Parameters
+        ----------
+        yaml_path : str | Path
+            テンプレートYAMLファイルのパス。
+        enforce_japanese : bool
+            日本語応答強制を有効にするか。
+
+        Returns
+        -------
+        PromptBuilder
+            YAML由来のテンプレートで初期化されたインスタンス。
+        """
+        templates = load_templates_from_yaml(yaml_path)
+        return cls(l1_templates=templates, enforce_japanese=enforce_japanese)
+
     @property
     def enforce_japanese(self) -> bool:
         """日本語応答強制が有効か。"""
@@ -410,3 +437,57 @@ class PromptBuilder:
             template=template_meta,
             injection_warnings=injection_warnings,
         )
+
+
+# ============================================================
+# YAML テンプレートローダー
+# ============================================================
+
+
+def load_templates_from_yaml(
+    yaml_path: str | Path,
+) -> dict[tuple[str, str], str]:
+    """YAMLファイルからL1テンプレートを読み込む。
+
+    Parameters
+    ----------
+    yaml_path : str | Path
+        テンプレートYAMLファイルのパス。
+
+    Returns
+    -------
+    dict[tuple[str, str], str]
+        (role, phase) → テンプレート内容のマッピング。
+
+    Raises
+    ------
+    FileNotFoundError
+        ファイルが存在しない場合。
+    ValueError
+        YAMLの構造が不正な場合。
+    """
+    path = Path(yaml_path)
+    if not path.exists():
+        raise FileNotFoundError(f"テンプレートファイルが見つかりません: {path}")
+
+    with path.open(encoding="utf-8") as f:
+        data: Any = yaml.safe_load(f)
+
+    if not isinstance(data, dict) or "templates" not in data:
+        raise ValueError(
+            f"YAMLファイルの構造が不正です（'templates' キーが必要）: {path}"
+        )
+
+    templates: dict[tuple[str, str], str] = {}
+    for entry in data["templates"]:
+        role = entry.get("role", "")
+        phase = entry.get("phase", "")
+        content = entry.get("content", "")
+        if role and phase and content:
+            templates[(role, phase)] = content.rstrip("\n")
+
+    logger.info(
+        "YAMLテンプレート読み込み: %d件 from %s",
+        len(templates), path,
+    )
+    return templates

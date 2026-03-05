@@ -1,9 +1,13 @@
 """外部CI/CDサービス統合アダプターのテスト。"""
 
+from unittest.mock import patch
+
+import httpx
 import pytest
 
 from vibe_pdca.engine.ci_adapter import (
     CIAdapterBase,
+    CIAdapterError,
     CIAdapterRegistry,
     CIBuildResult,
     CIBuildStatus,
@@ -140,10 +144,72 @@ class TestGitHubActionsAdapter:
         })
         assert result.build_id == "999"
 
-    def test_get_status_not_implemented(self):
-        adapter = GitHubActionsAdapter()
-        with pytest.raises(NotImplementedError):
+    def test_get_status_no_token_raises(self):
+        with patch.dict("os.environ", {}, clear=True):
+            adapter = GitHubActionsAdapter(
+                token="", owner="test-owner", repo="test-repo",
+            )
+        with pytest.raises(CIAdapterError, match="トークンが未設定"):
             adapter.get_status("123")
+
+    def test_get_status_no_owner_raises(self):
+        adapter = GitHubActionsAdapter(
+            token="fake-token", owner="", repo="test-repo",
+        )
+        with pytest.raises(CIAdapterError, match="owner と repo が必要"):
+            adapter.get_status("123")
+
+    def test_get_status_success(self):
+        adapter = GitHubActionsAdapter(
+            token="fake-token", owner="test-owner", repo="test-repo",
+        )
+        mock_response = httpx.Response(
+            200,
+            json={
+                "conclusion": "success",
+                "run_id": 12345,
+                "html_url": "https://github.com/runs/12345",
+                "duration_seconds": 42.0,
+            },
+            request=httpx.Request("GET", "https://api.github.com"),
+        )
+        with patch.object(httpx, "get", return_value=mock_response):
+            result = adapter.get_status("12345")
+        assert result.status == CIBuildStatus.SUCCESS
+        assert result.build_id == "12345"
+        assert result.provider == CIProvider.GITHUB_ACTIONS
+
+    def test_get_status_api_error(self):
+        adapter = GitHubActionsAdapter(
+            token="fake-token", owner="test-owner", repo="test-repo",
+        )
+        mock_response = httpx.Response(
+            404,
+            json={"message": "Not Found"},
+            request=httpx.Request("GET", "https://api.github.com"),
+        )
+        with (
+            patch.object(httpx, "get", return_value=mock_response),
+            pytest.raises(CIAdapterError, match="API エラー"),
+        ):
+            adapter.get_status("99999")
+
+    def test_get_status_connection_error(self):
+        adapter = GitHubActionsAdapter(
+            token="fake-token", owner="test-owner", repo="test-repo",
+        )
+        with patch.object(
+            httpx, "get",
+            side_effect=httpx.ConnectError("接続失敗"),
+        ), pytest.raises(CIAdapterError, match="接続エラー"):
+            adapter.get_status("123")
+
+    def test_get_status_uses_env_token(self):
+        with patch.dict("os.environ", {"GITHUB_TOKEN": "env-token"}):
+            adapter = GitHubActionsAdapter(
+                owner="test-owner", repo="test-repo",
+            )
+        assert adapter._token == "env-token"
 
 
 # ============================================================
@@ -190,10 +256,60 @@ class TestGitLabCIAdapter:
         })
         assert result.status == CIBuildStatus.RUNNING
 
-    def test_get_status_not_implemented(self):
-        adapter = GitLabCIAdapter()
-        with pytest.raises(NotImplementedError):
+    def test_get_status_no_token_raises(self):
+        with patch.dict("os.environ", {}, clear=True):
+            adapter = GitLabCIAdapter(
+                token="", project_id="123",
+            )
+        with pytest.raises(CIAdapterError, match="トークンが未設定"):
             adapter.get_status("10")
+
+    def test_get_status_no_project_id_raises(self):
+        adapter = GitLabCIAdapter(
+            token="fake-token", project_id="",
+        )
+        with pytest.raises(CIAdapterError, match="project_id が必要"):
+            adapter.get_status("10")
+
+    def test_get_status_success(self):
+        adapter = GitLabCIAdapter(
+            token="fake-token", project_id="42",
+        )
+        mock_response = httpx.Response(
+            200,
+            json={
+                "status": "success",
+                "id": 10,
+                "web_url": "https://gitlab.com/pipelines/10",
+                "duration": 55.0,
+            },
+            request=httpx.Request("GET", "https://gitlab.com/api/v4"),
+        )
+        with patch.object(httpx, "get", return_value=mock_response):
+            result = adapter.get_status("10")
+        assert result.status == CIBuildStatus.SUCCESS
+        assert result.build_id == "10"
+        assert result.provider == CIProvider.GITLAB_CI
+
+    def test_get_status_api_error(self):
+        adapter = GitLabCIAdapter(
+            token="fake-token", project_id="42",
+        )
+        mock_response = httpx.Response(
+            403,
+            json={"message": "Forbidden"},
+            request=httpx.Request("GET", "https://gitlab.com/api/v4"),
+        )
+        with (
+            patch.object(httpx, "get", return_value=mock_response),
+            pytest.raises(CIAdapterError, match="API エラー"),
+        ):
+            adapter.get_status("10")
+
+    def test_get_status_uses_env_token(self):
+        with patch.dict("os.environ", {"GITLAB_TOKEN": "gl-env-token"}):
+            adapter = GitLabCIAdapter(project_id="42")
+        assert adapter._token == "gl-env-token"
 
 
 # ============================================================

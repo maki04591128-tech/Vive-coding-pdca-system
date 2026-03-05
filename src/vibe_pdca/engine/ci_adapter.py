@@ -7,12 +7,28 @@
 from __future__ import annotations
 
 import logging
+import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
 
+import httpx
+
 logger = logging.getLogger(__name__)
+
+# デフォルトのAPIタイムアウト（秒）
+_DEFAULT_TIMEOUT = 30.0
+
+
+# ── CIAdapterError ──
+
+
+class CIAdapterError(Exception):
+    """CIアダプターのエラー。
+
+    API呼び出し失敗、認証エラー等で送出される。
+    """
 
 
 # ── CIProvider ──
@@ -118,7 +134,21 @@ class CIAdapterBase(ABC):
 
 
 class GitHubActionsAdapter(CIAdapterBase):
-    """GitHub Actions 用アダプター。"""
+    """GitHub Actions 用アダプター。
+
+    Parameters
+    ----------
+    token : str | None
+        GitHub APIトークン。未指定時は環境変数 ``GITHUB_TOKEN`` を使用する。
+    owner : str
+        リポジトリオーナー。
+    repo : str
+        リポジトリ名。
+    api_base : str
+        GitHub API のベースURL。
+    timeout : float
+        HTTPリクエストのタイムアウト秒。
+    """
 
     _STATUS_MAP: dict[str, CIBuildStatus] = {
         "success": CIBuildStatus.SUCCESS,
@@ -126,6 +156,20 @@ class GitHubActionsAdapter(CIAdapterBase):
         "cancelled": CIBuildStatus.CANCELLED,
         "skipped": CIBuildStatus.SKIPPED,
     }
+
+    def __init__(
+        self,
+        token: str | None = None,
+        owner: str = "",
+        repo: str = "",
+        api_base: str = "https://api.github.com",
+        timeout: float = _DEFAULT_TIMEOUT,
+    ) -> None:
+        self._token = token or os.environ.get("GITHUB_TOKEN", "")
+        self._owner = owner
+        self._repo = repo
+        self._api_base = api_base.rstrip("/")
+        self._timeout = timeout
 
     def normalize_result(self, raw: dict[str, Any]) -> CIBuildResult:
         """GitHub Actions のワークフロー実行結果を正規化する。
@@ -164,12 +208,12 @@ class GitHubActionsAdapter(CIAdapterBase):
         )
 
     def get_status(self, build_id: str) -> CIBuildResult:
-        """ビルドIDからビルド結果を取得する。
+        """GitHub Actions API からワークフロー実行結果を取得する。
 
         Parameters
         ----------
         build_id : str
-            ワークフロー実行ID。
+            ワークフロー実行ID（run_id）。
 
         Returns
         -------
@@ -178,19 +222,69 @@ class GitHubActionsAdapter(CIAdapterBase):
 
         Raises
         ------
-        NotImplementedError
-            実際のAPI呼び出しは未実装。
+        CIAdapterError
+            APIトークン未設定、または API 呼び出しに失敗した場合。
         """
-        raise NotImplementedError(
-            "GitHub Actions API 呼び出しは未実装です。"
+        if not self._token:
+            raise CIAdapterError(
+                "GitHub API トークンが未設定です。"
+                "環境変数 GITHUB_TOKEN を設定するか、"
+                "コンストラクタの token 引数で指定してください。"
+            )
+        if not self._owner or not self._repo:
+            raise CIAdapterError(
+                "owner と repo が必要です。コンストラクタで指定してください。"
+            )
+
+        url = (
+            f"{self._api_base}/repos/{self._owner}/{self._repo}"
+            f"/actions/runs/{build_id}"
         )
+        headers = {
+            "Authorization": f"Bearer {self._token}",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        }
+
+        try:
+            response = httpx.get(
+                url, headers=headers, timeout=self._timeout,
+            )
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            raise CIAdapterError(
+                f"GitHub Actions API エラー: "
+                f"status={exc.response.status_code}, url={url}"
+            ) from exc
+        except httpx.RequestError as exc:
+            raise CIAdapterError(
+                f"GitHub Actions API 接続エラー: {exc}"
+            ) from exc
+
+        raw = response.json()
+        logger.info(
+            "GitHub Actions API 取得成功: run_id=%s", build_id,
+        )
+        return self.normalize_result(raw)
 
 
 # ── GitLabCIAdapter ──
 
 
 class GitLabCIAdapter(CIAdapterBase):
-    """GitLab CI 用アダプター。"""
+    """GitLab CI 用アダプター。
+
+    Parameters
+    ----------
+    token : str | None
+        GitLab APIトークン。未指定時は環境変数 ``GITLAB_TOKEN`` を使用する。
+    project_id : str
+        GitLabプロジェクトID。
+    api_base : str
+        GitLab API のベースURL。
+    timeout : float
+        HTTPリクエストのタイムアウト秒。
+    """
 
     _STATUS_MAP: dict[str, CIBuildStatus] = {
         "success": CIBuildStatus.SUCCESS,
@@ -198,6 +292,18 @@ class GitLabCIAdapter(CIAdapterBase):
         "canceled": CIBuildStatus.CANCELLED,
         "skipped": CIBuildStatus.SKIPPED,
     }
+
+    def __init__(
+        self,
+        token: str | None = None,
+        project_id: str = "",
+        api_base: str = "https://gitlab.com/api/v4",
+        timeout: float = _DEFAULT_TIMEOUT,
+    ) -> None:
+        self._token = token or os.environ.get("GITLAB_TOKEN", "")
+        self._project_id = project_id
+        self._api_base = api_base.rstrip("/")
+        self._timeout = timeout
 
     def normalize_result(self, raw: dict[str, Any]) -> CIBuildResult:
         """GitLab CI のパイプライン結果を正規化する。
@@ -236,7 +342,7 @@ class GitLabCIAdapter(CIAdapterBase):
         )
 
     def get_status(self, build_id: str) -> CIBuildResult:
-        """ビルドIDからビルド結果を取得する。
+        """GitLab CI API からパイプライン結果を取得する。
 
         Parameters
         ----------
@@ -250,12 +356,48 @@ class GitLabCIAdapter(CIAdapterBase):
 
         Raises
         ------
-        NotImplementedError
-            実際のAPI呼び出しは未実装。
+        CIAdapterError
+            APIトークン未設定、または API 呼び出しに失敗した場合。
         """
-        raise NotImplementedError(
-            "GitLab CI API 呼び出しは未実装です。"
+        if not self._token:
+            raise CIAdapterError(
+                "GitLab API トークンが未設定です。"
+                "環境変数 GITLAB_TOKEN を設定するか、"
+                "コンストラクタの token 引数で指定してください。"
+            )
+        if not self._project_id:
+            raise CIAdapterError(
+                "project_id が必要です。コンストラクタで指定してください。"
+            )
+
+        url = (
+            f"{self._api_base}/projects/{self._project_id}"
+            f"/pipelines/{build_id}"
         )
+        headers = {
+            "PRIVATE-TOKEN": self._token,
+        }
+
+        try:
+            response = httpx.get(
+                url, headers=headers, timeout=self._timeout,
+            )
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            raise CIAdapterError(
+                f"GitLab CI API エラー: "
+                f"status={exc.response.status_code}, url={url}"
+            ) from exc
+        except httpx.RequestError as exc:
+            raise CIAdapterError(
+                f"GitLab CI API 接続エラー: {exc}"
+            ) from exc
+
+        raw = response.json()
+        logger.info(
+            "GitLab CI API 取得成功: pipeline_id=%s", build_id,
+        )
+        return self.normalize_result(raw)
 
 
 # ── CIAdapterRegistry ──
