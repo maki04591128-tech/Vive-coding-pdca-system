@@ -245,7 +245,7 @@ class BackoffStrategy:
         """
         if attempt > self._max_attempts:
             return -1.0
-        return self._base_delay * (2 ** (attempt - 1))
+        return float(self._base_delay * (2 ** (attempt - 1)))
 
 
 # ── RateLimitDashboard ──

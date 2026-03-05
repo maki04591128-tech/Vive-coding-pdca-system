@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from vibe_pdca.engine.impact_analysis import (
     BreakingChangeDetector,
     DependencyInfo,
@@ -13,7 +11,6 @@ from vibe_pdca.engine.impact_analysis import (
     StaticDependencyAnalyzer,
     TestTargetFinder,
 )
-
 
 # ============================================================
 # FileChange dataclass

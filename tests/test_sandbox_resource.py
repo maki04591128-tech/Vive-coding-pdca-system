@@ -1,6 +1,5 @@
 """サンドボックスリソース制限と監視のテスト。"""
 
-import time
 
 from vibe_pdca.engine.sandbox_resource import (
     DockerResourceConfig,

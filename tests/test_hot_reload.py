@@ -33,7 +33,7 @@ class TestConfigVersion:
         cv = ConfigVersion(version=1, timestamp=0.0, snapshot={}, description="")
         try:
             cv.version = 2  # type: ignore[misc]
-            assert False, "FrozenInstanceError が発生するべき"
+            raise AssertionError("FrozenInstanceError が発生するべき")
         except AttributeError:
             pass
 

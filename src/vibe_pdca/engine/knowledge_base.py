@@ -11,6 +11,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from enum import StrEnum
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -129,7 +130,7 @@ class KnowledgeStore:
         if not keywords:
             return []
 
-        candidates = self._entries.values()
+        candidates: list[KnowledgeEntry] = list(self._entries.values())
         if category is not None:
             candidates = [
                 e for e in candidates if e.category == category
@@ -217,7 +218,7 @@ class PatternExtractor:
     """意思決定やレビューからナレッジエントリを抽出する。"""
 
     def extract_from_decisions(
-        self, decisions: list[dict]
+        self, decisions: list[dict[str, Any]]
     ) -> list[KnowledgeEntry]:
         """意思決定辞書のリストからナレッジエントリを抽出する。
 
@@ -253,7 +254,7 @@ class PatternExtractor:
         return entries
 
     def extract_from_reviews(
-        self, reviews: list[dict]
+        self, reviews: list[dict[str, Any]]
     ) -> list[KnowledgeEntry]:
         """レビュー辞書のリストからナレッジエントリを抽出する。
 

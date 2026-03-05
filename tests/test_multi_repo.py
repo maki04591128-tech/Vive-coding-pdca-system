@@ -4,13 +4,12 @@ from __future__ import annotations
 
 from vibe_pdca.engine.multi_repo import (
     CoordinatedCycleConfig,
-    CrossRepoDependency,
     CrossRepoCoordinator,
+    CrossRepoDependency,
     MonorepoScopeResolver,
     ReleaseCoordinator,
     RepoScope,
 )
-
 
 # ============================================================
 # RepoScope dataclass

@@ -11,7 +11,6 @@ from vibe_pdca.engine.task_dependency import (
     TaskNode,
 )
 
-
 # ============================================================
 # テスト: TaskNode
 # ============================================================
@@ -234,9 +233,15 @@ class TestCriticalPathAnalyzer:
         """
         g = DependencyGraph()
         g.add_task(TaskNode(task_id="t1", title="タスク1", estimated_duration=3600))
-        g.add_task(TaskNode(task_id="t2", title="タスク2", estimated_duration=7200, dependencies=["t1"]))
-        g.add_task(TaskNode(task_id="t3", title="タスク3", estimated_duration=1800, dependencies=["t1"]))
-        g.add_task(TaskNode(task_id="t4", title="タスク4", estimated_duration=3600, dependencies=["t2", "t3"]))
+        g.add_task(TaskNode(
+            task_id="t2", title="タスク2", estimated_duration=7200, dependencies=["t1"],
+        ))
+        g.add_task(TaskNode(
+            task_id="t3", title="タスク3", estimated_duration=1800, dependencies=["t1"],
+        ))
+        g.add_task(TaskNode(
+            task_id="t4", title="タスク4", estimated_duration=3600, dependencies=["t2", "t3"],
+        ))
         return g
 
     def test_find_critical_path(self):

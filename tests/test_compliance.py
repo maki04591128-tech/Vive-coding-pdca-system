@@ -6,8 +6,8 @@ Proposal 25 の実装に対するユニットテスト。
 import pytest
 
 from vibe_pdca.engine.compliance import (
-    ComplianceCheckResult,
     ComplianceChecker,
+    ComplianceCheckResult,
     ComplianceFramework,
     ComplianceTemplateLoader,
     PolicyEngine,

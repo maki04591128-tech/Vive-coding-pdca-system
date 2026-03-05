@@ -20,7 +20,6 @@ from vibe_pdca.github.token_manager import (
 )
 from vibe_pdca.models.pdca import PDCAPhase
 
-
 # ============================================================
 # TokenRotationManager
 # ============================================================

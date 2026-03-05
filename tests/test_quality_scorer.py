@@ -18,7 +18,6 @@ from vibe_pdca.engine.quality_scorer import (
     StructuralValidator,
 )
 
-
 # ── QualityDimension ──
 
 

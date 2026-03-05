@@ -15,6 +15,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from enum import StrEnum
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -143,7 +144,7 @@ class TemplateRegistry:
 class TemplateExporter:
     """テンプレートの辞書形式へのエクスポート・インポートを行う。"""
 
-    def export_dict(self, template: CycleTemplate) -> dict:
+    def export_dict(self, template: CycleTemplate) -> dict[str, Any]:
         """テンプレートを辞書形式にエクスポートする。"""
         return {
             "template_id": template.template_id,
@@ -170,7 +171,7 @@ class TemplateExporter:
             "description": template.description,
         }
 
-    def import_dict(self, data: dict) -> CycleTemplate:
+    def import_dict(self, data: dict[str, Any]) -> CycleTemplate:
         """辞書形式からテンプレートをインポートする。"""
         phases = [
             PhaseConfig(

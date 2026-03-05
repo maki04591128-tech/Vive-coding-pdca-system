@@ -12,7 +12,6 @@ from vibe_pdca.engine.timeout_strategy import (
 )
 from vibe_pdca.models.pdca import PDCAPhase
 
-
 # ============================================================
 # テスト: PhaseTimeout
 # ============================================================
@@ -53,7 +52,7 @@ class TestTimeoutEscalation:
         assert TimeoutEscalation.STOP == 100
 
     def test_ordering(self):
-        levels = sorted(TimeoutEscalation, key=lambda l: l.value)
+        levels = sorted(TimeoutEscalation, key=lambda level: level.value)
         assert levels == [
             TimeoutEscalation.WARNING,
             TimeoutEscalation.INTERVENTION_REQUEST,

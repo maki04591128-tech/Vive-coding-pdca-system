@@ -12,6 +12,7 @@ import json
 import logging
 from dataclasses import dataclass, field
 from enum import StrEnum
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +54,7 @@ class AuditLogEntry:
     entry_id: str
     timestamp: float
     event_type: str
-    payload: dict = field(default_factory=dict)
+    payload: dict[str, Any] = field(default_factory=dict)
     signature: str = ""
 
 

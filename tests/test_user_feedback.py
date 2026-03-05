@@ -1,11 +1,9 @@
 """ユーザーフィードバック収集・満足度トラッキングのテスト。"""
 
-import time
 
 import pytest
 
 from vibe_pdca.engine.user_feedback import (
-    DEFAULT_MIN_ENTRIES,
     LOW_SATISFACTION_THRESHOLD,
     FeedbackCategory,
     FeedbackCollector,
@@ -14,7 +12,6 @@ from vibe_pdca.engine.user_feedback import (
     SatisfactionScore,
     SatisfactionTracker,
 )
-
 
 # ============================================================
 # helpers

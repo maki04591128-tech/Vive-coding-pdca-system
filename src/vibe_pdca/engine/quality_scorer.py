@@ -15,6 +15,7 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import StrEnum
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -117,7 +118,7 @@ class StructuralValidator:
         )
 
     def validate_required_keys(
-        self, data: dict, required: list[str]
+        self, data: dict[str, Any], required: list[str]
     ) -> QualityScore:
         """辞書に必須キーがすべて含まれているかを検証する。
 
@@ -199,7 +200,7 @@ class CompletenessChecker:
 
     def check_task_list(
         self,
-        tasks: list[dict],
+        tasks: list[dict[str, Any]],
         min_tasks: int = 1,
         max_tasks: int = 7,
     ) -> QualityScore:
@@ -244,7 +245,7 @@ class CompletenessChecker:
 
     def check_review_findings(
         self,
-        findings: list[dict],
+        findings: list[dict[str, Any]],
         required_fields: list[str],
     ) -> QualityScore:
         """レビュー指摘の完全性を検証する。
@@ -434,7 +435,7 @@ class QualityAwareRetrier:
 
     def __init__(
         self,
-        validators: list,
+        validators: list[Any],
         policy: AutoRetryPolicy | None = None,
     ) -> None:
         self._validators = validators
@@ -445,7 +446,7 @@ class QualityAwareRetrier:
         """現在のリトライポリシーを返す。"""
         return self._policy
 
-    def evaluate(self, response_text: str, context: dict) -> QualityReport:
+    def evaluate(self, response_text: str, context: dict[str, Any]) -> QualityReport:
         """レスポンスの品質を評価する。
 
         Parameters
@@ -531,7 +532,7 @@ class QualityAwareRetrier:
     # ── 内部ヘルパー ──
 
     def _run_validator(
-        self, validator: object, text: str, context: dict
+        self, validator: object, text: str, context: dict[str, Any]
     ) -> list[QualityScore]:
         """単一バリデータからスコアリストを取得する。"""
         scores: list[QualityScore] = []
@@ -631,7 +632,7 @@ class ModelQualityTracker:
             report.is_acceptable,
         )
 
-    def get_model_stats(self, model_name: str) -> dict:
+    def get_model_stats(self, model_name: str) -> dict[str, Any]:
         """モデル別の品質統計を取得する。
 
         Parameters
@@ -674,7 +675,7 @@ class ModelQualityTracker:
             "role_breakdown": role_breakdown,
         }
 
-    def get_role_stats(self, role: str) -> dict:
+    def get_role_stats(self, role: str) -> dict[str, Any]:
         """ロール別の品質統計を取得する。
 
         Parameters

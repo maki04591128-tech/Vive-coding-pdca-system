@@ -13,6 +13,7 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass, field
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -86,14 +87,14 @@ class DockerResourceConfig:
             )
         return args
 
-    def to_docker_compose_dict(self) -> dict:
+    def to_docker_compose_dict(self) -> dict[str, Any]:
         """Docker Compose用のresourcesセクション辞書を返す。"""
-        limits: dict = {
+        limits: dict[str, Any] = {
             "cpus": str(self._limit.cpus),
             "memory": f"{self._limit.memory_mb}M",
             "pids": self._limit.pids_limit,
         }
-        reservations: dict = {
+        reservations: dict[str, Any] = {
             "cpus": str(self._limit.cpus / 2),
             "memory": f"{self._limit.memory_mb // 2}M",
         }
@@ -173,7 +174,7 @@ class ResourceMonitor:
 
         return alerts
 
-    def get_summary(self) -> dict:
+    def get_summary(self) -> dict[str, Any]:
         """収集したサンプルの統計サマリを返す。"""
         if not self._samples:
             return {"sample_count": 0}
@@ -198,7 +199,7 @@ class OOMHandler:
         """終了コードからOOMキルを検知する。"""
         return container_exit_code == OOM_EXIT_CODE
 
-    def generate_report(self, container_id: str, exit_code: int) -> dict:
+    def generate_report(self, container_id: str, exit_code: int) -> dict[str, Any]:
         """OOMイベントのレポートを生成する。"""
         is_oom = self.detect_oom(exit_code)
         return {

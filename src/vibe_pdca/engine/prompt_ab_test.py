@@ -15,6 +15,7 @@ import logging
 import math
 import time
 from dataclasses import dataclass, field
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -162,7 +163,7 @@ class StatisticalAnalyzer:
         self,
         results_a: list[ABTestResult],
         results_b: list[ABTestResult],
-    ) -> dict:
+    ) -> dict[str, Any]:
         """2グループの品質スコアを比較し統計情報を返す。
 
         Returns

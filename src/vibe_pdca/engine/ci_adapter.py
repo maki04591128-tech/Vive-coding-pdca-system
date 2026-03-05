@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from enum import StrEnum
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -94,12 +95,12 @@ class CIAdapterBase:
         """
         raise NotImplementedError
 
-    def normalize_result(self, raw: dict) -> CIBuildResult:
+    def normalize_result(self, raw: dict[str, Any]) -> CIBuildResult:
         """プロバイダー固有の生データを正規化する。
 
         Parameters
         ----------
-        raw : dict
+        raw : dict[str, Any]
             CIサービスから返された生のレスポンス辞書。
 
         Returns
@@ -123,12 +124,12 @@ class GitHubActionsAdapter(CIAdapterBase):
         "skipped": CIBuildStatus.SKIPPED,
     }
 
-    def normalize_result(self, raw: dict) -> CIBuildResult:
+    def normalize_result(self, raw: dict[str, Any]) -> CIBuildResult:
         """GitHub Actions のワークフロー実行結果を正規化する。
 
         Parameters
         ----------
-        raw : dict
+        raw : dict[str, Any]
             GitHub Actions API レスポンス辞書。
             想定キー: ``conclusion``, ``run_id``, ``html_url``,
             ``run_started_at``, ``updated_at``。
@@ -195,12 +196,12 @@ class GitLabCIAdapter(CIAdapterBase):
         "skipped": CIBuildStatus.SKIPPED,
     }
 
-    def normalize_result(self, raw: dict) -> CIBuildResult:
+    def normalize_result(self, raw: dict[str, Any]) -> CIBuildResult:
         """GitLab CI のパイプライン結果を正規化する。
 
         Parameters
         ----------
-        raw : dict
+        raw : dict[str, Any]
             GitLab CI API レスポンス辞書。
             想定キー: ``status``, ``id``, ``web_url``,
             ``duration``。
@@ -308,7 +309,7 @@ class CIAdapterRegistry:
         return list(self._adapters.keys())
 
     def normalize(
-        self, provider: CIProvider, raw: dict,
+        self, provider: CIProvider, raw: dict[str, Any],
     ) -> CIBuildResult:
         """指定プロバイダーで生データを正規化する。
 
@@ -316,7 +317,7 @@ class CIAdapterRegistry:
         ----------
         provider : CIProvider
             CIプロバイダー種別。
-        raw : dict
+        raw : dict[str, Any]
             CIサービスから返された生のレスポンス辞書。
 
         Returns

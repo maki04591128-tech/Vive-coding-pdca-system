@@ -12,6 +12,7 @@ import ast
 import logging
 import re
 from dataclasses import dataclass, field
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -210,7 +211,7 @@ class BreakingChangeDetector:
         return changes
 
     def detect_schema_changes(
-        self, old_config: dict, new_config: dict
+        self, old_config: dict[str, Any], new_config: dict[str, Any]
     ) -> list[str]:
         """設定スキーマの差分を検出する。
 

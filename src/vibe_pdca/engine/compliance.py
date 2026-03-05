@@ -13,7 +13,7 @@ import enum
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
@@ -587,7 +587,7 @@ class PolicyVersionManager:
         """
         idx = version - 1
         if 0 <= idx < len(self._versions):
-            return copy.deepcopy(self._versions[idx]["rules"])
+            return cast(list[PolicyRule], copy.deepcopy(self._versions[idx]["rules"]))
         logger.warning("バージョン %d は存在しません", version)
         return None
 

@@ -14,6 +14,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from enum import StrEnum
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +68,7 @@ class NotificationMessage:
     body: str
     priority: NotificationPriority
     channel: NotificationChannel | None = None
-    metadata: dict = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 # ============================================================
@@ -170,7 +171,7 @@ class NotificationDispatcher:
     """通知メッセージを対象チャネルへ送信（シミュレーション）する。"""
 
     def __init__(self) -> None:
-        self._history: list[dict] = []
+        self._history: list[dict[str, Any]] = []
 
     def dispatch(
         self,
@@ -196,6 +197,6 @@ class NotificationDispatcher:
         })
         return results
 
-    def get_history(self, limit: int = 10) -> list[dict]:
+    def get_history(self, limit: int = 10) -> list[dict[str, Any]]:
         """送信履歴を最新順に返す。"""
         return list(reversed(self._history[-limit:]))

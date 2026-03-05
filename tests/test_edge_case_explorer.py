@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from vibe_pdca.engine.edge_case_explorer import (
     BoundaryValueAnalyzer,
     EdgeCaseExplorer,
@@ -12,7 +10,6 @@ from vibe_pdca.engine.edge_case_explorer import (
     ExplorationReport,
     PropertyTestGenerator,
 )
-
 
 # ============================================================
 # EdgeCaseType enum

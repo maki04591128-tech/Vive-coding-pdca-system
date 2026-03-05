@@ -10,6 +10,7 @@ import logging
 from collections import defaultdict
 from dataclasses import asdict, dataclass, field
 from enum import StrEnum
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -316,7 +317,7 @@ class ReportExporter:
         ]
         return "\n".join(lines)
 
-    def to_dict(self, summaries: list[CycleSummary]) -> dict:
+    def to_dict(self, summaries: list[CycleSummary]) -> dict[str, Any]:
         """サイクルサマリーのリストを辞書形式に変換する。
 
         Parameters

@@ -5,13 +5,11 @@ from __future__ import annotations
 from vibe_pdca.engine.chatops import (
     ChatIntent,
     ChatOpsHandler,
-    ChatResponse,
     CommandParser,
     ConversationContext,
     IntentClassifier,
     IntentType,
 )
-
 
 # ============================================================
 # IntentType enum

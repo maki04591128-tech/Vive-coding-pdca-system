@@ -15,6 +15,7 @@ import logging
 import re
 from dataclasses import dataclass
 from enum import StrEnum
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -146,7 +147,7 @@ class PromptLocalizer:
         self,
         template: str,
         locale: Locale,
-        context: dict | None = None,
+        context: dict[str, Any] | None = None,
     ) -> str:
         """テンプレート内の {key} パターンを翻訳値で置換する。
 
@@ -156,7 +157,7 @@ class PromptLocalizer:
         """
         ctx = context or {}
 
-        def _replacer(match: re.Match) -> str:
+        def _replacer(match: re.Match[str]) -> str:
             key = match.group(1)
             if key in ctx:
                 return str(ctx[key])
@@ -164,7 +165,7 @@ class PromptLocalizer:
                 val = self._store.get(key, locale)
                 if val is not None:
                     return val
-            return match.group(0)
+            return str(match.group(0))
 
         result = _KEY_PATTERN.sub(_replacer, template)
         logger.info(

@@ -32,7 +32,6 @@ from installer.downloader import (
     get_source_tarball_url,
 )
 
-
 # ── 定数テスト ──
 
 

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import time
-
 import pytest
 
 from vibe_pdca.engine.replay import (
@@ -14,7 +12,6 @@ from vibe_pdca.engine.replay import (
     ReplayResult,
     SnapshotRecorder,
 )
-
 
 # ============================================================
 # PhaseSnapshot データクラス
