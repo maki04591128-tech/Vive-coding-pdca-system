@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ペルソナレーダー – Vibe PDCA システム</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ナビゲーション -->
+  <nav class="nav-bar">
+    <a href="index.html" class="nav-link">📊 ダッシュボード</a>
+    <a href="goal.html" class="nav-link">🎯 ゴール入力</a>
+    <a href="progress.html" class="nav-link">📈 進捗</a>
+    <a href="intervention.html" class="nav-link">🛑 介入</a>
+    <a href="alerts.html" class="nav-link">🔔 アラート</a>
+    <a href="traceability.html" class="nav-link">🗺️ トレーサビリティ</a>
+    <a href="cost-trend.html" class="nav-link">💹 コスト推移</a>
+    <a href="persona-radar.html" class="nav-link active">🕸️ ペルソナ</a>
+    <a href="settings.html" class="nav-link">⚙️ 設定</a>
+  </nav>
+
+  <!-- ヘッダー -->
+  <div class="header">
+    <div class="header-left">
+      <span class="icon">🕸️</span>
+      <span class="title">ペルソナ別レーダーチャート</span>
+    </div>
+    <div class="header-right">
+      <span class="mode-label">サイクル比較ビュー</span>
+    </div>
+  </div>
+  <div class="divider"></div>
+
+  <div class="persona-section">
+
+    <!-- サイクル選択 -->
+    <div class="card filter-bar">
+      <div class="filter-row">
+        <div class="filter-group">
+          <span class="filter-label">サイクル:</span>
+          <select class="form-select" id="cycleSelect">
+            <option value="latest">最新サイクル</option>
+            <option value="3">サイクル #3</option>
+            <option value="2">サイクル #2</option>
+            <option value="1">サイクル #1</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label class="filter-chip" id="compareToggle"><input type="checkbox" id="compareCheck"> 前サイクルと比較</label>
+        </div>
+      </div>
+    </div>
+
+    <!-- レーダーチャート -->
+    <div class="card">
+      <div class="card-title">🕸️ 5ペルソナ評価レーダー</div>
+      <div class="card-divider"></div>
+      <div class="radar-container">
+        <svg id="radarChart" width="400" height="400" viewBox="0 0 400 400">
+          <!-- rendered by JS -->
+        </svg>
+      </div>
+      <div class="radar-legend" id="radarLegend"></div>
+    </div>
+
+    <!-- ペルソナ別スコア詳細 -->
+    <div class="card">
+      <div class="card-title">📊 ペルソナ別スコア詳細</div>
+      <div class="card-divider"></div>
+      <div id="personaDetails">
+        <!-- rendered by JS -->
+      </div>
+    </div>
+
+    <!-- 指摘サマリー -->
+    <div class="card">
+      <div class="card-title">📝 レビュー指摘サマリー</div>
+      <div class="card-divider"></div>
+      <div id="findingsSummary">
+        <!-- rendered by JS -->
+      </div>
+    </div>
+
+  </div>
+
+  <!-- デモ操作ボタン -->
+  <div class="demo-controls">
+    <button class="demo-btn" id="btnRandomize">🎲 スコア変更</button>
+    <button class="demo-btn" id="btnAddFinding">📝 指摘追加</button>
+    <button class="demo-btn" id="btnResetRadar">🔄 リセット</button>
+  </div>
+
+  <!-- ログ領域 -->
+  <div class="log-section">
+    <div class="log-title">📋 ログ</div>
+    <div class="log-container" id="logContainer"></div>
+  </div>
+
+  <script src="persona-radar.js"></script>
+</body>
+</html>

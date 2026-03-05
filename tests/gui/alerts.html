@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>アラート通知 – Vibe PDCA システム</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ナビゲーション -->
+  <nav class="nav-bar">
+    <a href="index.html" class="nav-link">📊 ダッシュボード</a>
+    <a href="goal.html" class="nav-link">🎯 ゴール入力</a>
+    <a href="progress.html" class="nav-link">📈 進捗</a>
+    <a href="intervention.html" class="nav-link">🛑 介入</a>
+    <a href="alerts.html" class="nav-link active">🔔 アラート</a>
+    <a href="traceability.html" class="nav-link">🗺️ トレーサビリティ</a>
+    <a href="cost-trend.html" class="nav-link">💹 コスト推移</a>
+    <a href="persona-radar.html" class="nav-link">🕸️ ペルソナ</a>
+    <a href="settings.html" class="nav-link">⚙️ 設定</a>
+  </nav>
+
+  <!-- ヘッダー -->
+  <div class="header">
+    <div class="header-left">
+      <span class="icon">🔔</span>
+      <span class="title">アラート通知パネル</span>
+    </div>
+    <div class="header-right">
+      <span class="alert-counter" id="alertCounter">合計: 0件</span>
+    </div>
+  </div>
+  <div class="divider"></div>
+
+  <div class="alerts-section">
+
+    <!-- フィルターバー -->
+    <div class="card filter-bar">
+      <div class="filter-row">
+        <div class="filter-group">
+          <span class="filter-label">レベル:</span>
+          <label class="filter-chip active" data-level="all"><input type="checkbox" checked> 📋 すべて</label>
+          <label class="filter-chip" data-level="critical"><input type="checkbox"> 🔴 CRITICAL</label>
+          <label class="filter-chip" data-level="error"><input type="checkbox"> 🟠 ERROR</label>
+          <label class="filter-chip" data-level="warning"><input type="checkbox"> 🟡 WARNING</label>
+          <label class="filter-chip" data-level="info"><input type="checkbox"> 🔵 INFO</label>
+        </div>
+        <div class="filter-group">
+          <span class="filter-label">カテゴリ:</span>
+          <select class="form-select" id="categoryFilter">
+            <option value="all">すべて</option>
+            <option value="cost">💰 コスト</option>
+            <option value="circuit">⚡ サーキットブレーカー</option>
+            <option value="ci">🔧 CI/CD</option>
+            <option value="security">🛡️ セキュリティ</option>
+            <option value="governance">📜 ガバナンス</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- サマリーカード -->
+    <div class="card-grid">
+      <div class="card alert-summary-card summary-critical">
+        <div class="alert-summary-count" id="criticalCount">0</div>
+        <div class="alert-summary-label">🔴 CRITICAL</div>
+      </div>
+      <div class="card alert-summary-card summary-error">
+        <div class="alert-summary-count" id="errorCount">0</div>
+        <div class="alert-summary-label">🟠 ERROR</div>
+      </div>
+      <div class="card alert-summary-card summary-warning">
+        <div class="alert-summary-count" id="warningCount">0</div>
+        <div class="alert-summary-label">🟡 WARNING</div>
+      </div>
+      <div class="card alert-summary-card summary-info">
+        <div class="alert-summary-count" id="infoCount">0</div>
+        <div class="alert-summary-label">🔵 INFO</div>
+      </div>
+    </div>
+
+    <!-- アラート一覧 -->
+    <div class="card">
+      <div class="card-title">📋 アラート一覧</div>
+      <div class="card-divider"></div>
+      <div id="alertList">
+        <!-- rendered by JS -->
+      </div>
+    </div>
+
+  </div>
+
+  <!-- デモ操作ボタン -->
+  <div class="demo-controls">
+    <button class="demo-btn" id="btnAddAlert">🔔 アラート追加</button>
+    <button class="demo-btn danger" id="btnAddCritical">🔴 CRITICAL追加</button>
+    <button class="demo-btn" id="btnClearAlerts">🗑️ クリア</button>
+  </div>
+
+  <!-- ログ領域 -->
+  <div class="log-section">
+    <div class="log-title">📋 ログ</div>
+    <div class="log-container" id="logContainer"></div>
+  </div>
+
+  <script src="alerts.js"></script>
+</body>
+</html>
