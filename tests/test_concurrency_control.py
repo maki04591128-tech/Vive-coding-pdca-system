@@ -1,0 +1,241 @@
+"""マルチユーザー同時アクセス制御のテスト。"""
+
+import time
+
+from vibe_pdca.engine.concurrency_control import (
+    ApprovalGuard,
+    ConflictInfo,
+    ExclusiveLockManager,
+    LockType,
+    OptimisticLockManager,
+    ResourceLock,
+)
+
+# ============================================================
+# テスト: LockType
+# ============================================================
+
+
+class TestLockType:
+    def test_values(self):
+        assert LockType.OPTIMISTIC == "optimistic"
+        assert LockType.EXCLUSIVE == "exclusive"
+
+
+# ============================================================
+# テスト: ResourceLock
+# ============================================================
+
+
+class TestResourceLock:
+    def test_creation(self):
+        lock = ResourceLock(
+            resource_id="r1",
+            lock_type=LockType.OPTIMISTIC,
+            holder="user-a",
+            version=1,
+            acquired_at=100.0,
+            expires_at=200.0,
+        )
+        assert lock.resource_id == "r1"
+        assert lock.lock_type == LockType.OPTIMISTIC
+        assert lock.holder == "user-a"
+        assert lock.version == 1
+        assert lock.expires_at == 200.0
+
+    def test_default_expires_at(self):
+        lock = ResourceLock(
+            resource_id="r1",
+            lock_type=LockType.EXCLUSIVE,
+            holder="user-b",
+            version=0,
+        )
+        assert lock.expires_at is None
+
+
+# ============================================================
+# テスト: ConflictInfo
+# ============================================================
+
+
+class TestConflictInfo:
+    def test_creation(self):
+        ci = ConflictInfo(
+            resource_id="r1",
+            holder_a="alice",
+            holder_b="bob",
+            description="concurrent edit",
+        )
+        assert ci.resource_id == "r1"
+        assert ci.holder_a == "alice"
+        assert ci.holder_b == "bob"
+
+
+# ============================================================
+# テスト: OptimisticLockManager
+# ============================================================
+
+
+class TestOptimisticLockManager:
+    def test_acquire_new_resource(self):
+        mgr = OptimisticLockManager()
+        lock = mgr.acquire("res-1", "alice", version=0)
+        assert lock is not None
+        assert lock.version == 1
+        assert lock.holder == "alice"
+
+    def test_acquire_version_mismatch(self):
+        mgr = OptimisticLockManager()
+        mgr.acquire("res-1", "alice", version=0)
+        lock = mgr.acquire("res-1", "bob", version=0)
+        assert lock is None
+
+    def test_acquire_version_match(self):
+        mgr = OptimisticLockManager()
+        mgr.acquire("res-1", "alice", version=0)
+        lock = mgr.acquire("res-1", "bob", version=1)
+        assert lock is not None
+        assert lock.version == 2
+        assert lock.holder == "bob"
+
+    def test_acquire_unregistered_nonzero_version(self):
+        mgr = OptimisticLockManager()
+        lock = mgr.acquire("res-1", "alice", version=5)
+        assert lock is None
+
+    def test_release_success(self):
+        mgr = OptimisticLockManager()
+        mgr.acquire("res-1", "alice", version=0)
+        assert mgr.release("res-1", "alice") is True
+        assert mgr.get_lock("res-1") is None
+
+    def test_release_wrong_holder(self):
+        mgr = OptimisticLockManager()
+        mgr.acquire("res-1", "alice", version=0)
+        assert mgr.release("res-1", "bob") is False
+
+    def test_release_nonexistent(self):
+        mgr = OptimisticLockManager()
+        assert mgr.release("res-1", "alice") is False
+
+    def test_check_version(self):
+        mgr = OptimisticLockManager()
+        assert mgr.check_version("res-1", 0) is True
+        mgr.acquire("res-1", "alice", version=0)
+        assert mgr.check_version("res-1", 1) is True
+        assert mgr.check_version("res-1", 0) is False
+
+    def test_get_lock(self):
+        mgr = OptimisticLockManager()
+        assert mgr.get_lock("res-1") is None
+        mgr.acquire("res-1", "alice", version=0)
+        lock = mgr.get_lock("res-1")
+        assert lock is not None
+        assert lock.holder == "alice"
+
+    def test_list_locks(self):
+        mgr = OptimisticLockManager()
+        mgr.acquire("b", "alice", version=0)
+        mgr.acquire("a", "bob", version=0)
+        locks = mgr.list_locks()
+        assert len(locks) == 2
+        assert locks[0].resource_id == "a"
+        assert locks[1].resource_id == "b"
+
+
+# ============================================================
+# テスト: ExclusiveLockManager
+# ============================================================
+
+
+class TestExclusiveLockManager:
+    def test_acquire_success(self):
+        mgr = ExclusiveLockManager()
+        lock = mgr.acquire("res-1", "alice", ttl_seconds=60)
+        assert lock is not None
+        assert lock.holder == "alice"
+        assert lock.expires_at is not None
+
+    def test_acquire_already_locked(self):
+        mgr = ExclusiveLockManager()
+        mgr.acquire("res-1", "alice", ttl_seconds=60)
+        lock = mgr.acquire("res-1", "bob", ttl_seconds=60)
+        assert lock is None
+
+    def test_acquire_after_expiry(self):
+        mgr = ExclusiveLockManager()
+        mgr.acquire("res-1", "alice", ttl_seconds=0)
+        time.sleep(0.01)
+        lock = mgr.acquire("res-1", "bob", ttl_seconds=60)
+        assert lock is not None
+        assert lock.holder == "bob"
+
+    def test_release_success(self):
+        mgr = ExclusiveLockManager()
+        mgr.acquire("res-1", "alice", ttl_seconds=60)
+        assert mgr.release("res-1", "alice") is True
+
+    def test_release_wrong_holder(self):
+        mgr = ExclusiveLockManager()
+        mgr.acquire("res-1", "alice", ttl_seconds=60)
+        assert mgr.release("res-1", "bob") is False
+
+    def test_is_locked(self):
+        mgr = ExclusiveLockManager()
+        assert mgr.is_locked("res-1") is False
+        mgr.acquire("res-1", "alice", ttl_seconds=60)
+        assert mgr.is_locked("res-1") is True
+
+    def test_is_locked_expired(self):
+        mgr = ExclusiveLockManager()
+        mgr.acquire("res-1", "alice", ttl_seconds=0)
+        time.sleep(0.01)
+        assert mgr.is_locked("res-1") is False
+
+    def test_cleanup_expired(self):
+        mgr = ExclusiveLockManager()
+        mgr.acquire("res-1", "alice", ttl_seconds=0)
+        mgr.acquire("res-2", "bob", ttl_seconds=300)
+        time.sleep(0.01)
+        removed = mgr.cleanup_expired()
+        assert removed == 1
+        assert mgr.is_locked("res-2") is True
+
+
+# ============================================================
+# テスト: ApprovalGuard
+# ============================================================
+
+
+class TestApprovalGuard:
+    def test_submit_approval(self):
+        guard = ApprovalGuard()
+        assert guard.submit_approval("res-1", "alice") is True
+        assert guard.is_approved("res-1") is True
+
+    def test_submit_duplicate(self):
+        guard = ApprovalGuard()
+        guard.submit_approval("res-1", "alice")
+        assert guard.submit_approval("res-1", "bob") is False
+
+    def test_is_approved_false(self):
+        guard = ApprovalGuard()
+        assert guard.is_approved("res-1") is False
+
+    def test_get_approver(self):
+        guard = ApprovalGuard()
+        assert guard.get_approver("res-1") is None
+        guard.submit_approval("res-1", "alice")
+        assert guard.get_approver("res-1") == "alice"
+
+    def test_reset(self):
+        guard = ApprovalGuard()
+        guard.submit_approval("res-1", "alice")
+        guard.reset("res-1")
+        assert guard.is_approved("res-1") is False
+        assert guard.get_approver("res-1") is None
+
+    def test_reset_nonexistent(self):
+        guard = ApprovalGuard()
+        guard.reset("res-99")  # エラーにならないことを確認
+        assert guard.is_approved("res-99") is False

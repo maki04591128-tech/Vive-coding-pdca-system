@@ -1,0 +1,117 @@
+# コントリビューションガイド
+
+バイブコーディングPDCA自動開発システムへの貢献を歓迎します。
+
+## 開発環境のセットアップ
+
+```bash
+# リポジトリのクローン
+git clone https://github.com/maki04591128-tech/Vive-coding-pdca-system.git
+cd Vive-coding-pdca-system
+
+# Python 3.12+ が必要です
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+
+# 開発用依存関係のインストール
+pip install -e ".[dev]"
+
+# 環境変数の設定
+cp .env.example .env
+# .env を編集して必要なAPIキーを設定
+```
+
+詳細は [ローカルセットアップ完全ガイド](docs/ローカルセットアップ完全ガイド.md) を参照してください。
+
+## 開発ワークフロー
+
+### 1. ブランチの作成
+
+```bash
+git checkout -b feature/your-feature-name
+```
+
+### 2. コードの変更
+
+- `src/vibe_pdca/` 配下にモジュールを配置
+- 既存のコードスタイルに合わせる（`from __future__ import annotations` を使用）
+- 行の長さは 100 文字以内
+
+### 3. テストの作成・実行
+
+```bash
+# テストの実行
+python -m pytest tests/ -q
+
+# 特定のテストファイルのみ
+python -m pytest tests/test_your_module.py -v
+
+# カバレッジ付き
+python -m pytest tests/ --cov=src/vibe_pdca --cov-report=term-missing
+```
+
+### 4. リントと型チェック
+
+```bash
+# リント（ruff）
+python -m ruff check src/ tests/
+
+# 自動修正
+python -m ruff check src/ tests/ --fix
+
+# 型チェック（mypy）
+python -m mypy src/vibe_pdca/
+```
+
+### 5. プルリクエストの作成
+
+- 変更内容を明確に記述
+- 関連する Issue 番号を参照
+- テストが全件パスすることを確認
+
+## コーディング規約
+
+### Python スタイル
+
+- **Python 3.12+** を対象
+- **ruff** によるリント（設定は `pyproject.toml` に定義）
+- **mypy** による型チェック（strict モード）
+- `from __future__ import annotations` を全ファイルで使用
+- docstring は日本語で記述（提案番号への参照を含む）
+- セクションコメントは `# ── ClassName ──` 形式
+
+### モジュール構成
+
+```
+src/vibe_pdca/
+├── engine/          # コアエンジン（PDCAサイクル・各種機能モジュール）
+├── models/          # Pydantic データモデル
+├── config/          # 設定管理
+├── llm/             # LLMゲートウェイ
+├── github/          # GitHub連携
+├── gui/             # GUI（Flet）
+├── audit/           # 監査ログ
+├── monitoring/      # モニタリング
+├── governance/      # ガバナンス
+├── glossary/        # 用語集
+├── prompts/         # プロンプトテンプレート
+└── plugins/         # プラグインシステム
+```
+
+### テスト規約
+
+- テストファイルは `tests/test_<module_name>.py` に配置
+- pytest クラスベース（`class TestXxx:`）を使用
+- 外部依存（LLM API、GitHub API）はモック化
+- 標準ライブラリのみ使用（テスト専用外部パッケージは不要）
+
+## ドキュメント
+
+ドキュメントの一覧と依存関係は [必要なドキュメント一覧](docs/必要なドキュメント一覧.md) を参照してください。
+
+コードの変更に伴ってドキュメントの更新が必要な場合は、あわせて修正してください。
+
+## ライセンス
+
+本プロジェクトは [MIT License](LICENSE) の下で公開されています。
+コントリビューションを行うことで、あなたの変更も同じライセンスの下で提供されることに同意するものとします。

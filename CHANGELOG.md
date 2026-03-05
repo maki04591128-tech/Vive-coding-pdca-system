@@ -1,0 +1,69 @@
+# 変更履歴 (CHANGELOG)
+
+本ファイルは [Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) の形式に準拠し、
+[セマンティックバージョニング](https://semver.org/lang/ja/) を採用しています。
+
+## [Unreleased]
+
+### Added — 追加
+- 機能提案書（提案1〜15）全件実装
+  - 提案1: Webhook/イベント駆動アーキテクチャ (`engine/webhook.py`)
+  - 提案2: セッション永続化・クラッシュリカバリ (`engine/session_persistence.py`)
+  - 提案3: レート制限・スロットリング統合管理 (`engine/rate_limiter.py`)
+  - 提案4: E2E・シナリオテスト戦略 (`engine/e2e_scenario.py`)
+  - 提案5: ダッシュボード高度化 (`gui/dashboard.py`)
+  - 提案6: プロンプトA/Bテスト (`engine/prompt_ab_test.py`)
+  - 提案7: 通知チャネル多様化 (`engine/notification_router.py`)
+  - 提案8: 国際化 i18n 対応 (`engine/i18n.py`)
+  - 提案9: マルチユーザー同時アクセス制御 (`engine/concurrency_control.py`)
+  - 提案10: PDCAサイクルテンプレート化 (`engine/cycle_template.py`)
+  - 提案11: 分析・レポーティング強化 (`engine/analytics.py`)
+  - 提案12: 外部CI/CD統合 (`engine/ci_adapter.py`)
+  - 提案13: ナレッジベース蓄積 (`engine/knowledge_base.py`)
+  - 提案14: REST API / SDK公開 (`engine/api_server.py`)
+  - 提案15: 監査ログ外部転送・改ざん検知強化 (`engine/audit_transport.py`)
+- プロジェクト標準ドキュメント追加（LICENSE, SECURITY.md, CONTRIBUTING.md, CHANGELOG.md）
+
+### Fixed — 修正
+- ruff lint エラー26件を全修正（unused imports, line length, SIM102, StrEnum 移行等）
+
+## [0.1.0] — 2026-03-04
+
+### Added — 追加
+- PDCAコアエンジン（PLAN/DO/CHECK/ACT 状態機械）
+- LLMゲートウェイ（マルチプロバイダ: OpenAI, Anthropic, Google, ローカル）
+- サーキットブレーカー・フォールバック機構
+- 5ペルソナレビュー統合（PM/Architect/Security/QA/UX）
+- A/B/C操作分類とガバナンス承認ワークフロー
+- 監査ログ（チェーンハッシュ改ざん検知）
+- RBAC（Owner/Maintainer/Viewer）
+- コスト管理（$30/日上限、80コール/サイクル）
+- トレーサビリティ（Goal→MS→Task→PR→Decision 双方向追跡）
+- GitHub App連携（Issue/PR/CI結果）
+- GUI（Flet ベース）
+- Discord通知連携
+- ドライラン機能
+- プラグインシステム
+- 用語集管理
+- マルチプロジェクト物理隔離
+- ストップ条件（7種自動停止）
+- 追加機能提案書（提案16〜30）全件実装
+  - 提案16: ロールバック戦略の体系化
+  - 提案17: 設定のホットリロード・バージョン管理
+  - 提案18: タイムアウト戦略の精緻化
+  - 提案19: サンドボックスリソース制限・監視
+  - 提案20: GitHub App トークン管理強化
+  - 提案21: タスク依存関係グラフ・クリティカルパス
+  - 提案22: LLMレスポンス品質スコアリング
+  - 提案23: 変更影響分析の自動化
+  - 提案24: ユーザーフィードバック収集
+  - 提案25: コンプライアンステンプレート
+  - 提案26: マルチリポジトリ・モノレポ対応
+  - 提案27: AIモデルのファインチューニング
+  - 提案28: 自然言語チャットオプス
+  - 提案29: サイクルリプレイ・デバッグモード
+  - 提案30: エッジケース自動探索
+- ドキュメント全30件作成完了
+- CI パイプライン（ruff / mypy / pytest / secrets検知）
+- Docker サンドボックス環境
+- インストーラー（ローカル環境構築自動化）
