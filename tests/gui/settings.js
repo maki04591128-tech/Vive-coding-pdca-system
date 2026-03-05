@@ -7,36 +7,7 @@
 
 "use strict";
 
-// ============================================================
-// DOM ヘルパー
-// ============================================================
-
-function $(id) {
-  return document.getElementById(id);
-}
-
-// ============================================================
-// ログ管理
-// ============================================================
-
-function addLog(message, level) {
-  level = level || "INFO";
-  var container = $("logContainer");
-  var entry = document.createElement("div");
-  entry.className = "log-entry";
-  var classMap = {
-    INFO: "log-info",
-    WARNING: "log-warning",
-    ERROR: "log-error",
-    DEBUG: "log-debug",
-  };
-  entry.classList.add(classMap[level] || "log-info");
-  var now = new Date();
-  var ts = now.toLocaleTimeString("ja-JP");
-  entry.textContent = "[" + ts + "] [" + level + "] " + message;
-  container.appendChild(entry);
-  container.scrollTop = container.scrollHeight;
-}
+// $, addLog, setupRadioGroup は common.js で定義
 
 // ============================================================
 // 状態管理
@@ -75,34 +46,7 @@ var modeDescriptions = {
   },
 };
 
-// ============================================================
-// ラジオグループ制御
-// ============================================================
-
-function setupRadioGroup(groupId, settingKey, onChange) {
-  var group = $(groupId);
-  var options = group.querySelectorAll(".radio-option");
-
-  for (var i = 0; i < options.length; i++) {
-    (function (option) {
-      option.addEventListener("click", function () {
-        // 全選択解除
-        for (var j = 0; j < options.length; j++) {
-          options[j].classList.remove("selected");
-        }
-        option.classList.add("selected");
-        var value = option.getAttribute("data-value");
-        settings[settingKey] = value;
-
-        var radio = option.querySelector("input[type='radio']");
-        if (radio) radio.checked = true;
-
-        if (onChange) onChange(value);
-        addLog(settingKey + " を " + value + " に変更", "INFO");
-      });
-    })(options[i]);
-  }
-}
+// setupRadioGroup は common.js で定義
 
 // ============================================================
 // レンジスライダー制御

@@ -9,7 +9,7 @@
 <body>
 
   <!-- ナビゲーション -->
-  <nav class="nav-bar">
+  <nav class="nav-bar" role="navigation" aria-label="メインナビゲーション">
     <a href="index.html" class="nav-link">📊 ダッシュボード</a>
     <a href="goal.html" class="nav-link">🎯 ゴール入力</a>
     <a href="progress.html" class="nav-link">📈 進捗</a>
@@ -17,7 +17,7 @@
     <a href="alerts.html" class="nav-link">🔔 アラート</a>
     <a href="traceability.html" class="nav-link">🗺️ トレーサビリティ</a>
     <a href="cost-trend.html" class="nav-link">💹 コスト推移</a>
-    <a href="persona-radar.html" class="nav-link active">🕸️ ペルソナ</a>
+    <a href="persona-radar.html" class="nav-link active" aria-current="page">🕸️ ペルソナ</a>
     <a href="settings.html" class="nav-link">⚙️ 設定</a>
   </nav>
 
@@ -95,9 +95,10 @@
   <!-- ログ領域 -->
   <div class="log-section">
     <div class="log-title">📋 ログ</div>
-    <div class="log-container" id="logContainer"></div>
+    <div class="log-container" id="logContainer" role="log" aria-live="polite"></div>
   </div>
 
+  <script src="common.js"></script>
   <script src="persona-radar.js"></script>
 </body>
 </html>

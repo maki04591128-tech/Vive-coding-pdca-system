@@ -9,8 +9,8 @@
 <body>
 
   <!-- ナビゲーション -->
-  <nav class="nav-bar">
-    <a href="index.html" class="nav-link active">📊 ダッシュボード</a>
+  <nav class="nav-bar" role="navigation" aria-label="メインナビゲーション">
+    <a href="index.html" class="nav-link active" aria-current="page">📊 ダッシュボード</a>
     <a href="goal.html" class="nav-link">🎯 ゴール入力</a>
     <a href="progress.html" class="nav-link">📈 進捗</a>
     <a href="intervention.html" class="nav-link">🛑 介入</a>
@@ -32,7 +32,7 @@
       <div class="toggle-container">
         <label for="modeToggle">ローカルLLM優先</label>
         <div class="switch">
-          <input type="checkbox" id="modeToggle">
+          <input type="checkbox" id="modeToggle" aria-label="ローカルLLM優先モード切替">
           <span class="slider"></span>
         </div>
       </div>
@@ -98,9 +98,10 @@
   <!-- ログ領域 -->
   <div class="log-section">
     <div class="log-title">📋 ログ</div>
-    <div class="log-container" id="logContainer"></div>
+    <div class="log-container" id="logContainer" role="log" aria-live="polite"></div>
   </div>
 
+  <script src="common.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

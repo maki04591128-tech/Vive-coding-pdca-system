@@ -9,9 +9,9 @@
 <body>
 
   <!-- ナビゲーション -->
-  <nav class="nav-bar">
+  <nav class="nav-bar" role="navigation" aria-label="メインナビゲーション">
     <a href="index.html" class="nav-link">📊 ダッシュボード</a>
-    <a href="goal.html" class="nav-link active">🎯 ゴール入力</a>
+    <a href="goal.html" class="nav-link active" aria-current="page">🎯 ゴール入力</a>
     <a href="progress.html" class="nav-link">📈 進捗</a>
     <a href="intervention.html" class="nav-link">🛑 介入</a>
     <a href="alerts.html" class="nav-link">🔔 アラート</a>
@@ -118,9 +118,10 @@
   <!-- ログ領域 -->
   <div class="log-section">
     <div class="log-title">📋 ログ</div>
-    <div class="log-container" id="logContainer"></div>
+    <div class="log-container" id="logContainer" role="log" aria-live="polite"></div>
   </div>
 
+  <script src="common.js"></script>
   <script src="goal.js"></script>
 </body>
 </html>

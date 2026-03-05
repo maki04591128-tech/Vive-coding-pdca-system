@@ -60,48 +60,7 @@ const state = {
   },
 };
 
-// ============================================================
-// DOM ヘルパー
-// ============================================================
-
-/**
- * 指定 ID の要素を取得する。
- * @param {string} id
- * @returns {HTMLElement}
- */
-function $(id) {
-  return document.getElementById(id);
-}
-
-// ============================================================
-// ログ管理
-// ============================================================
-
-/**
- * ログメッセージを追加する。
- * @param {string} message - ログ本文
- * @param {"INFO"|"WARNING"|"ERROR"|"DEBUG"} level - ログレベル
- */
-function addLog(message, level) {
-  level = level || "INFO";
-  var container = $("logContainer");
-  var entry = document.createElement("div");
-  entry.className = "log-entry";
-
-  var classMap = {
-    INFO: "log-info",
-    WARNING: "log-warning",
-    ERROR: "log-error",
-    DEBUG: "log-debug",
-  };
-  entry.classList.add(classMap[level] || "log-info");
-
-  var now = new Date();
-  var ts = now.toLocaleTimeString("ja-JP");
-  entry.textContent = "[" + ts + "] [" + level + "] " + message;
-  container.appendChild(entry);
-  container.scrollTop = container.scrollHeight;
-}
+// $, addLog は common.js で定義
 
 // ============================================================
 // プロバイダ表示
