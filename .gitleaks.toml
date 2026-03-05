@@ -1,7 +1,7 @@
 [extend]
 useDefault = true
 
-[[allowlist]]
+[allowlist]
 description = "Test file containing fake tokens for token leak detector tests"
 paths = [
     '''tests/test_token_manager\.py''',
