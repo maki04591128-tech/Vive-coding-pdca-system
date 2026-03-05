@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>コスト推移 – Vibe PDCA システム</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ナビゲーション -->
+  <nav class="nav-bar" role="navigation" aria-label="メインナビゲーション">
+    <a href="index.html" class="nav-link">📊 ダッシュボード</a>
+    <a href="goal.html" class="nav-link">🎯 ゴール入力</a>
+    <a href="progress.html" class="nav-link">📈 進捗</a>
+    <a href="intervention.html" class="nav-link">🛑 介入</a>
+    <a href="alerts.html" class="nav-link">🔔 アラート</a>
+    <a href="traceability.html" class="nav-link">🗺️ トレーサビリティ</a>
+    <a href="cost-trend.html" class="nav-link active" aria-current="page">💹 コスト推移</a>
+    <a href="persona-radar.html" class="nav-link">🕸️ ペルソナ</a>
+    <a href="settings.html" class="nav-link">⚙️ 設定</a>
+  </nav>
+
+  <!-- ヘッダー -->
+  <div class="header">
+    <div class="header-left">
+      <span class="icon">💹</span>
+      <span class="title">コスト推移グラフ</span>
+    </div>
+    <div class="header-right">
+      <span class="mode-label" id="totalCostLabel">累計コスト: $0.00</span>
+    </div>
+  </div>
+  <div class="divider"></div>
+
+  <div class="cost-trend-section">
+
+    <!-- 表示切替 -->
+    <div class="card filter-bar">
+      <div class="filter-row">
+        <div class="filter-group">
+          <span class="filter-label">表示単位:</span>
+          <div class="radio-group" id="viewMode">
+            <label class="radio-option selected" data-value="daily"><input type="radio" name="view" value="daily" checked> 📅 日次</label>
+            <label class="radio-option" data-value="cycle"><input type="radio" name="view" value="cycle"> 🔄 サイクル別</label>
+            <label class="radio-option" data-value="model"><input type="radio" name="view" value="model"> 🤖 モデル別</label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- サマリーカード -->
+    <div class="card-grid">
+      <div class="card cost-stat-card">
+        <div class="cost-stat-value" id="todayCost">$0.00</div>
+        <div class="cost-stat-label">本日のコスト</div>
+        <div class="cost-stat-sub" id="todayLimit">/ $30.00</div>
+      </div>
+      <div class="card cost-stat-card">
+        <div class="cost-stat-value" id="weekCost">$0.00</div>
+        <div class="cost-stat-label">今週のコスト</div>
+        <div class="cost-stat-sub">過去7日間</div>
+      </div>
+      <div class="card cost-stat-card">
+        <div class="cost-stat-value" id="totalCalls">0</div>
+        <div class="cost-stat-label">累計API呼び出し</div>
+        <div class="cost-stat-sub" id="avgCostCall">平均 $0.00/回</div>
+      </div>
+      <div class="card cost-stat-card">
+        <div class="cost-stat-value" id="savingsRate">0%</div>
+        <div class="cost-stat-label">ローカルLLM節約率</div>
+        <div class="cost-stat-sub">クラウド比</div>
+      </div>
+    </div>
+
+    <!-- コスト推移グラフ -->
+    <div class="card">
+      <div class="card-title">📈 コスト推移チャート</div>
+      <div class="card-divider"></div>
+      <div class="chart-container">
+        <svg id="costChart" width="100%" height="300">
+          <!-- rendered by JS -->
+        </svg>
+      </div>
+      <div class="chart-legend" id="chartLegend"></div>
+    </div>
+
+    <!-- モデル別内訳 -->
+    <div class="card">
+      <div class="card-title">🤖 モデル別コスト内訳</div>
+      <div class="card-divider"></div>
+      <div id="modelBreakdown">
+        <!-- rendered by JS -->
+      </div>
+    </div>
+
+  </div>
+
+  <!-- デモ操作ボタン -->
+  <div class="demo-controls">
+    <button class="demo-btn" id="btnAddDataPoint">📊 データ追加</button>
+    <button class="demo-btn" id="btnSimulateWeek">📅 1週間分生成</button>
+    <button class="demo-btn" id="btnResetChart">🔄 リセット</button>
+  </div>
+
+  <!-- ログ領域 -->
+  <div class="log-section">
+    <div class="log-title">📋 ログ</div>
+    <div class="log-container" id="logContainer" role="log" aria-live="polite"></div>
+  </div>
+
+  <script src="common.js"></script>
+  <script src="cost-trend.js"></script>
+</body>
+</html>

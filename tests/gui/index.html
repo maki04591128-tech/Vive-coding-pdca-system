@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vibe PDCA システム – GUI モック</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ナビゲーション -->
+  <nav class="nav-bar" role="navigation" aria-label="メインナビゲーション">
+    <a href="index.html" class="nav-link active" aria-current="page">📊 ダッシュボード</a>
+    <a href="goal.html" class="nav-link">🎯 ゴール入力</a>
+    <a href="progress.html" class="nav-link">📈 進捗</a>
+    <a href="intervention.html" class="nav-link">🛑 介入</a>
+    <a href="alerts.html" class="nav-link">🔔 アラート</a>
+    <a href="traceability.html" class="nav-link">🗺️ トレーサビリティ</a>
+    <a href="cost-trend.html" class="nav-link">💹 コスト推移</a>
+    <a href="persona-radar.html" class="nav-link">🕸️ ペルソナ</a>
+    <a href="settings.html" class="nav-link">⚙️ 設定</a>
+  </nav>
+
+  <!-- ヘッダー -->
+  <div class="header">
+    <div class="header-left">
+      <span class="icon">🤖</span>
+      <span class="title">Vibe PDCA システム</span>
+    </div>
+    <div class="header-right">
+      <span class="mode-label" id="modeLabel">現在のモード: cloud</span>
+      <div class="toggle-container">
+        <label for="modeToggle">ローカルLLM優先</label>
+        <div class="switch">
+          <input type="checkbox" id="modeToggle" aria-label="ローカルLLM優先モード切替">
+          <span class="slider"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="divider"></div>
+
+  <!-- カード群（上段: LLM状態 + コスト） -->
+  <div class="card-grid">
+    <!-- クラウドLLMカード -->
+    <div class="card" id="cloudCard">
+      <div class="card-title">☁️ クラウドLLM</div>
+      <div class="card-divider"></div>
+      <div id="cloudProviders"></div>
+    </div>
+
+    <!-- ローカルLLMカード -->
+    <div class="card" id="localCard">
+      <div class="card-title">🖥️ ローカルLLM</div>
+      <div class="card-divider"></div>
+      <div id="localProviders"></div>
+    </div>
+
+    <!-- コストカード -->
+    <div class="card cost-card" id="costCard">
+      <div class="card-title">💰 コスト (日次)</div>
+      <div class="card-divider"></div>
+      <div class="cost-value" id="costValue">$0.00 / $30.00</div>
+      <div class="cost-bar-container">
+        <div class="cost-bar" id="costBar" style="width: 0%"></div>
+      </div>
+      <div class="cost-calls" id="costCalls">0 / 500 calls</div>
+    </div>
+  </div>
+
+  <!-- カード群（下段: PDCA状態） -->
+  <div class="card-grid">
+    <div class="card" id="pdcaCard">
+      <div class="card-title">🔄 PDCAサイクル</div>
+      <div class="card-divider"></div>
+      <div class="phase-indicators" id="phaseIndicators">
+        <span class="phase-chip" data-phase="plan">📋 PLAN</span>
+        <span class="phase-chip" data-phase="do">🔧 DO</span>
+        <span class="phase-chip" data-phase="check">🔍 CHECK</span>
+        <span class="phase-chip" data-phase="act">✅ ACT</span>
+      </div>
+      <div class="pdca-phase" id="pdcaPhase">フェーズ: 未開始</div>
+      <div class="pdca-detail" id="pdcaCycle">サイクル: 未開始</div>
+      <div class="pdca-detail" id="pdcaMilestone">マイルストーン: --</div>
+      <div class="pdca-detail" id="pdcaStatus">状態: --</div>
+    </div>
+  </div>
+
+  <!-- デモ操作ボタン -->
+  <div class="demo-controls">
+    <button class="demo-btn" id="btnNextPhase">▶ 次のフェーズ</button>
+    <button class="demo-btn" id="btnAddCost">💲 コスト加算</button>
+    <button class="demo-btn" id="btnCircuitOpen">⚡ サーキット開放</button>
+    <button class="demo-btn danger" id="btnStop">⛔ 停止シミュレーション</button>
+    <button class="demo-btn" id="btnReset">🔄 リセット</button>
+  </div>
+
+  <!-- ログ領域 -->
+  <div class="log-section">
+    <div class="log-title">📋 ログ</div>
+    <div class="log-container" id="logContainer" role="log" aria-live="polite"></div>
+  </div>
+
+  <script src="common.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
