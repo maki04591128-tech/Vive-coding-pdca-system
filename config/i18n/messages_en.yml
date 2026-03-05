@@ -73,9 +73,9 @@ ci:
 # ── Cost Management ──
 cost:
   limit_reached: "Cost limit reached"
-  daily_limit: "Daily cost limit: ${limit}"
-  cycle_limit: "Cycle cost limit: ${limit}"
-  current_usage: "Current usage: ${amount}"
+  daily_limit: "Daily cost limit: {limit} USD"
+  cycle_limit: "Cycle cost limit: {limit} USD"
+  current_usage: "Current usage: {amount} USD"
 
 # ── LLM Gateway ──
 llm:

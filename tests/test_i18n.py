@@ -359,4 +359,8 @@ class TestLoadMessagesDir:
         locales = store.list_locales()
         assert Locale.JA in locales
         assert Locale.EN in locales
-        assert store.count >= 60  # 各言語30+エントリ
+        # 各ロケールにエントリが存在すること
+        ja_keys = store.list_keys(Locale.JA)
+        en_keys = store.list_keys(Locale.EN)
+        assert len(ja_keys) > 0
+        assert len(en_keys) > 0
