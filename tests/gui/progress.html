@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>進捗 – Vibe PDCA システム</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ナビゲーション -->
+  <nav class="nav-bar">
+    <a href="index.html" class="nav-link">📊 ダッシュボード</a>
+    <a href="goal.html" class="nav-link">🎯 ゴール入力</a>
+    <a href="progress.html" class="nav-link active">📈 進捗</a>
+    <a href="settings.html" class="nav-link">⚙️ 設定</a>
+  </nav>
+
+  <!-- ヘッダー -->
+  <div class="header">
+    <div class="header-left">
+      <span class="icon">📈</span>
+      <span class="title">進捗ビュー</span>
+    </div>
+    <div class="header-right">
+      <span class="mode-label" id="goalLabel">ゴール: REST APIサーバー構築</span>
+    </div>
+  </div>
+  <div class="divider"></div>
+
+  <!-- マイルストーン概要 -->
+  <div class="progress-section">
+    <div class="card">
+      <div class="card-title">🏁 マイルストーン進捗</div>
+      <div class="card-divider"></div>
+      <div id="milestoneList">
+        <!-- milestone cards rendered by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- 5ペルソナレビューサマリー -->
+  <div class="progress-section">
+    <div class="card">
+      <div class="card-title">👥 5ペルソナレビュー（最新サイクル）</div>
+      <div class="card-divider"></div>
+      <div class="review-summary" id="reviewSummary">
+        <!-- rendered by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- DoD チェックリスト -->
+  <div class="progress-section">
+    <div class="card">
+      <div class="card-title">✅ DoD チェックリスト（現在のマイルストーン）</div>
+      <div class="card-divider"></div>
+      <ul class="dod-checklist" id="dodChecklist">
+        <!-- rendered by JS -->
+      </ul>
+    </div>
+  </div>
+
+  <!-- タイムライン -->
+  <div class="progress-section">
+    <div class="card">
+      <div class="card-title">🕐 サイクルタイムライン</div>
+      <div class="card-divider"></div>
+      <div class="timeline" id="timeline">
+        <!-- rendered by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- デモ操作ボタン -->
+  <div class="demo-controls">
+    <button class="demo-btn" id="btnSimulateCycle">▶ サイクル追加</button>
+    <button class="demo-btn" id="btnCompleteMilestone">🏁 MS完了</button>
+    <button class="demo-btn" id="btnToggleDod">✓ DoD切替</button>
+  </div>
+
+  <!-- ログ領域 -->
+  <div class="log-section">
+    <div class="log-title">📋 ログ</div>
+    <div class="log-container" id="logContainer"></div>
+  </div>
+
+  <script src="progress.js"></script>
+</body>
+</html>

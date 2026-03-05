@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ゴール入力 – Vibe PDCA システム</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ナビゲーション -->
+  <nav class="nav-bar">
+    <a href="index.html" class="nav-link">📊 ダッシュボード</a>
+    <a href="goal.html" class="nav-link active">🎯 ゴール入力</a>
+    <a href="progress.html" class="nav-link">📈 進捗</a>
+    <a href="settings.html" class="nav-link">⚙️ 設定</a>
+  </nav>
+
+  <!-- ヘッダー -->
+  <div class="header">
+    <div class="header-left">
+      <span class="icon">🎯</span>
+      <span class="title">ゴール入力</span>
+    </div>
+  </div>
+  <div class="divider"></div>
+
+  <div class="goal-section">
+
+    <!-- ゴール入力カード -->
+    <div class="card">
+      <div class="card-title">📝 最終ゴールの定義</div>
+      <div class="card-divider"></div>
+      <div class="form-group">
+        <label class="form-label" for="goalPurpose">ゴール（目的）</label>
+        <textarea class="form-textarea" id="goalPurpose" placeholder="例: REST APIサーバーを構築し、ユーザー認証・CRUD操作・テストを完備する"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">受入基準</label>
+        <div id="criteriaContainer">
+          <div class="criteria-item">
+            <input type="text" class="form-input" placeholder="受入基準を入力..." value="全APIエンドポイントのユニットテストがパスすること">
+          </div>
+          <div class="criteria-item">
+            <input type="text" class="form-input" placeholder="受入基準を入力..." value="JWT認証が実装されていること">
+          </div>
+          <div class="criteria-item">
+            <input type="text" class="form-input" placeholder="受入基準を入力..." value="セキュリティスキャンで重大脆弱性がないこと">
+          </div>
+        </div>
+        <button class="demo-btn" id="btnAddCriteria" style="margin-top:8px">＋ 基準を追加</button>
+      </div>
+    </div>
+
+    <!-- ギャップ検出カード -->
+    <div class="card">
+      <div class="card-title">🔍 ギャップ検出</div>
+      <div class="card-divider"></div>
+      <div id="gapResults">
+        <ul class="gap-list">
+          <li class="gap-item">
+            <span class="gap-icon">⚠️</span>
+            <span class="gap-text">データベーススキーマが未定義です</span>
+            <span class="gap-severity high">HIGH</span>
+          </li>
+          <li class="gap-item">
+            <span class="gap-icon">⚠️</span>
+            <span class="gap-text">エラーハンドリングの方針が未記載です</span>
+            <span class="gap-severity medium">MEDIUM</span>
+          </li>
+          <li class="gap-item">
+            <span class="gap-icon">💡</span>
+            <span class="gap-text">パフォーマンス要件（レスポンスタイム等）の記載を推奨</span>
+            <span class="gap-severity low">LOW</span>
+          </li>
+        </ul>
+      </div>
+      <button class="btn-secondary" id="btnDetectGaps" style="margin-top:12px">🔍 ギャップ再検出</button>
+    </div>
+
+    <!-- コスト見積もりカード -->
+    <div class="card">
+      <div class="card-title">💰 コスト見積もり</div>
+      <div class="card-divider"></div>
+      <div class="estimate-grid" id="estimateGrid">
+        <div class="estimate-item">
+          <div class="estimate-value" id="estMilestones">3</div>
+          <div class="estimate-label">マイルストーン数</div>
+        </div>
+        <div class="estimate-item">
+          <div class="estimate-value" id="estCycles">8</div>
+          <div class="estimate-label">予想サイクル数</div>
+        </div>
+        <div class="estimate-item">
+          <div class="estimate-value" id="estCost">$18.50</div>
+          <div class="estimate-label">予想コスト</div>
+        </div>
+        <div class="estimate-item">
+          <div class="estimate-value" id="estTime">2.5h</div>
+          <div class="estimate-label">予想所要時間</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- アクションボタン -->
+    <div class="btn-row">
+      <button class="btn-primary" id="btnStartPDCA">🚀 PDCA開始</button>
+      <button class="btn-secondary" id="btnSaveDraft">💾 下書き保存</button>
+    </div>
+
+  </div>
+
+  <!-- ログ領域 -->
+  <div class="log-section">
+    <div class="log-title">📋 ログ</div>
+    <div class="log-container" id="logContainer"></div>
+  </div>
+
+  <script src="goal.js"></script>
+</body>
+</html>

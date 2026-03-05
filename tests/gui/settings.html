@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>設定 – Vibe PDCA システム</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ナビゲーション -->
+  <nav class="nav-bar">
+    <a href="index.html" class="nav-link">📊 ダッシュボード</a>
+    <a href="goal.html" class="nav-link">🎯 ゴール入力</a>
+    <a href="progress.html" class="nav-link">📈 進捗</a>
+    <a href="settings.html" class="nav-link active">⚙️ 設定</a>
+  </nav>
+
+  <!-- ヘッダー -->
+  <div class="header">
+    <div class="header-left">
+      <span class="icon">⚙️</span>
+      <span class="title">設定</span>
+    </div>
+  </div>
+  <div class="divider"></div>
+
+  <div class="settings-section">
+
+    <!-- 実行モード -->
+    <div class="card">
+      <div class="card-title">🔧 実行モード</div>
+      <div class="card-divider"></div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">実行モード選択</div>
+          <div class="setting-desc">PDCAサイクルの自動化レベルを設定</div>
+        </div>
+        <div class="radio-group" id="modeSelector">
+          <label class="radio-option" data-value="manual">
+            <input type="radio" name="mode" value="manual"> 🖐️ 手動
+          </label>
+          <label class="radio-option" data-value="semi" >
+            <input type="radio" name="mode" value="semi"> ⚡ 半自動
+          </label>
+          <label class="radio-option selected" data-value="full">
+            <input type="radio" name="mode" value="full" checked> 🤖 全自動
+          </label>
+        </div>
+      </div>
+      <div class="setting-row" id="modeDescription">
+        <div>
+          <div class="setting-label">🤖 全自動モード</div>
+          <div class="setting-desc">PLAN→DO→CHECK→ACTを自動で繰り返します。A-ops操作のみDiscord承認が必要です。</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- コスト設定 -->
+    <div class="card">
+      <div class="card-title">💰 コスト管理</div>
+      <div class="card-divider"></div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">日次コスト上限</div>
+          <div class="setting-desc">1日あたりのLLM API利用上限額</div>
+        </div>
+        <div class="range-container">
+          <input type="range" id="costLimit" min="5" max="100" value="30" step="5">
+          <span class="range-value" id="costLimitValue">$30</span>
+        </div>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">日次API呼び出し上限</div>
+          <div class="setting-desc">1日あたりのAPI呼び出し回数上限</div>
+        </div>
+        <div class="range-container">
+          <input type="range" id="callLimit" min="100" max="2000" value="500" step="100">
+          <span class="range-value" id="callLimitValue">500</span>
+        </div>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">コスト警告閾値</div>
+          <div class="setting-desc">この比率を超えると警告を表示（%）</div>
+        </div>
+        <div class="range-container">
+          <input type="range" id="warnThreshold" min="50" max="95" value="70" step="5">
+          <span class="range-value" id="warnThresholdValue">70%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- LLMプロバイダ設定 -->
+    <div class="card">
+      <div class="card-title">🤖 LLMプロバイダ</div>
+      <div class="card-divider"></div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">優先プロバイダ</div>
+          <div class="setting-desc">LLMリクエストの優先ルーティング先</div>
+        </div>
+        <div class="radio-group" id="providerSelector">
+          <label class="radio-option selected" data-value="cloud">
+            <input type="radio" name="provider" value="cloud" checked> ☁️ クラウド
+          </label>
+          <label class="radio-option" data-value="local">
+            <input type="radio" name="provider" value="local"> 🖥️ ローカル
+          </label>
+          <label class="radio-option" data-value="hybrid">
+            <input type="radio" name="provider" value="hybrid"> 🔄 ハイブリッド
+          </label>
+        </div>
+      </div>
+      <div class="provider-config" id="providerConfig">
+        <!-- rendered by JS -->
+      </div>
+    </div>
+
+    <!-- ガバナンス設定 -->
+    <div class="card">
+      <div class="card-title">🛡️ ガバナンス</div>
+      <div class="card-divider"></div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">A-ops 承認チャネル</div>
+          <div class="setting-desc">破壊的操作のDiscord承認チャネル</div>
+        </div>
+        <div>
+          <input type="text" class="form-input" value="#vibe-pdca-approval" style="width:200px" id="approvalChannel">
+        </div>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">承認タイムアウト</div>
+          <div class="setting-desc">A-ops承認の待機上限時間</div>
+        </div>
+        <div class="range-container">
+          <input type="range" id="approvalTimeout" min="5" max="60" value="15" step="5">
+          <span class="range-value" id="approvalTimeoutValue">15分</span>
+        </div>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">停止条件: 連続失敗</div>
+          <div class="setting-desc">CI連続失敗でシステム停止する回数</div>
+        </div>
+        <div class="range-container">
+          <input type="range" id="failureLimit" min="1" max="10" value="3" step="1">
+          <span class="range-value" id="failureLimitValue">3回</span>
+        </div>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">停止条件: 最大停滞時間</div>
+          <div class="setting-desc">進捗なしでシステム停止するまでの時間</div>
+        </div>
+        <div class="range-container">
+          <input type="range" id="stallLimit" min="1" max="12" value="6" step="1">
+          <span class="range-value" id="stallLimitValue">6時間</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- アクションボタン -->
+    <div class="btn-row">
+      <button class="btn-primary" id="btnSaveSettings">💾 設定を保存</button>
+      <button class="btn-secondary" id="btnResetSettings">🔄 デフォルトに戻す</button>
+    </div>
+
+  </div>
+
+  <!-- ログ領域 -->
+  <div class="log-section">
+    <div class="log-title">📋 ログ</div>
+    <div class="log-container" id="logContainer"></div>
+  </div>
+
+  <script src="settings.js"></script>
+</body>
+</html>
