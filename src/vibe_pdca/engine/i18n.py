@@ -7,6 +7,7 @@
 - デフォルトロケールの解決
 - テンプレート内の {key} パターンの置換
 - 用語集の管理と翻訳
+- YAMLメッセージカタログからの一括読み込み
 """
 
 from __future__ import annotations
@@ -15,7 +16,10 @@ import logging
 import re
 from dataclasses import dataclass
 from enum import StrEnum
+from pathlib import Path
 from typing import Any
+
+import yaml
 
 logger = logging.getLogger(__name__)
 
@@ -205,3 +209,164 @@ class GlossaryTranslator:
         """指定ロケールの登録済み用語の一覧を返す。"""
         terms = {t for t, loc in self._glossary if loc == locale}
         return sorted(terms)
+
+
+# ============================================================
+# YAML メッセージカタログローダー
+# ============================================================
+
+
+def _flatten_dict(
+    data: dict[str, Any],
+    prefix: str = "",
+    sep: str = ".",
+) -> dict[str, str]:
+    """ネストされた辞書をドット区切りのフラットキーに展開する。
+
+    Parameters
+    ----------
+    data : dict[str, Any]
+        ネストされた辞書。
+    prefix : str
+        キーの接頭辞。
+    sep : str
+        キー区切り文字。
+
+    Returns
+    -------
+    dict[str, str]
+        フラット化されたキーと値のマッピング。
+    """
+    items: dict[str, str] = {}
+    for key, value in data.items():
+        full_key = f"{prefix}{sep}{key}" if prefix else key
+        if isinstance(value, dict):
+            items.update(_flatten_dict(value, full_key, sep))
+        else:
+            items[full_key] = str(value)
+    return items
+
+
+def load_messages_from_yaml(
+    yaml_path: str | Path,
+    locale: Locale,
+) -> TranslationStore:
+    """YAMLメッセージカタログを読み込み、TranslationStore を返す。
+
+    YAMLファイルのネスト構造はドット区切りキーに展開される。
+    例: ``pdca.phase.plan`` → ``"計画"``
+
+    Parameters
+    ----------
+    yaml_path : str | Path
+        メッセージカタログファイルのパス。
+    locale : Locale
+        このカタログのロケール。
+
+    Returns
+    -------
+    TranslationStore
+        読み込まれた翻訳データを格納したストア。
+
+    Raises
+    ------
+    FileNotFoundError
+        ファイルが存在しない場合。
+    ValueError
+        YAMLの内容が辞書でない場合。
+    """
+    path = Path(yaml_path)
+    if not path.exists():
+        raise FileNotFoundError(
+            f"メッセージカタログが見つかりません: {path}"
+        )
+
+    with path.open(encoding="utf-8") as f:
+        data: Any = yaml.safe_load(f)
+
+    if not isinstance(data, dict):
+        raise ValueError(
+            f"メッセージカタログの形式が不正です（辞書が必要）: {path}"
+        )
+
+    store = TranslationStore()
+    flat = _flatten_dict(data)
+    for key, value in flat.items():
+        store.add(TranslationEntry(key=key, locale=locale, value=value))
+
+    logger.info(
+        "メッセージカタログ読み込み: locale=%s, %d件, path=%s",
+        locale.value, store.count, path,
+    )
+    return store
+
+
+def load_messages_dir(
+    dir_path: str | Path,
+) -> TranslationStore:
+    """ディレクトリ内の全メッセージカタログを読み込む。
+
+    ``messages_{locale}.yml`` のファイル名パターンを自動検出する。
+    複数ロケールのメッセージを1つの TranslationStore に統合する。
+
+    Parameters
+    ----------
+    dir_path : str | Path
+        メッセージカタログのディレクトリパス。
+
+    Returns
+    -------
+    TranslationStore
+        全ロケールの翻訳データを格納したストア。
+
+    Raises
+    ------
+    FileNotFoundError
+        ディレクトリが存在しない場合。
+    """
+    path = Path(dir_path)
+    if not path.is_dir():
+        raise FileNotFoundError(
+            f"メッセージカタログディレクトリが見つかりません: {path}"
+        )
+
+    locale_map: dict[str, Locale] = {loc.value: loc for loc in Locale}
+    store = TranslationStore()
+
+    for yml_file in sorted(path.glob("messages_*.yml")):
+        # ファイル名から "messages_ja.yml" → "ja" を抽出
+        stem = yml_file.stem  # "messages_ja"
+        parts = stem.split("_", 1)
+        if len(parts) != 2:
+            continue
+        locale_code = parts[1]
+        locale = locale_map.get(locale_code)
+        if locale is None:
+            logger.warning(
+                "未対応のロケール: %s (file=%s)", locale_code, yml_file,
+            )
+            continue
+
+        with yml_file.open(encoding="utf-8") as f:
+            data: Any = yaml.safe_load(f)
+
+        if not isinstance(data, dict):
+            logger.warning(
+                "不正なカタログ形式をスキップ: %s", yml_file,
+            )
+            continue
+
+        flat = _flatten_dict(data)
+        for key, value in flat.items():
+            store.add(TranslationEntry(key=key, locale=locale, value=value))
+
+        logger.info(
+            "カタログ読み込み: locale=%s, %d件, file=%s",
+            locale.value, len(flat), yml_file.name,
+        )
+
+    logger.info(
+        "メッセージカタログディレクトリ読み込み完了: 合計%d件",
+        store.count,
+    )
+    return store
