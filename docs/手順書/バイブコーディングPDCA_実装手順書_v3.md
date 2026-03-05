@@ -217,7 +217,7 @@ vibe-pdca/
 │   └── prompts/                # プロンプトテンプレート
 ├── tests/                      # unit/integration/e2e/security
 │   └── fixtures/               # 共有テストデータ
-├── docs/                       # adr/ops/templates
+├── docs/                       # 設計書/手順書/説明書/運用/adr/テンプレート
 └── docker/                     # Dockerfile.sandbox + whitelist.yml
 ```
 
