@@ -1,0 +1,117 @@
+# =============================================================
+# vibe-pdca 日本語メッセージカタログ
+# =============================================================
+# i18n 対応: §21.4 プロンプトテンプレート仕様 / 提案8
+# ロケール: ja (日本語)
+# =============================================================
+
+# ── PDCAフェーズ ──
+pdca:
+  phase:
+    plan: "計画"
+    do: "実行"
+    check: "検証"
+    act: "改善"
+  cycle:
+    start: "PDCAサイクルを開始します"
+    complete: "PDCAサイクルが完了しました"
+    abort: "PDCAサイクルを中断しました"
+
+# ── ペルソナ（役割） ──
+persona:
+  pm: "プロジェクトマネージャー"
+  programmer: "プログラマ"
+  scribe: "書記"
+  designer: "デザイナー"
+  user: "ユーザ"
+  do: "実装担当"
+
+# ── レビュー ──
+review:
+  severity:
+    blocker: "ブロッカー"
+    major: "重大"
+    minor: "軽微"
+  category:
+    correctness: "正しさ"
+    security: "セキュリティ"
+    performance: "性能"
+    ux: "UX"
+    docs: "ドキュメント"
+    testing: "テスト"
+    ops: "運用"
+  result:
+    accept: "承認"
+    reject: "差し戻し"
+    defer: "保留"
+
+# ── ガバナンス ──
+governance:
+  classification:
+    a: "A操作（人間承認必須）"
+    b: "B操作（ペルソナ3承認）"
+    c: "C操作（自動実行可）"
+  approval:
+    required: "承認が必要です"
+    granted: "承認されました"
+    denied: "承認が拒否されました"
+
+# ── CI/CDステータス ──
+ci:
+  status:
+    success: "成功"
+    failure: "失敗"
+    running: "実行中"
+    cancelled: "キャンセル"
+    skipped: "スキップ"
+  provider:
+    github_actions: "GitHub Actions"
+    gitlab_ci: "GitLab CI"
+    circleci: "CircleCI"
+    jenkins: "Jenkins"
+
+# ── コスト管理 ──
+cost:
+  limit_reached: "コスト上限に達しました"
+  daily_limit: "日次コスト上限: {limit}ドル"
+  cycle_limit: "サイクルコスト上限: {limit}ドル"
+  current_usage: "現在の使用量: {amount}ドル"
+
+# ── LLMゲートウェイ ──
+llm:
+  mode:
+    cloud: "クラウド"
+    local: "ローカル"
+  fallback:
+    activated: "フォールバックが発動しました: {from_provider} → {to_provider}"
+    disabled: "自動フォールバックは無効です"
+  circuit_breaker:
+    open: "サーキットブレーカー OPEN: {provider}"
+    half_open: "サーキットブレーカー HALF_OPEN: {provider}"
+    closed: "サーキットブレーカー CLOSED: {provider}"
+
+# ── エラーメッセージ ──
+error:
+  generic: "エラーが発生しました: {detail}"
+  auth_required: "認証が必要です"
+  token_missing: "APIトークンが未設定です: {name}"
+  not_found: "見つかりません: {resource}"
+  validation: "バリデーションエラー: {detail}"
+
+# ── 監査ログ ──
+audit:
+  entry_created: "監査エントリを作成しました"
+  integrity_ok: "整合性チェック: 正常"
+  integrity_fail: "整合性チェック: 異常検出"
+
+# ── 用語集 ──
+glossary:
+  pdca: "PDCAサイクル"
+  milestone: "マイルストーン"
+  task: "タスク"
+  dod: "完了定義（DoD）"
+  goal: "ゴール"
+  sprint: "スプリント"
+  review: "レビュー"
+  prompt: "プロンプト"
+  sandbox: "サンドボックス"

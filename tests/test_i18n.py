@@ -1,5 +1,9 @@
 """国際化（i18n）サポートのテスト。"""
 
+from pathlib import Path
+
+import pytest
+
 from vibe_pdca.engine.i18n import (
     GlossaryTranslator,
     Locale,
@@ -7,6 +11,9 @@ from vibe_pdca.engine.i18n import (
     PromptLocalizer,
     TranslationEntry,
     TranslationStore,
+    _flatten_dict,
+    load_messages_dir,
+    load_messages_from_yaml,
 )
 
 # ============================================================
@@ -207,3 +214,149 @@ class TestGlossaryTranslator:
     def test_list_terms_empty(self):
         gt = GlossaryTranslator()
         assert gt.list_terms(Locale.KO) == []
+
+
+# ============================================================
+# テスト: _flatten_dict
+# ============================================================
+
+
+class TestFlattenDict:
+    def test_flat_dict(self):
+        result = _flatten_dict({"a": "1", "b": "2"})
+        assert result == {"a": "1", "b": "2"}
+
+    def test_nested_dict(self):
+        result = _flatten_dict({"x": {"y": {"z": "deep"}}})
+        assert result == {"x.y.z": "deep"}
+
+    def test_mixed_dict(self):
+        result = _flatten_dict({
+            "pdca": {"phase": {"plan": "計画", "do": "実行"}},
+            "top": "value",
+        })
+        assert result == {
+            "pdca.phase.plan": "計画",
+            "pdca.phase.do": "実行",
+            "top": "value",
+        }
+
+    def test_empty_dict(self):
+        result = _flatten_dict({})
+        assert result == {}
+
+
+# ============================================================
+# テスト: load_messages_from_yaml
+# ============================================================
+
+
+class TestLoadMessagesFromYaml:
+    def test_load_ja_catalog(self, tmp_path: Path):
+        yml = tmp_path / "test_ja.yml"
+        yml.write_text(
+            "pdca:\n  phase:\n    plan: 計画\n    do: 実行\n",
+            encoding="utf-8",
+        )
+        store = load_messages_from_yaml(yml, Locale.JA)
+        assert store.get("pdca.phase.plan", Locale.JA) == "計画"
+        assert store.get("pdca.phase.do", Locale.JA) == "実行"
+        assert store.count == 2
+
+    def test_load_en_catalog(self, tmp_path: Path):
+        yml = tmp_path / "test_en.yml"
+        yml.write_text(
+            "pdca:\n  phase:\n    plan: Plan\n    do: Do\n",
+            encoding="utf-8",
+        )
+        store = load_messages_from_yaml(yml, Locale.EN)
+        assert store.get("pdca.phase.plan", Locale.EN) == "Plan"
+
+    def test_file_not_found(self):
+        with pytest.raises(FileNotFoundError):
+            load_messages_from_yaml("/nonexistent/path.yml", Locale.JA)
+
+    def test_invalid_format(self, tmp_path: Path):
+        yml = tmp_path / "bad.yml"
+        yml.write_text("- list\n- items\n", encoding="utf-8")
+        with pytest.raises(ValueError, match="辞書が必要"):
+            load_messages_from_yaml(yml, Locale.JA)
+
+    def test_real_ja_catalog(self):
+        """config/i18n/messages_ja.yml が正しく読み込めること。"""
+        catalog_path = (
+            Path(__file__).parent.parent / "config" / "i18n" / "messages_ja.yml"
+        )
+        if not catalog_path.exists():
+            pytest.skip("messages_ja.yml が存在しません")
+        store = load_messages_from_yaml(catalog_path, Locale.JA)
+        assert store.count > 0
+        assert store.get("pdca.phase.plan", Locale.JA) == "計画"
+        assert store.get("persona.pm", Locale.JA) == "プロジェクトマネージャー"
+
+    def test_real_en_catalog(self):
+        """config/i18n/messages_en.yml が正しく読み込めること。"""
+        catalog_path = (
+            Path(__file__).parent.parent / "config" / "i18n" / "messages_en.yml"
+        )
+        if not catalog_path.exists():
+            pytest.skip("messages_en.yml が存在しません")
+        store = load_messages_from_yaml(catalog_path, Locale.EN)
+        assert store.count > 0
+        assert store.get("pdca.phase.plan", Locale.EN) == "Plan"
+        assert store.get("persona.pm", Locale.EN) == "Project Manager"
+
+
+# ============================================================
+# テスト: load_messages_dir
+# ============================================================
+
+
+class TestLoadMessagesDir:
+    def test_load_dir(self, tmp_path: Path):
+        (tmp_path / "messages_ja.yml").write_text(
+            "greeting: こんにちは\nfarewell: さようなら\n",
+            encoding="utf-8",
+        )
+        (tmp_path / "messages_en.yml").write_text(
+            "greeting: Hello\nfarewell: Goodbye\n",
+            encoding="utf-8",
+        )
+        store = load_messages_dir(tmp_path)
+        assert store.get("greeting", Locale.JA) == "こんにちは"
+        assert store.get("greeting", Locale.EN) == "Hello"
+        assert store.get("farewell", Locale.JA) == "さようなら"
+        assert store.get("farewell", Locale.EN) == "Goodbye"
+        assert store.count == 4
+
+    def test_dir_not_found(self):
+        with pytest.raises(FileNotFoundError):
+            load_messages_dir("/nonexistent/dir")
+
+    def test_skip_unsupported_locale(self, tmp_path: Path):
+        (tmp_path / "messages_fr.yml").write_text(
+            "greeting: Bonjour\n", encoding="utf-8",
+        )
+        store = load_messages_dir(tmp_path)
+        assert store.count == 0
+
+    def test_skip_malformed_file(self, tmp_path: Path):
+        (tmp_path / "messages_ja.yml").write_text(
+            "- list\n- items\n", encoding="utf-8",
+        )
+        store = load_messages_dir(tmp_path)
+        assert store.count == 0
+
+    def test_real_i18n_dir(self):
+        """config/i18n/ ディレクトリが正しく読み込めること。"""
+        dir_path = (
+            Path(__file__).parent.parent / "config" / "i18n"
+        )
+        if not dir_path.is_dir():
+            pytest.skip("config/i18n/ が存在しません")
+        store = load_messages_dir(dir_path)
+        # JA + EN の両カタログが読み込まれていること
+        locales = store.list_locales()
+        assert Locale.JA in locales
+        assert Locale.EN in locales
+        assert store.count >= 60  # 各言語30+エントリ

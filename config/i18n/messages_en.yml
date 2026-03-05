@@ -1,0 +1,117 @@
+# =============================================================
+# vibe-pdca English Message Catalog
+# =============================================================
+# i18n support: §21.4 Prompt Template Spec / Proposal 8
+# Locale: en (English)
+# =============================================================
+
+# ── PDCA Phases ──
+pdca:
+  phase:
+    plan: "Plan"
+    do: "Do"
+    check: "Check"
+    act: "Act"
+  cycle:
+    start: "Starting PDCA cycle"
+    complete: "PDCA cycle completed"
+    abort: "PDCA cycle aborted"
+
+# ── Personas (Roles) ──
+persona:
+  pm: "Project Manager"
+  programmer: "Programmer"
+  scribe: "Scribe"
+  designer: "Designer"
+  user: "User"
+  do: "Implementer"
+
+# ── Review ──
+review:
+  severity:
+    blocker: "Blocker"
+    major: "Major"
+    minor: "Minor"
+  category:
+    correctness: "Correctness"
+    security: "Security"
+    performance: "Performance"
+    ux: "UX"
+    docs: "Documentation"
+    testing: "Testing"
+    ops: "Operations"
+  result:
+    accept: "Accept"
+    reject: "Reject"
+    defer: "Defer"
+
+# ── Governance ──
+governance:
+  classification:
+    a: "Class A (Human approval required)"
+    b: "Class B (3-persona approval)"
+    c: "Class C (Automatic execution)"
+  approval:
+    required: "Approval required"
+    granted: "Approved"
+    denied: "Approval denied"
+
+# ── CI/CD Status ──
+ci:
+  status:
+    success: "Success"
+    failure: "Failure"
+    running: "Running"
+    cancelled: "Cancelled"
+    skipped: "Skipped"
+  provider:
+    github_actions: "GitHub Actions"
+    gitlab_ci: "GitLab CI"
+    circleci: "CircleCI"
+    jenkins: "Jenkins"
+
+# ── Cost Management ──
+cost:
+  limit_reached: "Cost limit reached"
+  daily_limit: "Daily cost limit: ${limit}"
+  cycle_limit: "Cycle cost limit: ${limit}"
+  current_usage: "Current usage: ${amount}"
+
+# ── LLM Gateway ──
+llm:
+  mode:
+    cloud: "Cloud"
+    local: "Local"
+  fallback:
+    activated: "Fallback activated: {from_provider} → {to_provider}"
+    disabled: "Auto-fallback is disabled"
+  circuit_breaker:
+    open: "Circuit breaker OPEN: {provider}"
+    half_open: "Circuit breaker HALF_OPEN: {provider}"
+    closed: "Circuit breaker CLOSED: {provider}"
+
+# ── Error Messages ──
+error:
+  generic: "An error occurred: {detail}"
+  auth_required: "Authentication required"
+  token_missing: "API token not set: {name}"
+  not_found: "Not found: {resource}"
+  validation: "Validation error: {detail}"
+
+# ── Audit Log ──
+audit:
+  entry_created: "Audit entry created"
+  integrity_ok: "Integrity check: OK"
+  integrity_fail: "Integrity check: Anomaly detected"
+
+# ── Glossary ──
+glossary:
+  pdca: "PDCA Cycle"
+  milestone: "Milestone"
+  task: "Task"
+  dod: "Definition of Done (DoD)"
+  goal: "Goal"
+  sprint: "Sprint"
+  review: "Review"
+  prompt: "Prompt"
+  sandbox: "Sandbox"
