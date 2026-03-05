@@ -46,7 +46,7 @@
 | 監査ログ | `audit/` | 追記専用・チェーンハッシュ・改ざん検知 |
 | プロンプト管理 | `prompts/` | 役割別テンプレート・バージョン管理 |
 | トレーサビリティ | `monitoring/` | Goal→MS→Task→PR→Review→Decision 双方向追跡 |
-| RBAC | `governance/` | Owner/Maintainer/Reviewer/Auditor ロール |
+| RBAC | `governance/` | Owner/Maintainer/Reviewer/Auditor の4ロール（詳細は[ロール権限マトリクス](docs/設計書/ロール権限マトリクス.md)参照） |
 | 用語集 | `glossary/` | 統一用語・エイリアス自動変換 |
 
 ### M2: PDCAエンジン
@@ -288,7 +288,7 @@ vibe-pdca/
 │   │   ├── __init__.py             # TraceLinkManager
 │   │   └── metrics.py              # MetricsCollector
 │   └── prompts/                    # プロンプトテンプレート
-├── tests/                          # テスト
+├── tests/                          # ユニット・統合テスト
 │   ├── test_acceptance.py          # 受入基準12項目
 │   ├── test_security_redteam.py    # セキュリティ検証5パターン
 │   └── ...                         # 各モジュールのユニットテスト
