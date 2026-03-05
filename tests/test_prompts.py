@@ -3,12 +3,17 @@
 M1 タスク 1-5: 日本語応答強制・L1/L2/L3階層・不信入力ラッピング・注入検出。
 """
 
+from pathlib import Path
+
+import pytest
+
 from vibe_pdca.prompts import (
     JAPANESE_RESPONSE_DIRECTIVE,
     UNTRUSTED_INPUT_FOOTER,
     UNTRUSTED_INPUT_HEADER,
     PromptBuilder,
     detect_injection_patterns,
+    load_templates_from_yaml,
     wrap_untrusted_input,
 )
 
@@ -208,8 +213,6 @@ class TestYAMLTemplateLoader:
 
     def test_load_templates_from_yaml(self, tmp_path):
         """YAMLファイルからテンプレートを読み込めること。"""
-        from vibe_pdca.prompts import load_templates_from_yaml
-
         yaml_content = """
 templates:
   - role: pm
@@ -231,17 +234,11 @@ templates:
 
     def test_load_templates_file_not_found(self):
         """存在しないファイルでFileNotFoundErrorが発生すること。"""
-        import pytest
-
-        from vibe_pdca.prompts import load_templates_from_yaml
         with pytest.raises(FileNotFoundError):
             load_templates_from_yaml("/nonexistent/templates.yml")
 
     def test_load_templates_invalid_structure(self, tmp_path):
         """不正なYAML構造でValueErrorが発生すること。"""
-        import pytest
-
-        from vibe_pdca.prompts import load_templates_from_yaml
         yaml_file = tmp_path / "bad.yml"
         yaml_file.write_text("key: value", encoding="utf-8")
         with pytest.raises(ValueError, match="templates"):
@@ -265,15 +262,10 @@ templates:
 
     def test_real_templates_yaml_loads(self):
         """config/prompts/templates.yml が正しく読み込めること。"""
-        from pathlib import Path
-
-        from vibe_pdca.prompts import load_templates_from_yaml
-
         templates_path = (
             Path(__file__).parent.parent / "config" / "prompts" / "templates.yml"
         )
         if not templates_path.exists():
-            import pytest
             pytest.skip("templates.yml が存在しません")
 
         templates = load_templates_from_yaml(templates_path)
