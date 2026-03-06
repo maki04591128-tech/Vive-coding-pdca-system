@@ -214,8 +214,15 @@ rootlessDockerサンドボックス    → CPUコア・RAM余裕
 |------------|------|---------|------------|
 | 7B〜8B | 14GB | **5GB** | Llama3.1-8B, Qwen2.5-7B |
 | 13B〜14B | 26GB | **8GB** | Qwen2.5-14B, Phi-4 |
+| 22B〜24B | 46GB | **13GB** | Codestral-22B, **Devstral-24B** |
 | 30B〜34B | 64GB | **20GB** | Qwen2.5-32B |
 | 70B〜72B | 140GB | **38GB** | Llama3.3-70B, **Qwen2.5-72B** |
+| 235B (MoE) | 470GB | **120GB+** | **Qwen3-235B**（アクティブ 22B） |
+| 671B (MoE) | 1.3TB | **170GB+** ※ | **DeepSeek-V3**（アクティブ 37B） |
+| 1T (MoE) | 2TB | **240GB+** ※ | **Kimi-K2.5**（アクティブ 32B） |
+
+> ※ MoE（Mixture-of-Experts）モデルは全パラメータを VRAM/RAM に読み込む必要がありますが、推論時に使うアクティブパラメータは一部のみです。**VRAM に収まらない部分は RAM にオフロード可能**ですが、推論速度が大幅に低下します（5〜10 tokens/秒 程度）。  
+> 例: DeepSeek-V3 を Q4 量子化 + RAM オフロードで動かすには、VRAM 48GB 以上 + RAM 256GB 以上が推奨です。
 
 ### 3.3 重要なGPUスペックの読み方
 

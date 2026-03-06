@@ -17,12 +17,25 @@ from typing import Any
 import flet as ft
 
 from vibe_pdca.gui.views.dashboard import DashboardView
+from vibe_pdca.gui.views.goal_input import GoalInputView
+from vibe_pdca.gui.views.intervention_view import InterventionView
+from vibe_pdca.gui.views.mode_settings import ModeSettingsView
+from vibe_pdca.gui.views.progress_view import ProgressView
 from vibe_pdca.llm.models import ProviderType
 
 logger = logging.getLogger(__name__)
 
 # アプリケーションのバージョン（pyproject.toml と同期）
-APP_VERSION = "0.1.0"
+APP_VERSION = "0.2.0"
+
+# ── ナビゲーション定義 ──
+_NAV_ITEMS = [
+    {"icon": ft.Icons.DASHBOARD, "label": "ダッシュボード"},
+    {"icon": ft.Icons.FLAG, "label": "ゴール入力"},
+    {"icon": ft.Icons.TRENDING_UP, "label": "進捗閲覧"},
+    {"icon": ft.Icons.SETTINGS, "label": "モード設定"},
+    {"icon": ft.Icons.PAN_TOOL, "label": "介入操作"},
+]
 
 
 # LLMゲートウェイ（AIサービスへの接続窓口）を設定ファイルから構築
@@ -71,8 +84,54 @@ def create_app(page: ft.Page) -> None:
         dashboard.update_status(gateway.get_status())
         page.update()
 
-    # ── ダッシュボード ──
+    # ── ビュー生成 ──
+    def navigate_to(index: int) -> None:
+        """指定インデックスのビューに切替える。"""
+        nav_rail.selected_index = index
+        content_area.content = views[index]
+        page.update()
+
+    def on_nav_change(e: ft.ControlEvent) -> None:
+        """ナビゲーション選択変更のハンドラ。"""
+        navigate_to(int(e.control.selected_index))
+
     dashboard = DashboardView(on_mode_change=on_mode_change)
+    goal_input = GoalInputView(
+        on_submit=lambda goal: dashboard.add_log(f"ゴール設定: {goal[:50]}...", "INFO"),
+        on_back=lambda: navigate_to(0),
+    )
+    progress = ProgressView(on_back=lambda: navigate_to(0))
+    mode_settings = ModeSettingsView(
+        on_mode_change=lambda m: dashboard.add_log(f"運転モード変更: {m}", "INFO"),
+        on_back=lambda: navigate_to(0),
+    )
+    intervention = InterventionView(
+        on_stop=lambda: dashboard.add_log("PDCAサイクル停止", "WARNING"),
+        on_back=lambda: navigate_to(0),
+    )
+
+    views: list[ft.Control] = [dashboard, goal_input, progress, mode_settings, intervention]
+
+    # ── ナビゲーションレール ──
+    nav_rail = ft.NavigationRail(
+        selected_index=0,
+        label_type=ft.NavigationRailLabelType.ALL,
+        min_width=100,
+        min_extended_width=200,
+        destinations=[
+            ft.NavigationRailDestination(
+                icon=item["icon"],
+                label=item["label"],
+            )
+            for item in _NAV_ITEMS
+        ],
+        on_change=on_nav_change,
+    )
+
+    content_area = ft.Container(
+        content=dashboard,
+        expand=True,
+    )
 
     # 初期ステータス反映
     if gateway:
@@ -111,7 +170,17 @@ def create_app(page: ft.Page) -> None:
             },
         })
 
-    page.add(dashboard)
+    # ── レイアウト ──
+    page.add(
+        ft.Row(
+            controls=[
+                nav_rail,
+                ft.VerticalDivider(width=1),
+                content_area,
+            ],
+            expand=True,
+        )
+    )
 
 
 def main() -> None:

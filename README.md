@@ -148,6 +148,13 @@ ollama pull qwen3:72b       # PM・書記用
 ollama pull codestral:22b   # プログラマ・DO用
 ollama pull llama3.3:70b    # デザイナ用
 ollama pull gemma3:27b      # ユーザ用
+
+# 🚀 高性能モデル（オプション — モデルごとに必要スペックが異なります）
+# ollama pull deepseek-v3    # PM・書記用（MoE 671B / VRAM 48GB+, RAM 256GB+, ディスク 170GB+）
+# ollama pull devstral:24b   # プログラマ・DO用（24B / VRAM 16GB+, RAM 32GB+, ディスク 14GB）
+# ollama pull kimi-k2.5      # デザイナ用（MoE 1T / VRAM 24GB+, RAM 256GB+, ディスク 240GB+）
+# ollama pull qwen3:235b     # ユーザ用（MoE 235B / VRAM 120GB+, RAM 256GB+, ディスク 142GB）
+# → 詳細は docs/手順書/03_ローカルセットアップ手順書.md §6.3 参照
 ```
 
 ### 4. テスト実行

@@ -4,7 +4,7 @@
 
 installer:
   app_name: "VibePDCA"
-  version: "0.1.0"
+  version: "0.2.0"
   description: "バイブコーディングPDCA自動開発システム"
 
   # ── ダウンロード元 ──
@@ -57,9 +57,18 @@ installer:
       - "vibe_pdca.gui.app"
       - "vibe_pdca.gui.views"
       - "vibe_pdca.gui.views.dashboard"
+      - "vibe_pdca.gui.views.goal_input"
+      - "vibe_pdca.gui.views.progress_view"
+      - "vibe_pdca.gui.views.intervention_view"
+      - "vibe_pdca.gui.views.mode_settings"
       - "vibe_pdca.gui.components"
       - "vibe_pdca.gui.components.pdca_card"
       - "vibe_pdca.gui.components.status_card"
+      - "vibe_pdca.gui.components.timeline_card"
+      - "vibe_pdca.gui.components.cost_chart_card"
+      - "vibe_pdca.gui.components.traceability_card"
+      - "vibe_pdca.gui.components.radar_card"
+      - "vibe_pdca.gui.components.alert_panel"
       - "vibe_pdca.llm"
       - "vibe_pdca.llm.gateway"
       - "vibe_pdca.llm.models"

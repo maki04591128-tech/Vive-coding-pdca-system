@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 
 # ── 定数 ──────────────────────────────────────────────
 APP_NAME = "VibePDCA"
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 GITHUB_OWNER = "maki04591128-tech"
 GITHUB_REPO = "Vive-coding-pdca-system"
 GITHUB_API_BASE = "https://api.github.com"
@@ -607,7 +607,7 @@ def main() -> None:
         "--tag",
         type=str,
         default=None,
-        help="GitHubリリースタグ（例: v0.1.0）。省略時は latest",
+        help="GitHubリリースタグ（例: v0.2.0）。省略時は latest",
     )
     args = parser.parse_args()
 
