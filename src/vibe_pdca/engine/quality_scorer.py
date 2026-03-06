@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 # ── QualityDimension ──
 
-
+# AIレスポンスの品質を4つの観点（構造・完全性・一貫性・事実正確性）で評価
 class QualityDimension(StrEnum):
     """品質評価の次元。"""
 
@@ -87,7 +87,7 @@ class QualityReport:
 
 # ── StructuralValidator ──
 
-
+# --- 構造検証: JSON形式か、必須キーがあるか、Markdown見出しが揃っているか ---
 class StructuralValidator:
     """LLMレスポンスの構造的妥当性を検証する。"""
 
@@ -194,7 +194,7 @@ class StructuralValidator:
 
 # ── CompletenessChecker ──
 
-
+# --- 完全性検証: タスク数は適切か、レビュー指摘に必須フィールドがあるか ---
 class CompletenessChecker:
     """レスポンスの完全性を検証する。"""
 
@@ -296,7 +296,7 @@ class CompletenessChecker:
 
 # ── HallucinationDetector ──
 
-
+# --- ハルシネーション検出: AIが実在しないファイルやAPIを参照していないかチェック ---
 class HallucinationDetector:
     """基本的なハルシネーション検出を行う。"""
 
@@ -421,7 +421,7 @@ class AutoRetryPolicy:
 
 # ── QualityAwareRetrier ──
 
-
+# --- 品質チェック付きリトライ: 品質が閾値未満なら自動でAIに再生成を依頼 ---
 class QualityAwareRetrier:
     """品質チェックとリトライを統合的に制御する。
 
@@ -596,7 +596,7 @@ class QualityAwareRetrier:
 
 # ── ModelQualityTracker ──
 
-
+# --- 品質トラッカー: モデル別・ロール別の品質統計を蓄積し、劣化を検知 ---
 class ModelQualityTracker:
     """モデル別・ロール別の品質統計を追跡する。"""
 
