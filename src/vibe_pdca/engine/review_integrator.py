@@ -20,6 +20,7 @@ from vibe_pdca.models.pdca import ReviewFinding, ReviewSummary, Severity
 
 logger = logging.getLogger(__name__)
 
+# --- 5ペルソナの重み: 指摘の優先度計算に使用（1.0が最大） ---
 # ペルソナ重み（§8.3 初期値）
 DEFAULT_PERSONA_WEIGHTS: dict[str, float] = {
     "programmer": 1.00,
@@ -29,6 +30,7 @@ DEFAULT_PERSONA_WEIGHTS: dict[str, float] = {
     "scribe": 0.80,
 }
 
+# 重大度のスコア変換: blocker（致命的）=1.0, major（重要）=0.7, minor（軽微）=0.3
 # 重大度スコア
 _SEVERITY_SCORES: dict[Severity, float] = {
     Severity.BLOCKER: 1.0,
@@ -36,6 +38,7 @@ _SEVERITY_SCORES: dict[Severity, float] = {
     Severity.MINOR: 0.3,
 }
 
+# 2つの指摘が65%以上類似していれば「重複」とみなしてクラスタリング
 # 重複判定の類似度閾値
 _SIMILARITY_THRESHOLD = 0.65
 
@@ -60,6 +63,7 @@ class ConflictGroup:
     escalation_required: bool = False
 
 
+# --- レビュー統合エンジン: 5ペルソナの指摘を統合→重複排除→優先度付け→対立解消 ---
 class ReviewIntegrator:
     """5ペルソナのレビュー指摘を統合する（§8.3）。
 
