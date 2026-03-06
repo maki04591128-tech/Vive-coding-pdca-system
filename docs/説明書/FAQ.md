@@ -58,11 +58,15 @@
 **A.** はい。[Ollama](https://ollama.com/) を使用すれば、**インターネット接続なし**で完全にローカル環境で動作します。
 
 ```bash
-# Ollamaをインストール後
-ollama pull llama3.2
+# Ollamaをインストール後、役割別モデルをダウンロード
+ollama pull codestral:22b   # まず軽量モデルで動作確認（12GB程度）
+
 # .env に設定
-OLLAMA_BASE_URL=http://localhost:11434
+VIBE_PDCA_LLM_MODE=local
 ```
+
+> **🚀 高性能モデル**: VRAM 48GB 以上の環境では `deepseek-v3` や `devstral:24b` なども利用可能です。  
+> 詳細は [ローカルセットアップ手順書 §6.3](../手順書/03_ローカルセットアップ手順書.md#63-役割別モデルのダウンロード) を参照してください。
 
 詳細は [ADR-008 クラウド/ローカルLLM切替設計](../adr/ADR-008_クラウドローカルLLM切替設計.md) を参照してください。
 

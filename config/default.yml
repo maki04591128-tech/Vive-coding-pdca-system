@@ -117,6 +117,13 @@ llm:
   #         VIBE_PDCA_LOCAL_LLM_MODEL_PROGRAMMER=codestral:22b
   #   優先順位: 役割別環境変数 > 一括環境変数 > 設定ファイル
   # URL差し替え:   環境変数 VIBE_PDCA_LOCAL_LLM_BASE_URL で接続先サーバーを変更可能
+  #
+  # 🚀 高性能モデル構成（VRAM 48GB以上の環境向け）:
+  #   PM・書記: deepseek-v3（MoE 671B — 推論・日本語に優れる）
+  #   プログラマ・DO: devstral:24b（マルチファイル編集・エージェント向け）
+  #   デザイナ: kimi-k2.5（MoE 1T — マルチモーダル・ビジョン対応）
+  #   ユーザ: qwen3:235b（MoE 235B — 推論・分析に優れる）
+  #   → 環境変数で差し替え可能。詳細は .env.example 参照
   local_providers:
     # PM: 日本語・推論に強いモデル（タスク分解・リスク列挙）
     - name: "ollama-pm"
