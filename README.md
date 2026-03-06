@@ -1,6 +1,8 @@
 # バイブコーディングPDCA自動開発システム
 
 [![Python](https://img.shields.io/badge/python-3.12%2B-blue)](pyproject.toml)
+[![CI](https://github.com/maki04591128-tech/Vive-coding-pdca-system/actions/workflows/ci.yml/badge.svg)](https://github.com/maki04591128-tech/Vive-coding-pdca-system/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ## 概要
 
@@ -305,6 +307,7 @@ vibe-pdca/
 ├── CHANGELOG.md                    # 変更履歴（リダイレクト）
 ├── CONTRIBUTING.md                 # コントリビューションガイド（リダイレクト）
 ├── LICENSE                         # MIT License
+├── Makefile                        # 開発コマンド集（make help で一覧表示）
 ├── pyproject.toml
 └── README.md
 ```
@@ -341,6 +344,14 @@ vibe-pdca/
 
 > 📌 全ドキュメントの索引は [必要なドキュメント一覧](docs/管理/必要なドキュメント一覧.md) を参照してください。
 
+### 🔗 クイックリンク
+
+| ドキュメント | 説明 |
+|-------------|------|
+| [FAQ（よくある質問）](docs/説明書/FAQ.md) | セットアップ・運用・トラブルに関するQ&A |
+| [トラブルシューティングガイド](docs/運用/トラブルシューティングガイド.md) | 問題発生時の対処手順 |
+| [APIリファレンス](docs/設計書/APIリファレンス.md) | REST API全8エンドポイントの仕様 |
+
 ## 関連ドキュメント
 
 | ドキュメント | 内容 |
@@ -350,6 +361,21 @@ vibe-pdca/
 | `docs/手順書/05_バイブコーディングPDCA_実装手順書.md` | M0〜M4の実装手順 |
 | `docs/adr/` | ADR-001〜008（設計判断記録） |
 | `docs/運用/` | Runbook, インシデント対応手順書, チェックリスト |
+| `docs/説明書/FAQ.md` | よくある質問と回答 |
+| `docs/運用/トラブルシューティングガイド.md` | 問題発生時の対処ガイド |
+| `docs/設計書/APIリファレンス.md` | REST API仕様書 |
+
+## 開発コマンド（Makefile）
+
+```bash
+make install      # 開発用インストール
+make lint         # Lintチェック
+make type-check   # 型チェック
+make test         # テスト実行（GUI除外）
+make test-cov     # カバレッジ付きテスト
+make check        # Lint + 型チェック + テスト 一括
+make help         # 全コマンド一覧
+```
 
 ## ライセンス
 
