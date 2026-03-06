@@ -6,7 +6,7 @@ UI部品（ウィジェット）が含まれています。
 含まれるコンポーネント:
   - StatusCard  : LLMプロバイダの状態表示カード（正常/障害/フォールバック）
   - CostCard    : API利用コストの表示カード
-  - PDCACard    : PDCAサイクルの進行状況を表示するカード
+  - PDCAStatusCard : PDCAサイクルの進行状況を表示するカード
 """
 
 __all__ = ["StatusCard", "CostCard", "PDCAStatusCard"]
