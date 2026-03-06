@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 # ── WebhookEventType ──
 
-
+# GitHubから送られてくるイベントの種類（Issue作成、PR レビュー、CI完了等）
 class WebhookEventType(StrEnum):
     """Webhookイベントの種別。"""
 
@@ -58,7 +58,7 @@ class WebhookEvent:
 
 # ── EventFilter ──
 
-
+# --- イベントフィルター: 受信したイベントを種別やペイロードで取捨選択 ---
 @dataclass
 class EventFilter:
     """イベントフィルタ条件。
@@ -87,7 +87,7 @@ class EventFilter:
 
 # ── EventQueue ──
 
-
+# --- イベントキュー: 受信したイベントを順番に処理する待ち行列 ---
 class EventQueue:
     """インメモリのイベントキュー。
 
@@ -161,7 +161,7 @@ class EventQueue:
 
 # ── BackpressureController ──
 
-
+# バックプレッシャー制御: キューが満杯に近づいたら新規イベントの受け入れを制限
 class BackpressureController:
     """バックプレッシャー制御。
 
@@ -211,7 +211,7 @@ class BackpressureController:
 
 # ── WebhookRouter ──
 
-
+# --- ルーター: イベント種別に応じて適切なハンドラ（処理関数）に振り分ける ---
 class WebhookRouter:
     """イベントタイプ別のルーティング。
 

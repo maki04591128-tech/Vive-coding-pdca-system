@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 ENV_PREFIX = "VIBE_PDCA_"
 
 
+# ディープマージ: ネストされた辞書を再帰的に結合する（上位設定を下位で上書き不可）
 def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
     """辞書の深いマージ。override が base を上書きする。"""
     merged = base.copy()
@@ -47,6 +48,7 @@ def resolve_env_vars(config: dict[str, Any]) -> dict[str, Any]:
     return resolved
 
 
+# --- 設定ローダー: YAML設定ファイルを読み込み、環境変数で上書きする ---
 def load_config(
     config_dir: str | Path = "config",
     env: str | None = None,

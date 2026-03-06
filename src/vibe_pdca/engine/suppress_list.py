@@ -18,8 +18,10 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 DEFAULT_SUPPRESS_DAYS = 90
+# ※ 抑制エントリのデフォルト有効期間は90日。期限が切れると自動で無効になる
 
 
+# 「この問題はわかっているが今は直さない」という登録1件分のデータ
 @dataclass
 class SuppressEntry:
     """Suppress List のエントリ。"""
@@ -37,6 +39,7 @@ class SuppressEntry:
         return self.expires_at > 0 and time.time() > self.expires_at
 
 
+# --- Suppress List 管理: AIが検出した「わかっている問題」を抑制するリスト ---
 class SuppressList:
     """既知誤検知の Suppress List 管理。"""
 
@@ -85,6 +88,7 @@ class SuppressList:
         SuppressEntry
             登録されたエントリ。
         """
+        # 有効期限を計算し、新しい抑制エントリを作成してリストに追加する
         days = expires_days or self._default_days
         now = time.time()
         entry = SuppressEntry(
@@ -116,6 +120,7 @@ class SuppressList:
         bool
             抑制対象の場合True。
         """
+        # 有効（承認済み＋期限内）な全エントリとパターンマッチで照合
         for entry in self._entries:
             if not entry.approved or entry.is_expired:
                 continue
@@ -144,6 +149,7 @@ class SuppressList:
         self._entries = [e for e in self._entries if e.id != entry_id]
         return len(self._entries) < before
 
+    # 期限切れエントリを一括削除して、リストを最新状態に保つ
     def purge_expired(self) -> int:
         """期限切れエントリを削除する。"""
         before = len(self._entries)

@@ -17,14 +17,17 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+# --- リソース監視のしきい値: 80%で警告、95%で危険アラート ---
 # デフォルト閾値
 DEFAULT_WARNING_THRESHOLD = 0.8
 DEFAULT_CRITICAL_THRESHOLD = 0.95
 
+# Dockerコンテナがメモリ不足で強制終了されたときの終了コード
 # OOMキルの終了コード
 OOM_EXIT_CODE = 137
 
 
+# コンテナ（AIがコードを実行する隔離環境）に割り当てるリソースの上限
 @dataclass
 class ResourceLimit:
     """コンテナリソース制限。"""
@@ -59,6 +62,7 @@ class ResourceAlert:
     severity: str
 
 
+# --- ResourceLimit → Dockerコマンド引数への変換 ---
 class DockerResourceConfig:
     """ResourceLimitからDocker実行引数を生成する。"""
 
@@ -106,6 +110,7 @@ class DockerResourceConfig:
         }
 
 
+# --- リソース監視: 使用量を定期チェックし、しきい値超過でアラート ---
 class ResourceMonitor:
     """コンテナリソース使用量を監視し、アラートを生成する。"""
 
@@ -126,6 +131,7 @@ class ResourceMonitor:
         self._samples.append(usage)
         alerts: list[ResourceAlert] = []
 
+        # メモリ・CPU・ディスク・PID数の4項目をそれぞれ制限値と比較
         checks: list[tuple[str, float, float]] = [
             ("memory", usage.memory_mb, float(self._limit.memory_mb)),
             ("cpu", usage.cpu_percent, 100.0 * self._limit.cpus),
@@ -192,6 +198,7 @@ class ResourceMonitor:
         }
 
 
+# --- OOM（メモリ不足）検知: コンテナがメモリ不足で強制終了されたかを判定 ---
 class OOMHandler:
     """Out-of-Memoryキルの検知とレポート生成。"""
 

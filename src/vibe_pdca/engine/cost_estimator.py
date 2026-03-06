@@ -12,13 +12,14 @@ from dataclasses import dataclass, field
 
 logger = logging.getLogger(__name__)
 
-# コスト推定の基準値
+# --- コスト見積もりの基準パラメータ（実績ベースの概算値） ---
 COST_PER_LLM_CALL_USD = 0.03
 LLM_CALLS_PER_TASK = 10
 TASKS_PER_CYCLE_AVG = 5
 CYCLES_PER_MILESTONE_AVG = 3
 
 
+# コスト見積もり結果のデータクラス（マイルストーン数・サイクル数・費用・リスク）
 @dataclass
 class CostEstimate:
     """コスト見積もり結果。"""
@@ -62,6 +63,7 @@ class CostEstimate:
         return "\n".join(lines)
 
 
+# --- コスト見積もりエンジン: 受入条件数と複雑度からLLMコストを概算する ---
 class CostEstimator:
     """コスト見積もり。"""
 
@@ -95,7 +97,7 @@ class CostEstimator:
         CostEstimate
             見積もり結果。
         """
-        # 複雑度係数
+        # 複雑度に応じて見積もりを調整: low=0.7倍、medium=1.0倍、high=1.5倍
         complexity_mult = {"low": 0.7, "medium": 1.0, "high": 1.5}.get(
             complexity, 1.0,
         )
@@ -110,7 +112,7 @@ class CostEstimator:
         est_cost = est_llm_calls * self._cost_per_call
         est_duration = est_cycles * 1  # 1日/サイクル概算
 
-        # リスク分析
+        # リスク分析: 受入条件数・複雑度・コスト額に基づいてリスクを列挙
         risks: list[str] = []
         if acceptance_criteria_count > 10:
             risks.append("受入条件が多い – スコープ肥大化のリスク")
@@ -119,7 +121,7 @@ class CostEstimator:
         if est_cost > 50:
             risks.append(f"推定コストが高い (${est_cost:.2f}) – 段階的実施を推奨")
 
-        # 内訳
+        # フェーズ別コスト内訳: PLAN/DO/CHECK/ACTそれぞれのLLM呼び出し回数で算出
         plan_cost = est_cycles * 5 * self._cost_per_call
         do_cost = est_tasks * 3 * self._cost_per_call
         check_cost = est_cycles * 10 * self._cost_per_call

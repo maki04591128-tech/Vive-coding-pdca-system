@@ -43,6 +43,7 @@ _LANGUAGE_DIRECTIVES: dict[str, str] = {
 # ============================================================
 
 
+# API利用コストを追跡するカウンター（予算超過を防ぐために使用）
 @dataclass
 class CostTracker:
     """LLM 呼び出しコストの追跡。§15.1 準拠。"""
@@ -113,6 +114,8 @@ class CostTracker:
 # ============================================================
 
 
+# --- LLMゲートウェイ: 複数のAIサービスを一元管理する「窓口」---
+# フォールバック（代替切替）、コスト計算、サーキットブレーカーを統合
 class LLMGateway:
     """統一 LLM 呼び出しインターフェース。
 
@@ -287,7 +290,7 @@ class LLMGateway:
         if not within_limit:
             raise CostLimitExceededError(reason)
 
-        # 優先モードに基づくプロバイダ解決
+        # プライマリ → セカンダリ → ローカルの順にフォールバックしてリクエスト
         if self._preferred_mode == ProviderType.CLOUD:
             return self._call_with_cloud_fallback(request)
         else:

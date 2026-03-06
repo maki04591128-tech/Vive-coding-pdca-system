@@ -19,6 +19,7 @@ from vibe_pdca.engine.intervention import IncidentPriority
 logger = logging.getLogger(__name__)
 
 
+# インシデントレポート1件分のデータ（優先度・原因・影響範囲・是正措置・再開条件）
 @dataclass
 class IncidentReport:
     """インシデントレポート。"""
@@ -89,6 +90,7 @@ class IncidentReport:
         return "\n".join(lines)
 
 
+# --- インシデントレポーター: P0/P1インシデントの定型レポートを自動生成 ---
 class IncidentReporter:
     """インシデントレポート自動生成。"""
 
@@ -107,6 +109,7 @@ class IncidentReporter:
         affected_services: list[str] | None = None,
     ) -> IncidentReport:
         """P0インシデントレポートを生成する。"""
+        # P0: 即停止レベル — 全システム停止＋Owner承認で再開
         report = IncidentReport(
             priority=IncidentPriority.P0,
             title=title,
@@ -139,6 +142,7 @@ class IncidentReporter:
         affected_services: list[str] | None = None,
     ) -> IncidentReport:
         """P1インシデントレポートを生成する。"""
+        # P1: 縮退レベル — 一部機能停止＋Maintainer承認で再開
         report = IncidentReport(
             priority=IncidentPriority.P1,
             title=title,

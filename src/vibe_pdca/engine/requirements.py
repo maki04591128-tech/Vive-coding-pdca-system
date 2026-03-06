@@ -20,6 +20,7 @@ from vibe_pdca.models.pdca import Goal, ReviewFinding, Severity
 logger = logging.getLogger(__name__)
 
 
+# 要件定義の進行状態: 下書き→レビュー中→承認済み or 修正要
 class RequirementStatus(StrEnum):
     """要件定義の状態。"""
 
@@ -29,6 +30,7 @@ class RequirementStatus(StrEnum):
     NEEDS_REVISION = "needs_revision"
 
 
+# AIが検出する要件の欠落カテゴリ（受入条件不足、制約曖昧、禁止事項漏れ等）
 class GapCategory(StrEnum):
     """欠落カテゴリ。"""
 
@@ -96,6 +98,7 @@ class RequirementFinalizer:
     def questions(self) -> list[DiffQuestion]:
         return list(self._questions)
 
+    # --- 欠落検出エンジン: ユーザーの入力から抜け漏れを自動検出する ---
     def detect_gaps(self, goal: Goal) -> list[GapItem]:
         """ゴール入力から欠落を検出する（§B4: 差分質問）。
 
@@ -197,6 +200,7 @@ class RequirementFinalizer:
                 return True
         return False
 
+    # --- 要件レビュー: 5ペルソナで要件をレビューし、blockerがなければPDCA開始 ---
     def finalize(
         self,
         goal: Goal,

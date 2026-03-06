@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 # ============================================================
 
 
+# --- LLMプロバイダ基底クラス: すべてのAIサービス接続の共通インターフェース ---
 class BaseLLMProvider(ABC):
     """LLMプロバイダの基底インターフェース。"""
 
@@ -49,6 +50,7 @@ class BaseLLMProvider(ABC):
 # ============================================================
 
 
+# --- クラウドLLM: インターネット経由でAPIを呼び出すプロバイダ（OpenAI, Anthropic等） ---
 class CloudLLMProvider(BaseLLMProvider):
     """クラウド LLM プロバイダ（OpenAI / Anthropic / Google / xAI 等）。
 
@@ -223,6 +225,7 @@ class CloudLLMProvider(BaseLLMProvider):
 # ============================================================
 
 
+# --- ローカルLLM: 自前サーバーで動作するプロバイダ（vLLM, Ollama等） ---
 class LocalLLMProvider(BaseLLMProvider):
     """ローカル LLM プロバイダ（Ollama / llama.cpp / vLLM 等）。
 

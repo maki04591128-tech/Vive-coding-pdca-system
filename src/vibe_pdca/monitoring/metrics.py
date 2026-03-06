@@ -24,6 +24,7 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
+# アラートの深刻度: critical(即対応) > warning(注意) > info(参考情報)
 class AlertSeverity(StrEnum):
     """アラート重大度。"""
 
@@ -101,6 +102,7 @@ class DashboardData:
     recent_alerts: list[Alert] = field(default_factory=list)
 
 
+# --- メトリクス収集: サイクル実行時間・コスト・品質などの測定値を記録 ---
 class MetricsCollector:
     """メトリクス収集・アラート管理。"""
 

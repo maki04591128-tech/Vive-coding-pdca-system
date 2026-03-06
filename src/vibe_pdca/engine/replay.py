@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 # ============================================================
 
 
+# フェーズ1回分の記録（プロンプト・レスポンス・判定結果・CI結果）
 @dataclass
 class PhaseSnapshot:
     """フェーズ単位のスナップショット。"""
@@ -34,6 +35,7 @@ class PhaseSnapshot:
     timestamp: float = field(default_factory=time.time)
 
 
+# サイクル全体の記録（全フェーズのスナップショットを保持）
 @dataclass
 class CycleSnapshot:
     """サイクル全体のスナップショット。"""
@@ -60,6 +62,7 @@ class ReplayResult:
 # ============================================================
 
 
+# --- スナップショット記録: サイクル実行中の各フェーズの状態を保存 ---
 class SnapshotRecorder:
     """サイクル実行中の各フェーズ状態を記録する。"""
 
@@ -129,6 +132,7 @@ class SnapshotRecorder:
 # ============================================================
 
 
+# --- リプレイエンジン: 過去サイクルの再生・差分比較・What-if分析 ---
 class ReplayEngine:
     """記録済みスナップショットを用いてサイクルを再生する。"""
 
@@ -181,6 +185,7 @@ class ReplayEngine:
 
         phase_results: list[dict[str, Any]] = []
         deviations: list[str] = []
+        # 各フェーズを再生し、指定されたフェーズのレスポンスを差し替える
         for ps in snapshot.snapshots:
             response = ps.response
             if ps.phase in overrides:
@@ -233,6 +238,7 @@ class ReplayEngine:
         if len_a != len_b:
             differences.append(f"フェーズ数が異なる: {len_a} vs {len_b}")
 
+        # フェーズごとにレスポンス・判定・CI結果を比較し、差分を列挙
         for i, (pa, pb) in enumerate(zip(snap_a.snapshots, snap_b.snapshots, strict=False)):
             if pa.phase != pb.phase:
                 differences.append(f"フェーズ[{i}] の種類が異なる: '{pa.phase}' vs '{pb.phase}'")
@@ -251,6 +257,7 @@ class ReplayEngine:
 # ============================================================
 
 
+# --- デバッグセッション: ブレークポイント設定＋ステップ実行で1フェーズずつ確認 ---
 class DebugSession:
     """ブレークポイント設定・ステップ実行によるデバッグ機能を提供する。"""
 

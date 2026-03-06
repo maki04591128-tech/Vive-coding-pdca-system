@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 APP_VERSION = "0.1.0"
 
 
+# LLMゲートウェイ（AIサービスへの接続窓口）を設定ファイルから構築
 def _build_gateway() -> Any:
     """設定ファイルから LLMGateway を構築する。失敗時は None。"""
     try:
@@ -37,6 +38,7 @@ def _build_gateway() -> Any:
         return None
 
 
+# --- アプリケーション起動: Fletフレームワークでダッシュボード画面を構築する ---
 def create_app(page: ft.Page) -> None:
     """Flet アプリケーションを構成する。
 

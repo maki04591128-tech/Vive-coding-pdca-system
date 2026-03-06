@@ -52,6 +52,8 @@ class PlanResult:
         return len(self.tasks)
 
 
+# --- PLANフェーズ: AIが次のサイクルでやるべきタスクを計画する ---
+# ゴールとマイルストーンから、最大7件のタスクを自動生成する
 class Planner:
     """PLANフェーズを実行してタスクを生成する。
 

@@ -7,6 +7,7 @@ from typing import Any
 import flet as ft
 
 
+# --- ステータスカード: LLMプロバイダの状態をカード型UIで表示するウィジェット ---
 class StatusCard(ft.Card):
     """プロバイダのステータスを表示するカードウィジェット。
 
@@ -91,6 +92,7 @@ class StatusCard(ft.Card):
         return mapping.get(status, (ft.Icons.HELP, ft.Colors.GREY))
 
 
+# --- コストカード: API利用コスト（USD/日、合計）を表示するウィジェット ---
 class CostCard(ft.Card):
     """コスト情報を表示するカードウィジェット。"""
 

@@ -223,7 +223,7 @@ def extract_archive(archive_path: Path, dest_dir: Path) -> Path:
                     raise InstallerError(
                         f"不正なパスを検出（パストラバーサル）: {member.name}"
                     )
-            tar.extractall(dest_dir)  # noqa: S202
+            tar.extractall(dest_dir, filter="data")  # noqa: S202
     elif name.endswith(".zip"):
         with zipfile.ZipFile(archive_path, "r") as zf:
             for info in zf.infolist():

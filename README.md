@@ -1,12 +1,14 @@
 # バイブコーディングPDCA自動開発システム
 
 [![Python](https://img.shields.io/badge/python-3.12%2B-blue)](pyproject.toml)
+[![CI](https://github.com/maki04591128-tech/Vive-coding-pdca-system/actions/workflows/ci.yml/badge.svg)](https://github.com/maki04591128-tech/Vive-coding-pdca-system/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ## 概要
 
 バイブコーディングPDCA自動開発システムは、**目標（最終到達点）を入力するだけで PLAN→DO→CHECK→ACT の自動PDCAサイクルを回し、ソフトウェアを自律的に開発**するシステムです。
 
-5ペルソナ（PM/Architect/Security/QA/UX）による自動レビュー、ガバナンス承認ワークフロー、監査ログによる完全追跡、コスト管理、セキュリティ強化を備えています。
+5ペルソナ（PM/書記/プログラマ/デザイナ/ユーザ）による自動レビュー、ガバナンス承認ワークフロー、監査ログによる完全追跡、コスト管理、セキュリティ強化を備えています。
 
 ## システムアーキテクチャ
 
@@ -46,7 +48,7 @@
 | 監査ログ | `audit/` | 追記専用・チェーンハッシュ・改ざん検知 |
 | プロンプト管理 | `prompts/` | 役割別テンプレート・バージョン管理 |
 | トレーサビリティ | `monitoring/` | Goal→MS→Task→PR→Review→Decision 双方向追跡 |
-| RBAC | `governance/` | Owner/Maintainer/Viewer ロール |
+| RBAC | `governance/` | Owner/Maintainer/Reviewer/Auditor の4ロール（詳細は[ロール権限マトリクス](docs/設計書/ロール権限マトリクス.md)参照） |
 | 用語集 | `glossary/` | 統一用語・エイリアス自動変換 |
 
 ### M2: PDCAエンジン
@@ -99,7 +101,16 @@
 
 ## セットアップ
 
+> 🔰 **はじめての方へ**  
+> ターミナル（黒い画面）の開き方や基本操作がわからない場合は、まず [手順書 — パソコン初心者の方へ](docs/手順書/00_はじめに.md#-パソコン初心者の方へ--基礎知識ガイド) をお読みください。  
+> 詳しいステップバイステップの手順は [03 ローカルセットアップ手順書](docs/手順書/03_ローカルセットアップ手順書.md) にまとめています。
+
 ### 1. インストール
+
+> **前提**: Python 3.12 以上 と Git がインストールされている必要があります。  
+> - Python のインストール → [python.org/downloads](https://www.python.org/downloads/)  
+> - Git のインストール → [git-scm.com](https://git-scm.com/)  
+> - `pip` は Python に同梱されるパッケージ管理ツールです。以下のコマンドをターミナルにコピー＆貼り付けして実行してください。
 
 ```bash
 # 基本（バックエンドのみ）
@@ -107,24 +118,32 @@ pip install -e ".[dev]"
 
 # GUI 付き（デスクトップ / モバイルアプリ対応）
 pip install -e ".[dev,gui]"
+
+# Google Gemini LLM を使用する場合
+pip install -e ".[dev,google]"
 ```
 
 ### 2. 環境変数
 
 `.env.example` を `.env` にコピーして API キーを設定してください。
 
+> 💡 **`.env` ファイルとは？** アプリケーションの秘密の設定値（APIキーなど）を保管するファイルです。`.gitignore` で Git の管理対象から除外されているため、各自が手元で作成します。
+
 ```bash
 cp .env.example .env
-# .env を編集して各プロバイダの API キーを設定
+# .env をテキストエディタで開いて、各プロバイダの API キーを設定
 ```
 
 ### 3. ローカルLLM（Ollama）のセットアップ
 
-```bash
-# Ollama インストール
-curl -fsSL https://ollama.com/install.sh | sh
+> 💡 **Ollama とは？** パソコン上で AI モデルを動かすためのツールです。クラウド API を使わずに、ローカル環境だけで LLM を利用できます。
 
-# 役割別デフォルトモデルのダウンロード
+```bash
+# Ollama インストール（Linux / macOS）
+curl -fsSL https://ollama.com/install.sh | sh
+# Windows の場合は https://ollama.com/download からインストーラーをダウンロード
+
+# 役割別デフォルトモデルのダウンロード（各数十GB — ディスク容量に注意）
 ollama pull qwen3:72b       # PM・書記用
 ollama pull codestral:22b   # プログラマ・DO用
 ollama pull llama3.3:70b    # デザイナ用
@@ -231,9 +250,15 @@ vibe-pdca/
 │   └── environments/
 ├── docs/                           # ドキュメント
 │   ├── 設計書/                     # 要件定義・設計書・仕様書
-│   │   └── バイブコーディングPDCAシステム_要件定義書_v6.md
-│   ├── 手順書/                     # セットアップ・ビルド・実装手順
-│   │   └── バイブコーディングPDCA_実装手順書_v3.md
+│   │   └── バイブコーディングPDCAシステム_要件定義書.md
+│   ├── 手順書/                     # セットアップ・ビルド・実装手順（番号順に実施）
+│   │   ├── 00_はじめに.md          # 手順書ガイド（どこから始めるか）
+│   │   ├── 01_ハードウェア構築手順書.md
+│   │   ├── 02_システムセットアップ手順書.md
+│   │   ├── 03_ローカルセットアップ手順書.md
+│   │   ├── 04_運用保守手順書.md
+│   │   ├── 05_バイブコーディングPDCA_実装手順書.md
+│   │   └── 06_インストーラービルド手順書.md
 │   ├── 説明書/                     # 説明・解説ドキュメント
 │   ├── 運用/                       # 運用 Runbook, Playbook 等
 │   ├── adr/                        # ADR-001〜008
@@ -288,11 +313,15 @@ vibe-pdca/
 │   │   ├── __init__.py             # TraceLinkManager
 │   │   └── metrics.py              # MetricsCollector
 │   └── prompts/                    # プロンプトテンプレート
-├── tests/                          # 523テスト
+├── tests/                          # ユニット・統合テスト
 │   ├── test_acceptance.py          # 受入基準12項目
 │   ├── test_security_redteam.py    # セキュリティ検証5パターン
 │   └── ...                         # 各モジュールのユニットテスト
 ├── .env.example
+├── CHANGELOG.md                    # 変更履歴（リダイレクト）
+├── CONTRIBUTING.md                 # コントリビューションガイド（リダイレクト）
+├── LICENSE                         # MIT License
+├── Makefile                        # 開発コマンド集（make help で一覧表示）
 ├── pyproject.toml
 └── README.md
 ```
@@ -314,14 +343,53 @@ vibe-pdca/
 | 11 | A操作承認要求 | ✅ |
 | 12 | 入力→決定→成果のTraceLink追跡 | ✅ |
 
+## 📚 ドキュメント一覧
+
+| カテゴリ | 内容 | パス |
+|---------|------|------|
+| **手順書** | 環境構築・運用の具体的な手順（[はじめに](docs/手順書/00_はじめに.md)から開始） | `docs/手順書/` |
+| **説明書** | 用語解説・システムの仕組みの解説 | `docs/説明書/` |
+| **設計書** | 要件定義・アーキテクチャ・仕様書 | `docs/設計書/` |
+| **ADR** | アーキテクチャ決定記録（ADR-001〜008） | `docs/adr/` |
+| **運用** | インシデント対応・チェックリスト・フォールバック手順 | `docs/運用/` |
+| **提案書** | 機能提案（提案1〜30、全件実装済み） | `docs/提案書/` |
+| **テンプレート** | フィードバックログ・統括レビュー要約のテンプレート | `docs/テンプレート/` |
+| **管理** | 変更履歴・ドキュメント一覧・残タスク・セキュリティポリシー | `docs/管理/` |
+
+> 📌 全ドキュメントの索引は [必要なドキュメント一覧](docs/管理/必要なドキュメント一覧.md) を参照してください。
+
+### 🔗 クイックリンク
+
+| ドキュメント | 説明 |
+|-------------|------|
+| [FAQ（よくある質問）](docs/説明書/FAQ.md) | セットアップ・運用・トラブルに関するQ&A |
+| [トラブルシューティングガイド](docs/運用/トラブルシューティングガイド.md) | 問題発生時の対処手順 |
+| [APIリファレンス](docs/設計書/APIリファレンス.md) | REST API全8エンドポイントの仕様 |
+
 ## 関連ドキュメント
 
 | ドキュメント | 内容 |
 |-------------|------|
-| `docs/設計書/バイブコーディングPDCAシステム_要件定義書_v6.md` | 全27章の要件定義 |
-| `docs/手順書/バイブコーディングPDCA_実装手順書_v3.md` | M0〜M4の実装手順 |
+| `docs/設計書/バイブコーディングPDCAシステム_要件定義書.md` | 全27章の要件定義 |
+| `docs/手順書/00_はじめに.md` | 手順書ガイド（どこから始めるか） |
+| `docs/手順書/05_バイブコーディングPDCA_実装手順書.md` | M0〜M4の実装手順 |
 | `docs/adr/` | ADR-001〜008（設計判断記録） |
 | `docs/運用/` | Runbook, インシデント対応手順書, チェックリスト |
+| `docs/説明書/FAQ.md` | よくある質問と回答 |
+| `docs/運用/トラブルシューティングガイド.md` | 問題発生時の対処ガイド |
+| `docs/設計書/APIリファレンス.md` | REST API仕様書 |
+
+## 開発コマンド（Makefile）
+
+```bash
+make install      # 開発用インストール
+make lint         # Lintチェック
+make type-check   # 型チェック
+make test         # テスト実行（GUI除外）
+make test-cov     # カバレッジ付きテスト
+make check        # Lint + 型チェック + テスト 一括
+make help         # 全コマンド一覧
+```
 
 ## ライセンス
 

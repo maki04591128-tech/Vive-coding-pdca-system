@@ -22,6 +22,8 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
+# サーキットブレーカーの状態遷移: CLOSED(正常) → OPEN(遮断) → HALF_OPEN(試行)
+# ※ 電気のブレーカーと同じ発想。障害が続くと自動で「遮断」し、回復を待つ
 class CircuitState(Enum):
     """サーキットブレーカーの状態。"""
 
@@ -54,6 +56,7 @@ class CircuitBreakerMetrics:
     state_changes: list[dict[str, Any]] = field(default_factory=list)
 
 
+# --- サーキットブレーカー: AIサービスの障害を検知し、連鎖的な障害を防ぐ ---
 class CircuitBreaker:
     """クラウドLLM 用サーキットブレーカー。
 
@@ -108,6 +111,7 @@ class CircuitBreaker:
             self._metrics.consecutive_successes += 1
             self._metrics.last_success_time = time.monotonic()
 
+            # HALF_OPEN 状態での成功は CLOSED（正常）に復帰するトリガー
             if (
                 self._state == CircuitState.HALF_OPEN
                 and self._metrics.consecutive_successes >= self.config.success_threshold
@@ -129,6 +133,7 @@ class CircuitBreaker:
             self._metrics.consecutive_successes = 0
             self._metrics.last_failure_time = time.monotonic()
 
+            # 失敗回数がしきい値に達したら OPEN（遮断）状態に遷移
             if self._state == CircuitState.HALF_OPEN:
                 self._transition_to(CircuitState.OPEN)
                 self._half_open_calls = 0

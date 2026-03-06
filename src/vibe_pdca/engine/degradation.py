@@ -14,6 +14,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+# --- モデル劣化検知のパラメータ ---
 OBSERVATION_WINDOW = 10
 WEIGHT_ADJUSTMENT_STEP = 0.05
 MIN_WEIGHT = 0.1
@@ -24,11 +25,13 @@ TREND_DEGRADING = "degrading"
 TREND_STABLE = "stable"
 TREND_IMPROVING = "improving"
 TREND_INSUFFICIENT_DATA = "insufficient_data"
+# ※ トレンド判定: 前半5サイクルと後半5サイクルの品質スコアを比較
 
 # サイクル分析で除外するトレンド（調整不要）
 _SKIP_TRENDS = frozenset({TREND_STABLE, TREND_INSUFFICIENT_DATA})
 
 
+# モデル観測データ1件（サイクル番号・モデル名・品質スコア・エラー有無）
 @dataclass
 class ModelObservation:
     """モデル観測データ1件。"""
@@ -64,6 +67,7 @@ class WeightAdjustmentResult:
     governance_level: str = "B"  # B操作扱い（§17.1）
 
 
+# --- 劣化検知エンジン: 10サイクル連続観測で品質低下トレンドを自動検出 ---
 class ModelDegradationDetector:
     """モデル劣化検知。
 
@@ -134,6 +138,7 @@ class ModelDegradationDetector:
             o.quality_score for o in recent[half:]
         ) / max(len(recent) - half, 1)
 
+        # 前半と後半の品質スコア平均を比較し、劣化/安定/改善を判定
         diff = second_half_avg - first_half_avg
 
         if diff < -0.1:
@@ -214,6 +219,7 @@ class ModelDegradationDetector:
         reports = self.get_all_reports()
         return [r for r in reports if r.trend not in _SKIP_TRENDS]
 
+    # ペルソナ重みを劣化/改善に応じて自動調整する（B操作＝バックアップ必須）
     def auto_adjust_weights(self) -> list[WeightAdjustmentResult]:
         """分析結果に基づきペルソナ重みを一括自動調整する（B操作）。
 

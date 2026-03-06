@@ -16,12 +16,13 @@ from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 
-# 入力長の上限
+# --- 入力長の上限: 悪意のある大量データの送信を防ぐための制限値 ---
 MAX_GOAL_LENGTH = 10000
 MAX_FIELD_LENGTH = 5000
 MAX_PATH_LENGTH = 500
 
-# 危険なパターン
+# --- プロンプトインジェクション検出パターン ---
+# AIへの指示を乗っ取ろうとする攻撃パターンを正規表現で定義
 _PROMPT_INJECTION_PATTERNS: list[re.Pattern[str]] = [
     re.compile(r"ignore\s+(previous|above|all)\s+instructions", re.IGNORECASE),
     re.compile(r"system\s*:\s*you\s+are", re.IGNORECASE),
@@ -30,6 +31,7 @@ _PROMPT_INJECTION_PATTERNS: list[re.Pattern[str]] = [
 ]
 
 _PATH_TRAVERSAL_PATTERN = re.compile(r"\.\./|\.\.\\")
+# ※ "../" でディレクトリを遡り、許可外のファイルにアクセスする攻撃を検出
 
 
 class InputValidationError(Exception):
@@ -45,6 +47,7 @@ class ValidationResult:
     sanitized_value: str = ""
 
 
+# --- 入力バリデータ: ユーザーからの入力を安全に処理するための検証・無害化 ---
 class InputValidator:
     """入力バリデーション・サニタイズ。"""
 
@@ -92,7 +95,7 @@ class InputValidator:
                 f"{field_name}: 入力長が上限を超過 ({len(text)} > {limit})"
             )
 
-        # プロンプトインジェクションチェック
+        # 危険なパターン（AIへの指示乗っ取り）が含まれていないかチェック
         for pattern in _PROMPT_INJECTION_PATTERNS:
             if pattern.search(text):
                 errors.append(
@@ -121,6 +124,7 @@ class InputValidator:
                 f"path: パス長が上限を超過 ({len(path)} > {self._max_path_length})"
             )
 
+        # ディレクトリトラバーサル（"../"で上位フォルダに侵入）の検出
         if _PATH_TRAVERSAL_PATTERN.search(path):
             errors.append("path: パストラバーサルが検出されました")
 
@@ -182,6 +186,6 @@ class InputValidator:
     @staticmethod
     def _sanitize_text(text: str) -> str:
         """テキストをサニタイズする。"""
-        # 制御文字を除去（改行・タブは残す）
+        # 制御文字（画面表示を乱す特殊文字）を除去。ただし改行(\n)とタブ(\t)は残す
         sanitized = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", text)
         return sanitized.strip()

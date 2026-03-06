@@ -4,11 +4,26 @@ build-backend = "hatchling.build"
 
 [project]
 name = "vibe-pdca"
-version = "0.1.0"
+version = "0.2.0"
 description = "バイブコーディングPDCA自動開発システム – LLMゲートウェイ"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.12"
+authors = [
+    { name = "Vive PDCA Team" },
+]
+keywords = ["pdca", "llm", "automation", "vibe-coding", "ai-development"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Typing :: Typed",
+]
 dependencies = [
     "pyyaml>=6.0",
     "pydantic>=2.0",
@@ -36,6 +51,12 @@ google = [
 [project.scripts]
 vibe-pdca = "vibe_pdca.gui.app:main"
 
+[project.urls]
+Repository = "https://github.com/maki04591128-tech/Vive-coding-pdca-system"
+Documentation = "https://github.com/maki04591128-tech/Vive-coding-pdca-system/tree/main/docs"
+Issues = "https://github.com/maki04591128-tech/Vive-coding-pdca-system/issues"
+Changelog = "https://github.com/maki04591128-tech/Vive-coding-pdca-system/blob/main/CHANGELOG.md"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src", "."]
@@ -46,6 +67,21 @@ line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "B", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["B011", "SIM300"]
+
+[tool.coverage.run]
+source = ["src/vibe_pdca"]
+omit = ["src/vibe_pdca/gui/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+]
+show_missing = true
 
 [tool.mypy]
 python_version = "3.12"

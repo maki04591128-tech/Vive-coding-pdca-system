@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 # ============================================================
 
 
+# PDCAの各フェーズに設定された制限時間（これを超えるとタイムアウト）
 @dataclass
 class PhaseTimeout:
     """フェーズごとのタイムアウト設定（秒単位）。"""
@@ -50,6 +51,7 @@ class PhaseTimeout:
 # ============================================================
 
 
+# タイムアウトが近づくにつれ段階的にエスカレーション（警告→介入要求→強制終了）
 class TimeoutEscalation(IntEnum):
     """タイムアウトのエスカレーションレベル。
 
@@ -77,6 +79,7 @@ class EscalationEvent:
 # ============================================================
 
 
+# --- 複雑度調整: タスクの難易度に応じてタイムアウトを自動延長する仕組み ---
 class ComplexityBasedTimeout:
     """タスク複雑度に基づくタイムアウト調整。
 
@@ -161,6 +164,7 @@ class ProgressBasedExtension:
         """これまでに適用された延長秒数の合計を返す。"""
         return self._extensions_used * self._per_extension
 
+    # 進捗があれば自動延長（動いているのに時間切れで止めるのを防ぐ）
     def record_progress(self, progress: bool = True) -> float:
         """進捗を記録し、延長された秒数を返す（0なら延長なし）。"""
         if not progress:
@@ -187,6 +191,7 @@ class ProgressBasedExtension:
 # ============================================================
 
 
+# --- タイムアウト管理: フェーズの制限時間を監視し、超過時にエスカレーション ---
 class TimeoutManager:
     """タイムアウト統合管理。
 

@@ -143,6 +143,7 @@ class InterventionReport:
         return "\n".join(lines)
 
 
+# --- 介入管理: 人間がAIの動作に介入（停止・再開・ロールバック等）する仕組み ---
 class InterventionManager:
     """介入操作を管理する。
 

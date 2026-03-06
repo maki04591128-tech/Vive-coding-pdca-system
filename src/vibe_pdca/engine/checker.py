@@ -135,6 +135,8 @@ def classify_ci_failure(
     return CIFailureCategory.UNKNOWN
 
 
+# --- CHECKフェーズ: 5つのAIペルソナがDOの成果物をレビューする ---
+# CI結果の解析・DoD（完了条件）の自動判定も行う
 class Checker:
     """CHECKフェーズを実行する。
 

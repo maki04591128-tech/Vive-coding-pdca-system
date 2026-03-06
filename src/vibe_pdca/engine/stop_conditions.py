@@ -19,8 +19,10 @@ logger = logging.getLogger(__name__)
 
 # 6時間タイムアウト（§13.1）
 STACK_TIMEOUT_SECONDS: float = 6 * 3600
+# ※ PDCAサイクルが6時間以上進行しない場合、「スタック（停滞）」と判断して停止する
 
 
+# --- 縮退モード（一部機能を制限して動作を続ける仕組み）の優先度定義 ---
 class DegradePriority(IntEnum):
     """縮退モードの機能優先度（§13.2）。
 
@@ -43,6 +45,7 @@ class DegradeAction(StrEnum):
     REDUCE = "reduce"           # 機能を縮小して継続
 
 
+# 各機能が障害を起こしたとき、どう対処するかのルール（1件分）
 @dataclass
 class DegradeRule:
     """縮退ルール1件。"""
@@ -53,6 +56,7 @@ class DegradeRule:
     min_components: int = 0     # 最低維持コンポーネント数
 
 
+# デフォルトの縮退ルール一覧（優先度が高い＝数字が小さい順に定義）
 # §13.2 確定の縮退ポリシー
 DEFAULT_DEGRADE_RULES: list[DegradeRule] = [
     DegradeRule(
@@ -93,6 +97,7 @@ class HeartbeatRecord:
     detail: str = ""
 
 
+# --- スタック検知: 一定時間ハートビート（生存信号）がなければ「停滞」と判定 ---
 class StackDetector:
     """スタック検知 – 6時間タイムアウト判定。
 
@@ -130,6 +135,7 @@ class StackDetector:
     def is_stacked(self, now: float | None = None) -> bool:
         """スタック状態（6時間タイムアウト）かどうか判定する。"""
         current = now if now is not None else time.time()
+        # 最後のハートビートからの経過時間がタイムアウトを超えていれば停滞
         elapsed = current - self._last_heartbeat
         return elapsed > self._timeout
 
@@ -151,6 +157,7 @@ class StackDetector:
         }
 
 
+# --- 縮退マネージャー: 障害発生時に「止める」「続ける」「代替に切替」を判定 ---
 class DegradeManager:
     """縮退モード管理。
 
@@ -181,6 +188,7 @@ class DegradeManager:
         detail: str = "",
     ) -> DegradeAction:
         """機能障害を報告し、取るべきアクションを返す。"""
+        # この機能の障害を記録し、ルールに基づいてアクション（停止/続行/代替/縮小）を返す
         self._active_failures[priority] = detail
         rule = self._get_rule(priority)
         if rule is None:
@@ -199,6 +207,7 @@ class DegradeManager:
 
     def should_stop(self) -> bool:
         """即停止すべきかどうかを判定する。"""
+        # 現在の障害一覧を確認し、1つでも「即停止」ルールに該当すれば True
         for priority in self._active_failures:
             rule = self._get_rule(priority)
             if rule and rule.action_on_failure == DegradeAction.STOP:

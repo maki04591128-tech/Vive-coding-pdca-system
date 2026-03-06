@@ -114,6 +114,7 @@ def get_required_gates(change_type: ChangeType) -> list[str]:
     return list(CHANGE_TYPE_GATES.get(change_type, []))
 
 
+# --- DOフェーズ: AIがPLANで定義されたタスクを実際に実行（コード生成・PR作成） ---
 class Executor:
     """DOフェーズを実行する。
 

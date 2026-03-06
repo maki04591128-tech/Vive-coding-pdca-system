@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 # ============================================================
 
 
+# A/Bテストで比較する2種類のプロンプト（指示文）のうちの1つ
 @dataclass
 class PromptVariant:
     """A/B テストで使用するプロンプトテンプレートの1バリアント。"""
@@ -72,6 +73,7 @@ class ABTestResult:
 # ============================================================
 
 
+# --- A/Bテストマネージャー: 2種類のプロンプトの効果を統計的に比較する仕組み ---
 class ABTestManager:
     """A/B テストの作成・バリアント割当・結果記録を管理する。"""
 
@@ -94,6 +96,7 @@ class ABTestManager:
         test_id と cycle_number のハッシュ値で決定的に振り分ける。
         """
         config = self._configs[test_id]
+        # ハッシュ値で決定的に振り分け（同じサイクル番号なら常に同じバリアントが選ばれる）
         raw = f"{test_id}:{cycle_number}"
         digest = hashlib.sha256(raw.encode()).hexdigest()
         ratio = int(digest[:8], 16) / 0xFFFFFFFF
@@ -156,6 +159,7 @@ class ABTestManager:
 # ============================================================
 
 
+# --- 統計分析: Welchのt検定でA/Bの品質スコアに有意差があるか判定 ---
 class StatisticalAnalyzer:
     """A/B テスト結果の統計的比較を行う。"""
 
@@ -199,6 +203,7 @@ class StatisticalAnalyzer:
         var_b = sum((x - mean_b) ** 2 for x in scores_b) / (
             len(scores_b) - 1
         )
+        # 標準誤差（SE）を計算し、t値が1.96を超えれば有意差あり（p < 0.05相当）
         se = math.sqrt(
             var_a / len(scores_a) + var_b / len(scores_b),
         )
