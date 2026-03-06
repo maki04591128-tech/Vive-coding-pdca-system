@@ -107,6 +107,9 @@ pip install -e ".[dev]"
 
 # GUI 付き（デスクトップ / モバイルアプリ対応）
 pip install -e ".[dev,gui]"
+
+# Google Gemini LLM を使用する場合
+pip install -e ".[dev,google]"
 ```
 
 ### 2. 環境変数
