@@ -101,7 +101,16 @@
 
 ## セットアップ
 
+> 🔰 **はじめての方へ**  
+> ターミナル（黒い画面）の開き方や基本操作がわからない場合は、まず [手順書 — パソコン初心者の方へ](docs/手順書/00_はじめに.md#-パソコン初心者の方へ--基礎知識ガイド) をお読みください。  
+> 詳しいステップバイステップの手順は [03 ローカルセットアップ手順書](docs/手順書/03_ローカルセットアップ手順書.md) にまとめています。
+
 ### 1. インストール
+
+> **前提**: Python 3.12 以上 と Git がインストールされている必要があります。  
+> - Python のインストール → [python.org/downloads](https://www.python.org/downloads/)  
+> - Git のインストール → [git-scm.com](https://git-scm.com/)  
+> - `pip` は Python に同梱されるパッケージ管理ツールです。以下のコマンドをターミナルにコピー＆貼り付けして実行してください。
 
 ```bash
 # 基本（バックエンドのみ）
@@ -118,18 +127,23 @@ pip install -e ".[dev,google]"
 
 `.env.example` を `.env` にコピーして API キーを設定してください。
 
+> 💡 **`.env` ファイルとは？** アプリケーションの秘密の設定値（APIキーなど）を保管するファイルです。Git には登録されないため、各自が手元で作成します。
+
 ```bash
 cp .env.example .env
-# .env を編集して各プロバイダの API キーを設定
+# .env をテキストエディタで開いて、各プロバイダの API キーを設定
 ```
 
 ### 3. ローカルLLM（Ollama）のセットアップ
 
-```bash
-# Ollama インストール
-curl -fsSL https://ollama.com/install.sh | sh
+> 💡 **Ollama とは？** パソコン上で AI モデルを動かすためのツールです。クラウド API を使わずに、ローカル環境だけで LLM を利用できます。
 
-# 役割別デフォルトモデルのダウンロード
+```bash
+# Ollama インストール（Linux / macOS）
+curl -fsSL https://ollama.com/install.sh | sh
+# Windows の場合は https://ollama.com/download からインストーラーをダウンロード
+
+# 役割別デフォルトモデルのダウンロード（各数十GB — ディスク容量に注意）
 ollama pull qwen3:72b       # PM・書記用
 ollama pull codestral:22b   # プログラマ・DO用
 ollama pull llama3.3:70b    # デザイナ用
