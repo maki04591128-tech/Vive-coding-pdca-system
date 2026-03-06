@@ -28,8 +28,7 @@ class OperationMode(StrEnum):
     FULL_AUTO = "full_auto"
 
 
-# フェーズ遷移ごとの自動進行可否マトリクス
-# True = 自動進行可、False = 人間承認必要
+# --- フェーズ自動進行マトリクス: モードごとに各フェーズの自動進行可否を定義 ---
 _AUTO_ADVANCE_MATRIX: dict[OperationMode, dict[PDCAPhase, bool]] = {
     OperationMode.MANUAL: {
         PDCAPhase.PLAN: False,
@@ -51,7 +50,7 @@ _AUTO_ADVANCE_MATRIX: dict[OperationMode, dict[PDCAPhase, bool]] = {
     },
 }
 
-# ガバナンスレベルごとの自動実行可否
+# --- ガバナンス自動実行マトリクス: A操作は常に人間承認が必要 ---
 _GOVERNANCE_AUTO: dict[OperationMode, dict[GovernanceLevel, bool]] = {
     OperationMode.MANUAL: {
         GovernanceLevel.A: False,
@@ -71,6 +70,7 @@ _GOVERNANCE_AUTO: dict[OperationMode, dict[GovernanceLevel, bool]] = {
 }
 
 
+# --- モード制御: 手動/半自動/全自動モードの切替と承認要否の判定 ---
 class ModeController:
     """運転モードを管理し、操作の承認要否を判定する。
 

@@ -19,8 +19,10 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 BACKUP_RETENTION_DAYS = 180
+# ※ B操作（バックアップ必須操作）の実行前に自動保存される
 
 
+# バックアップ1件分のデータ（操作ID・状態スナップショット・チェックサム）
 @dataclass
 class BackupEntry:
     """バックアップエントリ。"""
@@ -43,6 +45,7 @@ class BackupIntegrityError(Exception):
     """バックアップ整合性エラー。"""
 
 
+# --- バックアップ管理: B操作前の状態保存、整合性検証（改ざん検知）、復元 ---
 class BackupManager:
     """B操作前バックアップ管理。"""
 
@@ -102,6 +105,7 @@ class BackupManager:
             整合性エラー。
         """
         entry = self._find(backup_id)
+        # チェックサムを再計算し、保存時の値と一致するか確認（改ざん検知）
         computed = entry.compute_checksum()
         if computed != entry.checksum:
             raise BackupIntegrityError(
@@ -138,6 +142,7 @@ class BackupManager:
             削除件数。
         """
         current = now if now is not None else time.time()
+        # 保持期限（180日）を超えたバックアップを自動削除
         cutoff = current - (self._retention_days * 86400)
         before = len(self._backups)
         self._backups = [b for b in self._backups if b.created_at >= cutoff]

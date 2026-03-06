@@ -18,6 +18,7 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
+# --- エクスポート形式: JSON（構造化）、JSONL（1行1レコード）、Markdown（可読性重視） ---
 class ExportFormat(StrEnum):
     """エクスポート形式。"""
 
@@ -37,6 +38,7 @@ class ExportResult:
     exported_at: float = field(default_factory=time.time)
 
 
+# --- エクスポーター: 監査ログ・決定ログ・レビューをファイルに出力する ---
 class Exporter:
     """データエクスポート管理。"""
 
@@ -121,6 +123,7 @@ class Exporter:
         fmt: ExportFormat,
     ) -> str:
         """データを指定形式にフォーマットする。"""
+        # 指定された形式に応じてデータをフォーマットする
         if fmt == ExportFormat.JSON:
             return json.dumps(data, ensure_ascii=False, indent=2)
         if fmt == ExportFormat.JSONL:

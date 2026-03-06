@@ -15,8 +15,10 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 FEEDBACK_INTERVAL_CYCLES = 10
+# ※ 10サイクルごとにAIが失敗パターンを自動学習し、次のPLANに反映する
 
 
+# 失敗パターン1件分のデータ（種類・頻度・重大度・対策）
 @dataclass
 class FailurePattern:
     """失敗パターン。"""
@@ -38,6 +40,7 @@ class FeedbackReport:
     applied: bool = False
 
 
+# --- 学習フィードバック: 失敗パターンの蓄積→分析→プロンプト自動改善 ---
 class LearningFeedback:
     """学習フィードバック管理。
 
@@ -106,7 +109,7 @@ class LearningFeedback:
             if start <= r["cycle"] <= cycle_number
         ]
 
-        # パターン集計
+        # 直近N サイクルの失敗記録を集計し、パターンとして抽出する
         pattern_counts: dict[str, int] = {}
         pattern_severity: dict[str, str] = {}
         for record in relevant:
@@ -129,7 +132,7 @@ class LearningFeedback:
             )
             patterns.append(pattern)
 
-            # プロンプト追加テキスト
+            # 2回以上発生したパターンはPLANプロンプトに警告を追加
             if count >= 2:
                 additions.append(
                     f"注意: 過去{count}回「{ptype}」が発生。"
