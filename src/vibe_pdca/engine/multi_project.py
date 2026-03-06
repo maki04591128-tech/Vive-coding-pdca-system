@@ -21,6 +21,7 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
+# プロジェクト設定: リポジトリ・APIキー・Discordチャンネル等を個別管理
 @dataclass
 class ProjectConfig:
     """プロジェクト個別設定。"""
@@ -38,6 +39,7 @@ class ProjectConfig:
     is_active: bool = True
 
 
+# プロジェクトごとのリソース使用量（LLM呼び出し回数・トークン数・コスト）
 @dataclass
 class ResourceUsage:
     """プロジェクトごとのリソース使用量。"""
@@ -53,6 +55,7 @@ class ProjectIsolationError(Exception):
     """プロジェクト隔離違反エラー。"""
 
 
+# --- マルチプロジェクト管理: 各プロジェクトのリソースを物理的に隔離する ---
 class MultiProjectManager:
     """マルチプロジェクトのプロセス分離を管理する。
 
@@ -176,6 +179,7 @@ class MultiProjectManager:
 
     def _validate_isolation(self, config: ProjectConfig) -> None:
         """リポジトリ重複などの隔離違反をチェックする。"""
+        # 同一リポジトリが複数プロジェクトに割り当てられないよう検証
         for existing in self._projects.values():
             if (
                 config.repository

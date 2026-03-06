@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 # ============================================================
 
 
+# --- 対応する通知チャネル: Discord / Slack / Email / Teams ---
 class NotificationChannel(StrEnum):
     """サポートされる通知チャネル。"""
 
@@ -38,6 +39,7 @@ class NotificationChannel(StrEnum):
 # ============================================================
 
 
+# --- 通知の優先度: LOW → MEDIUM → HIGH → CRITICAL ---
 class NotificationPriority(StrEnum):
     """通知の優先度レベル。"""
 
@@ -104,6 +106,7 @@ class RoutingRule:
 # ============================================================
 
 
+# --- ルーター: イベント種別と優先度に基づいて通知先チャネルを自動決定 ---
 class NotificationRouter:
     """メッセージの優先度とイベント種別に基づき通知先を決定する。"""
 
@@ -167,6 +170,7 @@ class NotificationRouter:
 # ============================================================
 
 
+# --- ディスパッチャー: ルーターが決定したチャネルへメッセージを送信（現在はシミュレーション） ---
 class NotificationDispatcher:
     """通知メッセージを対象チャネルへ送信（シミュレーション）する。"""
 

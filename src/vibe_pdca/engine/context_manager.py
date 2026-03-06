@@ -19,7 +19,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-# §16.5 確定値
+# --- RAGコンテキスト管理の仕様制限値（§16.5） ---
 MAX_CONTEXT_FILES = 5
 MAX_TOTAL_TOKENS = 2000
 FILE_HEAD_TOKENS = 200
@@ -27,6 +27,7 @@ SUMMARY_INTERVAL_CYCLES = 10
 CONTEXT_RESET_CYCLES = 100
 
 
+# 検索結果1件分のデータ（ファイルパス・内容・トークン数・関連度）
 @dataclass
 class ContextChunk:
     """コンテキストチャンク1件。"""
@@ -51,6 +52,7 @@ class ContextResult:
         return len(self.chunks)
 
 
+# --- RAGコンテキスト管理: 関連ファイルを検索し、トークン上限内に収めて提供 ---
 class ContextManager:
     """RAGコンテキスト管理。
 
@@ -113,7 +115,7 @@ class ContextManager:
         ContextResult
             トークン上限内に収まったコンテキスト。
         """
-        # スコア順に最大5件
+        # 関連度スコアの高い順にソートし、最大5件に絞る
         sorted_files = sorted(
             files, key=lambda f: f.get("score", 0.0), reverse=True,
         )[:self._max_files]
@@ -122,6 +124,7 @@ class ContextManager:
         total_tokens = 0
         truncated = False
 
+        # 各ファイルの先頭200トークンを取得し、合計2000トークンに収まるよう調整
         for file_info in sorted_files:
             content = file_info.get("content", "")
             path = file_info.get("path", "unknown")
