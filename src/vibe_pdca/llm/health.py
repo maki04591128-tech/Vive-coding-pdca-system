@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+# --- ヘルスチェック: 各LLMプロバイダが正常に動作しているかを定期確認 ---
 class HealthChecker:
     """LLMプロバイダのヘルスチェックを定期的に実行する。
 
@@ -60,6 +61,7 @@ class HealthChecker:
 
     def check_all(self) -> dict[str, ProviderHealthStatus]:
         """全プロバイダのヘルスチェックを即座に実行する。"""
+        # 各プロバイダに軽量なリクエストを送信し、応答があれば「正常」と判定
         results: dict[str, ProviderHealthStatus] = {}
         for name, provider in self._providers.items():
             result = self._check_provider(name, provider)
