@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 logger = logging.getLogger(__name__)
 
 DEFAULT_TASK_DURATION_SECONDS: float = 3600.0  # デフォルト所要時間: 1時間
+# ※ 見積もり未設定のタスクは1時間を仮定して計算する
 
 
 # ============================================================
@@ -69,6 +70,7 @@ class BlockerWarning:
 # ============================================================
 
 
+# --- 依存関係グラフ: タスク間の「AはBの後にやる」関係をDAG（有向非巡回グラフ）で管理 ---
 class DependencyGraph:
     """タスク間の依存関係を有向非巡回グラフ（DAG）で管理する。
 
@@ -80,6 +82,7 @@ class DependencyGraph:
         self._nodes: dict[str, TaskNode] = {}
         self._forward: dict[str, set[str]] = {}   # task_id → 依存先の集合
         self._reverse: dict[str, set[str]] = {}   # task_id → 依存元の集合
+        # ※ forward = 「このタスクは誰に依存しているか」、reverse = 「誰がこのタスクに依存しているか」
 
     @property
     def nodes(self) -> dict[str, TaskNode]:
@@ -122,6 +125,7 @@ class DependencyGraph:
 
         循環依存がある場合は ValueError を送出する。
         """
+        # トポロジカルソート: 依存関係を壊さない実行順序を求めるアルゴリズム
         # 入次数計算: tid が dep に依存 → dep → tid のエッジ
         in_degree: dict[str, int] = {tid: 0 for tid in self._nodes}
         for tid in self._nodes:
@@ -134,6 +138,7 @@ class DependencyGraph:
             if deg == 0:
                 queue.append(tid)
 
+        # 入次数（自分が依存している未完了タスクの数）が0のものから順に処理
         order: list[str] = []
         while queue:
             # 決定的な実行順序のためにソート済みキューから処理
@@ -198,6 +203,7 @@ class DependencyGraph:
         remaining = dict(in_degree)
 
         while remaining:
+            # 入次数0のタスクは互いに依存がないので、同時に実行できるグループ
             # 入次数0のノードを1グループとする
             group = sorted(tid for tid, deg in remaining.items() if deg == 0)
             if not group:
@@ -219,6 +225,7 @@ class DependencyGraph:
 # ============================================================
 
 
+# --- クリティカルパス: プロジェクト全体の最短完了時間を決める「最長経路」を特定 ---
 class CriticalPathAnalyzer:
     """依存関係グラフに基づくクリティカルパス分析。
 
@@ -240,6 +247,7 @@ class CriticalPathAnalyzer:
 
         order = self._graph.get_execution_order()
 
+        # 各タスクの「最も早く終了できる時刻」を依存順に計算していく
         # 各タスクの最早開始時刻を計算
         earliest_finish: dict[str, float] = {}
         predecessor: dict[str, str | None] = {}
@@ -331,6 +339,7 @@ class CriticalPathAnalyzer:
 # ============================================================
 
 
+# --- ブロッカー検知: 多くのタスクの進行を妨げている「ボトルネックタスク」を早期発見 ---
 class BlockerDetector:
     """ブロッカーの早期検知と警告。
 
