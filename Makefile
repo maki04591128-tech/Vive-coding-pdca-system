@@ -2,7 +2,7 @@
 # ※ 初心者向け: make <コマンド名> で各操作を実行できます
 # たとえるなら、家電のリモコンのボタンのようなものです
 
-.PHONY: help install install-gui lint type-check test test-all test-verbose test-cov security clean
+.PHONY: help install install-gui lint lint-fix format type-check test test-all test-verbose test-cov security clean check
 
 # デフォルトターゲット: ヘルプを表示
 help: ## ヘルプを表示
