@@ -28,7 +28,7 @@ allowed_commands:
 
   # 安全な自動修復（実行後に必ず Discord 通知）
   - "systemctl restart vllm"                 # vLLM プロセス再起動
-  - "find /var/log/vllm -name '*.log.*' -mtime +7 -exec mv {} /backup/logs/"  # ログアーカイブ
+  - "find /var/log/vllm -name '*.log.*' -mtime +7 -exec mv {} /backup/logs/ \\;"  # ログアーカイブ
 
 # --- アクセス禁止パス ---
 denied_paths:

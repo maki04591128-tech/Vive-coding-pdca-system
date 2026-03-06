@@ -128,7 +128,7 @@ get_vllm_status() {
 }
 
 get_docker_status() {
-    if docker info &>/dev/null 2>&1; then
+    if docker info &>/dev/null; then
         echo "  Docker: 稼働中 ✅"
     else
         echo "  Docker: 未検出または停止中 ⚠️"
