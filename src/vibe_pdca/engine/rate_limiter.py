@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 # ── RateLimitConfig ──
 
 
+# AIサービスへのリクエスト頻度を制限する設定（過剰なAPI呼び出しを防止）
 @dataclass
 class RateLimitConfig:
     """プロバイダ別レート制限設定。
@@ -46,6 +47,8 @@ class RateLimitConfig:
 # ── TokenBucket ──
 
 
+# --- トークンバケット: 「バケツに水が溜まる速度」でリクエスト頻度を制御 ---
+# バケツが空になったらリクエストを待機させ、一定速度で補充される
 class TokenBucket:
     """トークンバケットアルゴリズムによる流量制御。
 
@@ -112,6 +115,7 @@ class TokenBucket:
 # ── RateLimitTracker ──
 
 
+# --- レート制限マネージャー: プロバイダ別にリクエスト頻度を一元管理 ---
 class RateLimitTracker:
     """プロバイダ別レート制限の追跡と制御。"""
 
@@ -230,6 +234,7 @@ class BackoffStrategy:
         """基本待機時間を返す。"""
         return self._base_delay
 
+    # 指数バックオフ: エラー時の再試行間隔を 1秒→2秒→4秒... と倍々に増やす
     def calculate(self, attempt: int) -> float:
         """指数バックオフの待機時間を計算する。
 

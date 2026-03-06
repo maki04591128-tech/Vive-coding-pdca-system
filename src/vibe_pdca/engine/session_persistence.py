@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 # ── CheckpointData ──
 
 
+# PDCAサイクルの途中経過を保存するデータ（停電やクラッシュからの復旧に使用）
 @dataclass
 class CheckpointData:
     """チェックポイントデータ。
@@ -50,6 +51,7 @@ class CheckpointData:
 # ── DirtyShutdownFlag ──
 
 
+# 「前回正常に終了しなかった」ことを記録するフラグ（異常終了の検知に使用）
 @dataclass
 class DirtyShutdownFlag:
     """ダーティシャットダウン検知フラグ。
@@ -72,6 +74,7 @@ class DirtyShutdownFlag:
 # ── CheckpointManager ──
 
 
+# --- セッション永続化: PDCAの進行状態を定期的に保存し、異常終了からの復旧を可能にする ---
 class CheckpointManager:
     """チェックポイントの保存・読み込み・検証を管理する。
 
@@ -99,6 +102,7 @@ class CheckpointManager:
         serialized = json.dumps(state, sort_keys=True, default=str)
         return hashlib.sha256(serialized.encode()).hexdigest()
 
+    # チェックポイント保存: 現在の状態をチェックサム付きで記録する
     def save(self, data: CheckpointData) -> bool:
         """チェックポイントを保存する。
 
@@ -193,6 +197,7 @@ class CrashRecoveryManager:
             return True
         return False
 
+    # 復旧: 最新の有効なチェックポイントを探して、そこから再開する
     def recover(
         self,
         manager: CheckpointManager,

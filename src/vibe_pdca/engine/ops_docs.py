@@ -3,8 +3,12 @@
 M3 タスク 3-11: 要件定義書 §26.6 準拠。
 """
 
+# ※ このモジュールは運用文書のテンプレート文字列を定義しています
+# ※ 実際の運用文書は docs/ 以下に配置されています
+
 from __future__ import annotations
 
+# --- Runbook（日常運用手順書）のMarkdownテンプレート ---
 # ── Runbook テンプレート ──
 
 RUNBOOK_TEMPLATE = """\
@@ -49,6 +53,7 @@ RUNBOOK_TEMPLATE = """\
 → Incident Playbook §P1 を参照
 """
 
+# --- インシデント対応手順書のMarkdownテンプレート ---
 # ── Incident Playbook テンプレート ──
 
 INCIDENT_PLAYBOOK_TEMPLATE = """\
@@ -101,6 +106,7 @@ INCIDENT_PLAYBOOK_TEMPLATE = """\
 2. 学習フィードバックに記録
 """
 
+# --- 承認チェックリストのMarkdownテンプレート ---
 # ── Approval Checklist テンプレート ──
 
 APPROVAL_CHECKLIST_TEMPLATE = """\
@@ -125,6 +131,7 @@ APPROVAL_CHECKLIST_TEMPLATE = """\
 - [ ] 進行中のサイクルがないか確認
 """
 
+# --- リリースチェックリストのMarkdownテンプレート ---
 # ── Release Checklist テンプレート ──
 
 RELEASE_CHECKLIST_TEMPLATE = """\
