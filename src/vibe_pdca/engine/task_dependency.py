@@ -82,7 +82,8 @@ class DependencyGraph:
         self._nodes: dict[str, TaskNode] = {}
         self._forward: dict[str, set[str]] = {}   # task_id → 依存先の集合
         self._reverse: dict[str, set[str]] = {}   # task_id → 依存元の集合
-        # ※ forward = 「このタスクは誰に依存しているか」、reverse = 「誰がこのタスクに依存しているか」
+        # ※ forward = 「誰に依存しているか」
+        # ※ reverse = 「誰がこのタスクに依存しているか」
 
     @property
     def nodes(self) -> dict[str, TaskNode]:
