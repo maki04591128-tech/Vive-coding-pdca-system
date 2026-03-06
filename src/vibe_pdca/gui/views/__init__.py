@@ -6,3 +6,5 @@
 含まれるビュー:
   - DashboardView : メインダッシュボード画面（ステータス・PDCA・ログ・コスト表示）
 """
+
+__all__ = ["DashboardView"]
