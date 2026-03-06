@@ -21,6 +21,7 @@ from pydantic import BaseModel, Field
 # ============================================================
 
 
+# PDCAサイクルの4フェーズ: Plan(計画) → Do(実行) → Check(確認) → Act(改善)
 class PDCAPhase(StrEnum):
     """PDCAフェーズ（§6.1）。"""
 
@@ -30,6 +31,7 @@ class PDCAPhase(StrEnum):
     ACT = "act"
 
 
+# サイクルの実行状態: 準備中 → 実行中 → 完了 or 失敗 or 中止
 class CycleStatus(StrEnum):
     """サイクルの状態。"""
 
@@ -214,6 +216,7 @@ class Decision(BaseModel):
     created_at: float = Field(default_factory=time.time)
 
 
+# --- サイクル: PDCAを1回まわす単位（最大6時間、計画→実行→確認→改善） ---
 class Cycle(BaseModel):
     """PDCAの1サイクル（§6.1）。"""
 
@@ -237,6 +240,7 @@ class Cycle(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+# --- マイルストーン: プロジェクトの大きな節目（複数サイクルで達成する中間目標） ---
 class Milestone(BaseModel):
     """マイルストーン（§7）。
 
@@ -263,6 +267,7 @@ class Milestone(BaseModel):
     completed_at: float | None = Field(default=None)
 
 
+# --- ゴール: ユーザーが設定する「最終到達点」（PDCAの出発点） ---
 class Goal(BaseModel):
     """最終到達点（§7.3）。
 

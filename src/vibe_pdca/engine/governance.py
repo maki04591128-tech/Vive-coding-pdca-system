@@ -69,6 +69,7 @@ B_PATTERNS: list[str] = [
 ]
 
 
+# --- ガバナンス: A/B/C操作分類と承認フローを管理する「ルールの番人」 ---
 class GovernanceManager:
     """ガバナンス・承認ワークフローを管理する。
 

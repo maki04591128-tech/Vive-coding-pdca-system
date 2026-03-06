@@ -66,6 +66,7 @@ def _progress_bar(ratio: float, width: int = 20) -> str:
     return f"[{'█' * filled}{'░' * empty}]"
 
 
+# --- ACTフェーズ: レビュー結果を判断し、指摘の採否と次サイクルの方針を決定 ---
 class ActDecisionMaker:
     """ACTフェーズの判定を行う。
 
