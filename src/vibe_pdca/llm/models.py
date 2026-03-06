@@ -10,6 +10,7 @@ from enum import Enum
 from typing import Any
 
 
+# --- ペルソナ役割: AIに割り当てる5つの役割＋DO（実装担当） ---
 class Role(Enum):
     """ペルソナ役割定義（§5.1）。"""
 
@@ -21,6 +22,7 @@ class Role(Enum):
     DO = "do"
 
 
+# --- プロバイダ種別: クラウドAPI or ローカルサーバー ---
 class ProviderType(Enum):
     """LLMプロバイダの種別。"""
 
@@ -28,6 +30,7 @@ class ProviderType(Enum):
     LOCAL = "local"
 
 
+# --- プロバイダ稼働状態: healthy(正常)→degraded(低下)→unhealthy(異常) ---
 class ProviderStatus(Enum):
     """プロバイダの稼働状態。"""
 
@@ -37,6 +40,7 @@ class ProviderStatus(Enum):
     UNKNOWN = "unknown"
 
 
+# --- LLMリクエスト: AIに送信するプロンプトと設定パラメータ ---
 @dataclass
 class LLMRequest:
     """LLM呼び出しリクエスト。"""
@@ -50,6 +54,7 @@ class LLMRequest:
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
+# --- LLMレスポンス: AIからの応答と利用統計（トークン数・コスト・遅延） ---
 @dataclass
 class LLMResponse:
     """LLM呼び出しレスポンス。"""
@@ -66,6 +71,7 @@ class LLMResponse:
     fallback_reason: str | None = None
 
 
+# --- ヘルスチェック結果: プロバイダの応答速度や連続失敗回数を記録 ---
 @dataclass
 class ProviderHealthStatus:
     """プロバイダのヘルスチェック結果。"""
