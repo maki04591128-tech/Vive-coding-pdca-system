@@ -250,12 +250,11 @@ NVLink:         あり           ← 2枚以上で高速連携
     合計80GB相当のモデルを1つとして扱える
 ```
 
-**vLLMでのコマンド**:
-```bash
-python -m vllm.entrypoints.openai.api_server \
-    --model Qwen/Qwen2.5-72B-Instruct \
-    --tensor-parallel-size 2   # ← 2枚に分割
-```
+**vLLMでの設定例**:
+
+テンソル並列を使う場合、vLLMの起動時に `--tensor-parallel-size 2` オプションを指定して「2枚のGPUに分割する」と設定します。
+
+> 📌 **vLLMの具体的な起動手順** → [02_システムセットアップ手順書](../手順書/02_システムセットアップ手順書.md)
 
 ---
 
@@ -509,122 +508,35 @@ Ubuntu 22.04 LTS（OS）← サーバーの基本ソフト（Windowsの代わり
     └── 不正アクセスからサーバーを守る「門番」。許可した通信先のみ接続を許可
 ```
 
-### 7.2 インストール手順の概要
+### 7.2 インストールの流れ
 
-#### ステップ1: Ubuntu 22.04 LTS のインストール
+ソフトウェアのインストールは、下の層から順番に行います。各ステップの**目的**を理解してから手順書に進んでください。
 
-```bash
-# サーバーにUSBメモリから Ubuntu 22.04 LTS をインストール後
+| 順番 | インストール対象 | 目的 | たとえるなら |
+|:----:|----------------|------|------------|
+| 1 | Ubuntu 22.04 LTS（OS） | サーバーの基本ソフトを入れる | パソコンにWindowsを入れるのと同じ |
+| 2 | NVIDIAドライバー + CUDA | GPUをOSから操作できるようにする | GPUの「通訳ソフト」を入れる |
+| 3 | rootless Docker | プログラムを安全な隔離空間で実行できるようにする | プログラム用の「安全な個室」を作る仕組み |
+| 4 | vLLM | AIモデルを動かすサーバーソフトを入れる | AIの「エンジン」を起動する |
+| 5 | PDCAシステム本体 | 本システムをインストールする | 最終的に使うアプリを入れる |
 
-# 基本パッケージの更新
-sudo apt update && sudo apt upgrade -y
+> 📌 **ステップ1〜2の具体的な手順** → [01_ハードウェア構築手順書](../手順書/01_ハードウェア構築手順書.md)  
+> 📌 **ステップ3〜5の具体的な手順** → [02_システムセットアップ手順書](../手順書/02_システムセットアップ手順書.md)  
+> 📌 **ローカルPCで行う場合** → [03_ローカルセットアップ手順書](../手順書/03_ローカルセットアップ手順書.md)
 
-# 必要なツールのインストール
-sudo apt install -y build-essential git curl wget python3.12 python3.12-venv
-```
+### 7.3 GPU監視の概要
 
-#### ステップ2: NVIDIAドライバーと CUDA のインストール
+サーバー稼働後は、GPUの状態を常に監視する必要があります。主に以下の項目をチェックします。
 
-```bash
-# NVIDIAの公式リポジトリを追加
-wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb
-sudo dpkg -i cuda-keyring_1.1-1_all.deb
-sudo apt update
+| 監視項目 | 正常範囲 | 異常時の影響 |
+|---------|---------|------------|
+| **GPU温度** | 80℃以下 | 高温になるとサーマルスロットリング（自動的に性能を下げる保護機能）が発動 |
+| **VRAM使用量** | モデルサイズ以内 | 超過するとモデルが読み込めない |
+| **GPU使用率** | 推論中は80〜100% | 低すぎるとボトルネックが他にある可能性 |
+| **消費電力** | TDP以内 | 電源容量の超過は故障の原因に |
 
-# CUDAのインストール（A100対応のCUDA 12.x）
-sudo apt install -y cuda-toolkit-12-4
-
-# ドライバーの確認
-nvidia-smi
-# → GPU名・VRAM・ドライバーバージョンが表示されれば成功
-```
-
-#### ステップ3: rootless Docker のインストール（ADR-007準拠）
-
-```bash
-# Dockerのインストール
-curl -fsSL https://get.docker.com -o get-docker.sh
-sh get-docker.sh
-
-# rootlessモードへの切り替え（セキュリティ要件）
-dockerd-rootless-setuptool.sh install
-
-# NVIDIA Container Toolkit（DockerからGPUを使うために必要）
-sudo apt install -y nvidia-container-toolkit
-sudo nvidia-ctk runtime configure --runtime=docker
-sudo systemctl restart docker
-
-# 動作確認
-docker run --rm --gpus all nvidia/cuda:12.4.0-base-ubuntu22.04 nvidia-smi
-```
-
-#### ステップ4: vLLM のインストールと起動
-
-```bash
-# Python仮想環境の作成
-python3.12 -m venv ~/vllm-env
-source ~/vllm-env/bin/activate
-
-# vLLMのインストール（A100向けCUDA対応版）
-pip install vllm
-
-# モデルのダウンロードと起動（A100 40GB × 2枚構成）
-python -m vllm.entrypoints.openai.api_server \
-    --model Qwen/Qwen2.5-72B-Instruct \
-    --tensor-parallel-size 2 \
-    --gpu-memory-utilization 0.90 \
-    --dtype bfloat16 \
-    --max-model-len 32768 \
-    --served-model-name "local-llm" \
-    --port 8000
-```
-
-#### ステップ5: LLMゲートウェイへの統合（Python）
-
-```python
-# src/vibe_pdca/llm/gateway.py に追記
-
-import openai
-
-# ローカルLLM（vLLM）プロバイダーの設定
-local_client = openai.AsyncOpenAI(
-    base_url="http://localhost:8000/v1",
-    api_key="EMPTY",  # vLLMはキー不要
-)
-
-# フォールバック順の更新（ADR-001準拠）
-# クラウドLLMが障害時の最終フォールバックとしてローカルを使用
-ROLE_MODEL_MAP_WITH_LOCAL = {
-    Role.PM: [
-        "gpt-5.1",              # 通常
-        "claude-opus-4",        # 1次フォールバック
-        "local-llm",            # 最終フォールバック（§8.2 縮退モード継続）
-    ],
-    Role.PROGRAMMER: [
-        "claude-opus-4",        # 通常
-        "gpt-5.1",              # 1次フォールバック
-        "local-llm",            # 最終フォールバック
-    ],
-    # DO担当はClaude API固定（ADR-001確定事項）
-    Role.DO: ["claude-3-7-sonnet-latest"],
-}
-```
-
-### 7.3 GPU監視コマンド
-
-```bash
-# リアルタイムGPU監視（htopのGPU版）
-watch -n 1 nvidia-smi
-
-# 表示される主要な情報
-# - GPU温度（80℃以下が正常）
-# - VRAM使用量（モデルが収まっているか確認）
-# - GPU使用率（推論中は80〜100%が正常）
-# - 消費電力（TDP以内か確認）
-
-# より詳細な情報
-nvidia-smi dmon -s u  # VRAM使用率のリアルタイム監視
-```
+> 📌 **GPU監視の具体的なコマンドと手順** → [04_運用保守手順書 §7](../手順書/04_運用保守手順書.md#7-監視とアラート対応)  
+> 📌 **ハードウェア保守** → [04_運用保守手順書 §13](../手順書/04_運用保守手順書.md#13-ハードウェア保守)
 
 ---
 
