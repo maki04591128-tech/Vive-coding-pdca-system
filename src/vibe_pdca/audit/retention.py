@@ -56,6 +56,8 @@ class PurgeResult:
     cutoff_timestamp: float = 0.0
 
 
+# --- 監査ログ保持: ログの保持期間・圧縮・自動削除ポリシーを管理 ---
+# 監査ログは「誰が・いつ・何をしたか」の改ざん不能な記録
 class RetentionManager:
     """保持期間管理。
 

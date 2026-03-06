@@ -40,6 +40,8 @@ _TOKEN_LIFETIME_SECONDS = 3600
 # ============================================================
 
 
+# --- GitHub Appトークン管理: 短寿命トークンの自動生成・ローテーション ---
+# GitHub Appの認証トークンは1時間で失効するため、自動更新が必要
 class TokenRotationManager:
     """Installation Tokenの自動ローテーションを管理する。
 
@@ -118,6 +120,7 @@ class TokenRotationManager:
 # ============================================================
 
 
+# PDCAフェーズごとに必要最小限のGitHub権限スコープを定義
 @dataclass(frozen=True)
 class PhaseScope:
     """PDCAフェーズに必要な最小限のGitHub権限を定義する。"""

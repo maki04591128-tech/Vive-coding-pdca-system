@@ -10,6 +10,7 @@ from vibe_pdca.gui.components.pdca_card import PDCAStatusCard
 from vibe_pdca.gui.components.status_card import CostCard, StatusCard
 
 
+# --- ダッシュボードビュー: メイン画面のレイアウトと表示更新ロジック ---
 class DashboardView(ft.Column):
     """メインダッシュボード画面。
 

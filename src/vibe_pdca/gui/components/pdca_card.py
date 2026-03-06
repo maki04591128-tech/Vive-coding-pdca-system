@@ -7,10 +7,11 @@ from typing import Any
 import flet as ft
 
 
+# --- PDCAカード: 現在のサイクル進行状況を視覚的に表示するウィジェット ---
 class PDCAStatusCard(ft.Card):
     """PDCAサイクルの状態を表示するカードウィジェット。"""
 
-    # フェーズ → (表示名, アイコン, 色)
+    # 各PDCAフェーズの表示スタイル（アイコン・色の組み合わせ）
     _PHASE_STYLES: dict[str, tuple[str, str, str]] = {
         "plan": ("📋 PLAN", ft.Icons.EDIT_NOTE, ft.Colors.BLUE),
         "do": ("🔧 DO", ft.Icons.BUILD, ft.Colors.GREEN),

@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 # ── TimelineEntry ──
 
-
+# タイムライン上の1イベント（時刻・フェーズ・メッセージ）
 @dataclass
 class TimelineEntry:
     """タイムラインのエントリ。
@@ -140,7 +140,7 @@ class AlertItem:
 
 # ── DashboardState ──
 
-
+# --- ダッシュボード状態モデル: 画面に表示するデータを一元管理するデータクラス群 ---
 class DashboardState:
     """ダッシュボードの状態管理。
 
