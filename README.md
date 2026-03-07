@@ -163,6 +163,17 @@ ollama pull gemma3:27b      # ユーザ用
 pytest tests/ -v
 ```
 
+### 5. OpenClaw（🖥️ サーバー運用のみ）
+
+> **デスクトップPCで開発・テストする場合、OpenClaw は不要です。**
+
+サーバーで 24 時間運用する場合は、ハードウェア監視層として [OpenClaw](https://github.com/openclaw/openclaw)（オープンソース AI エージェントプラットフォーム）を導入します。  
+GPU 温度・ディスク容量・vLLM の稼働状態を自動監視し、異常時に Discord へ通知します。
+
+- セットアップ → [02 システムセットアップ手順書 Phase 8](docs/手順書/02_システムセットアップ手順書.md)
+- 詳細 → [OpenClaw説明書](docs/説明書/OpenClaw説明書.md)
+- 運用 → [04 運用保守手順書 §7.4](docs/手順書/04_運用保守手順書.md)
+
 ## 使い方
 
 ### 基本的な使用例
