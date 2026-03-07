@@ -1,0 +1,51 @@
+# ============================================================
+# OpenClaw コマンドホワイトリスト設定
+# ============================================================
+#
+# OpenClaw（openclaw-monitor ユーザー）が実行を許可される
+# コマンドと、アクセスを禁止されるパス・ネットワークの定義。
+#
+# このファイルは運用ポリシーの文書化を目的としています。
+# 実際のアクセス制御は Linux ユーザー権限・iptables で実施します。
+
+# --- 許可コマンド ---
+allowed_commands:
+  # ハードウェア情報取得（読み取り専用）
+  - nvidia-smi
+  - "nvidia-smi --query-gpu=* --format=csv"
+  - sensors                     # CPU 温度
+  - "df -h"                     # ディスク使用率
+  - "df -P"                     # ディスク使用率（POSIX 形式）
+  - "free -h"                   # メモリ使用量
+  - uptime                      # 負荷平均
+  - "ip link show"              # NIC リンク状態
+  - "ip -br link show"          # NIC サマリー
+  - "smartctl --all /dev/nvme*" # S.M.A.R.T. 情報
+
+  # プロセスヘルスチェック（GET のみ）
+  - "curl -s http://localhost:8000/health"  # vLLM ヘルスチェック
+  - "docker info"                            # Docker 稼働確認
+
+  # 安全な自動修復（実行後に必ず Discord 通知）
+  - "systemctl restart vllm"                 # vLLM プロセス再起動
+  - "find /var/log/vllm -name '*.log.*' -mtime +7 -exec mv {} /backup/logs/ \\;"  # ログアーカイブ
+
+# --- アクセス禁止パス ---
+denied_paths:
+  - "/home/vibe-pdca/**"        # PDCA ユーザーのホームディレクトリ
+  - "/etc/vibe-pdca/**"         # PDCA 設定ファイル
+  - "/var/lib/docker/**"        # Docker データ
+  - "/root/**"                  # root ディレクトリ
+  - "/home/vibe-pdca/.env"      # 環境変数ファイル（API キー含む）
+
+# --- ネットワークアクセス禁止先 ---
+# iptables で実際にブロックする
+denied_network:
+  - "localhost:8080"            # PDCA Web UI
+  - "localhost:5432"            # データベース（将来用）
+
+# --- セキュリティ備考 ---
+# 1. openclaw-monitor ユーザーは video グループのみに所属（GPU アクセス用）
+# 2. PDCA 関連のファイル・ディレクトリには Linux パーミッションでアクセス不可
+# 3. iptables で PDCA の内部ポートへのアクセスをブロック
+# 4. Discord Webhook URL は /opt/openclaw/.env に格納（openclaw-monitor のみ読取可）
