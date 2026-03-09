@@ -275,7 +275,7 @@ class TestExclusiveLockManagerThreadSafety:
     """排他ロックマネージャの並行アクセステスト。"""
 
     def test_concurrent_acquire_same_resource(self):
-        """同一リソースへの並行 acquire で最大1つだけ成功すること。"""
+        """同一リソースへの並行 acquire で正確に1つだけ成功すること。"""
         mgr = ExclusiveLockManager()
         results: list[ResourceLock | None] = []
         lock = threading.Lock()
@@ -295,4 +295,6 @@ class TestExclusiveLockManagerThreadSafety:
             t.join()
 
         successes = [r for r in results if r is not None]
-        assert len(successes) >= 1  # 少なくとも1つは成功
+        failures = [r for r in results if r is None]
+        assert len(successes) == 1  # 排他ロックは1つだけ成功
+        assert len(failures) == 9   # 残りは全て失敗
