@@ -148,7 +148,8 @@ class CircuitBreaker:
 
     def record_fallback(self) -> None:
         """フォールバック発生を記録する。"""
-        self._metrics.total_fallbacks += 1
+        with self._lock:
+            self._metrics.total_fallbacks += 1
 
     # ── 手動制御 ──
 

@@ -1,5 +1,6 @@
 """サーキットブレーカーのユニットテスト。"""
 
+import threading
 import time
 
 import pytest
@@ -128,3 +129,18 @@ class TestCircuitBreakerMetrics:
             cb.record_failure(f"err{i}")
         assert len(cb.metrics.state_changes) == 1
         assert cb.metrics.state_changes[0]["to"] == "open"
+
+    def test_concurrent_record_fallback(self, cb):
+        """複数スレッドから同時に record_fallback() してもカウントが正確なこと。"""
+        n = 50
+
+        def worker() -> None:
+            cb.record_fallback()
+
+        threads = [threading.Thread(target=worker) for _ in range(n)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert cb.metrics.total_fallbacks == n

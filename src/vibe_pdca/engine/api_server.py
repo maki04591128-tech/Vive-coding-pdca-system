@@ -110,6 +110,8 @@ class APIKeyAuth:
     各キーにはスコープ（read / write / admin）を割り当てられる。
     """
 
+    VALID_SCOPES: frozenset[str] = frozenset({"read", "write", "admin"})
+
     def __init__(self) -> None:
         self._keys: dict[str, str] = {}
 
@@ -122,7 +124,17 @@ class APIKeyAuth:
             APIキー文字列。
         scope : str
             キーのスコープ（read / write / admin）。
+
+        Raises
+        ------
+        ValueError
+            scope が read / write / admin 以外の場合。
         """
+        if scope not in self.VALID_SCOPES:
+            raise ValueError(
+                f"無効なスコープ: {scope!r} "
+                f"(有効値: {', '.join(sorted(self.VALID_SCOPES))})"
+            )
         self._keys[key] = scope
         logger.info("APIキーを追加しました: scope=%s", scope)
 
