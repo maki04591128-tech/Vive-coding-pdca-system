@@ -20,6 +20,7 @@ from typing import Any
 from vibe_pdca.models.pdca import (
     AuditEntry,
     CycleStatus,
+    DecisionType,
     Milestone,
     PDCAPhase,
     StopReason,
@@ -243,7 +244,7 @@ class InterventionManager:
 
         # サイクル履歴から要因を抽出
         for cycle in milestone.cycles:
-            if cycle.decision and cycle.decision.decision_type.value == "reject":
+            if cycle.decision and cycle.decision.decision_type == DecisionType.REJECT:
                 factors.append(
                     f"サイクル{cycle.cycle_number}: REJECT判定 – "
                     f"{cycle.decision.reason}"
@@ -263,7 +264,7 @@ class InterventionManager:
         current_cycle = milestone.cycles[-1] if milestone.cycles else None
         if current_cycle:
             for task in current_cycle.tasks:
-                if task.status.value == "in_progress":
+                if task.status == TaskStatus.IN_PROGRESS:
                     affected.append(f"タスク: {task.id} ({task.title})")
 
         summary = (
@@ -286,7 +287,7 @@ class InterventionManager:
         candidates: list[RollbackCandidate] = []
 
         for cycle in reversed(milestone.cycles):
-            if cycle.status.value == "completed":
+            if cycle.status == CycleStatus.COMPLETED:
                 candidates.append(RollbackCandidate(
                     description=(
                         f"サイクル{cycle.cycle_number}完了時点にロールバック"
