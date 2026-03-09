@@ -82,6 +82,10 @@ class TestTraceChain:
 
         chain = manager.trace_chain("goal", "1", max_depth=2)
         assert len(chain) == 2  # depth制限で3番目は含まれない
+        assert chain[0].source_type == "goal"
+        assert chain[0].target_type == "milestone"
+        assert chain[1].source_type == "milestone"
+        assert chain[1].target_type == "task"
 
     def test_chain_no_cycle(self, manager):
         """循環参照でも無限ループしないこと。"""
@@ -89,6 +93,10 @@ class TestTraceChain:
         manager.add_link("milestone", "2", "goal", "1")
         chain = manager.trace_chain("goal", "1", max_depth=10)
         assert len(chain) == 2  # visitedで打ち切り
+        assert chain[0].source_type == "goal"
+        assert chain[0].target_type == "milestone"
+        assert chain[1].source_type == "milestone"
+        assert chain[1].target_type == "goal"
 
 
 class TestValidation:
