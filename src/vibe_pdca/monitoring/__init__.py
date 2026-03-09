@@ -73,6 +73,13 @@ class TraceLinkManager:
         TraceLink
             追加されたリンク。
         """
+        for rtype in (source_type, target_type):
+            if rtype not in self.VALID_TYPES:
+                raise ValueError(
+                    f"無効なリソース種別: {rtype!r} "
+                    f"(有効: {', '.join(sorted(self.VALID_TYPES))})"
+                )
+
         link = TraceLink(
             source_type=source_type,
             source_id=source_id,

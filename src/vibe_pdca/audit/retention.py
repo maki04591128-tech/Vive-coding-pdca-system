@@ -167,9 +167,8 @@ class RetentionManager:
         )
         purged_count = len(expired)
 
-        # in-placeで置換
-        items.clear()
-        items.extend(valid)
+        # in-placeで置換（単一操作でアトミックに）
+        items[:] = valid
 
         logger.info(
             "保持期間パージ: %s – %d件削除, %d件残存",

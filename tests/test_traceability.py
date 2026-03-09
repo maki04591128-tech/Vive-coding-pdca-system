@@ -76,19 +76,29 @@ class TestTraceChain:
         assert chain[-1].target_type == "pr"
 
     def test_chain_max_depth(self, manager):
-        manager.add_link("a", "1", "b", "2")
-        manager.add_link("b", "2", "c", "3")
-        manager.add_link("c", "3", "d", "4")
+        manager.add_link("goal", "1", "milestone", "2")
+        manager.add_link("milestone", "2", "task", "3")
+        manager.add_link("task", "3", "pr", "4")
 
-        chain = manager.trace_chain("a", "1", max_depth=2)
+        chain = manager.trace_chain("goal", "1", max_depth=2)
         assert len(chain) == 2  # depth制限で3番目は含まれない
 
     def test_chain_no_cycle(self, manager):
         """循環参照でも無限ループしないこと。"""
-        manager.add_link("a", "1", "b", "2")
-        manager.add_link("b", "2", "a", "1")
-        chain = manager.trace_chain("a", "1", max_depth=10)
+        manager.add_link("goal", "1", "milestone", "2")
+        manager.add_link("milestone", "2", "goal", "1")
+        chain = manager.trace_chain("goal", "1", max_depth=10)
         assert len(chain) == 2  # visitedで打ち切り
+
+
+class TestValidation:
+    def test_invalid_source_type_raises(self, manager):
+        with pytest.raises(ValueError, match="無効なリソース種別"):
+            manager.add_link("invalid_type", "1", "goal", "2")
+
+    def test_invalid_target_type_raises(self, manager):
+        with pytest.raises(ValueError, match="無効なリソース種別"):
+            manager.add_link("goal", "1", "unknown", "2")
 
 
 class TestExport:
