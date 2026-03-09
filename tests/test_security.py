@@ -81,6 +81,16 @@ class TestPathLengthValidation:
         assert not result.valid
         assert any("パス長が上限を超過" in e for e in (result.errors or []))
 
+    def test_path_with_multiple_violations(self):
+        """パス長超過 + トラバーサルが同時にある場合、全エラーが報告されること。"""
+        v = InputValidator()
+        long_traversal = "../" + "a" * 500
+        result = v.validate_path(long_traversal)
+        assert not result.valid
+        error_texts = " ".join(result.errors or [])
+        assert "パス長が上限を超過" in error_texts
+        assert "パストラバーサル" in error_texts
+
 
 class TestGoalConstraintsValidation:
     """ゴール入力の制約・禁止事項バリデーションテスト。"""
