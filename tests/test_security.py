@@ -84,7 +84,8 @@ class TestPathLengthValidation:
     def test_path_with_multiple_violations(self):
         """パス長超過 + トラバーサルが同時にある場合、全エラーが報告されること。"""
         v = InputValidator()
-        long_traversal = "../" + "a" * 500
+        long_traversal = "../" + "a" * 500  # 503文字 > MAX_PATH_LENGTH(500)
+        assert len(long_traversal) > 500
         result = v.validate_path(long_traversal)
         assert not result.valid
         error_texts = " ".join(result.errors or [])
