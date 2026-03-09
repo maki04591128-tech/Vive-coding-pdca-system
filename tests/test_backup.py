@@ -28,6 +28,16 @@ class TestBackupCreation:
         assert state["key"] == "value"
         assert entry.restored
 
+    def test_restore_returns_deep_copy(self):
+        """restore()がdeep copyを返し、変更が元のバックアップに影響しないこと。"""
+        mgr = BackupManager()
+        nested = {"outer": {"inner": 1}}
+        entry = mgr.create_backup("op-2", "ネスト操作", nested)
+        restored = mgr.restore(entry.id)
+        # 復元データを変更してもバックアップは不変
+        restored["outer"]["inner"] = 999
+        assert entry.state_snapshot["outer"]["inner"] == 1
+
 
 class TestBackupIntegrity:
     def test_verify_integrity(self):

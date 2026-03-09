@@ -132,7 +132,7 @@ class BackupManager:
         self.verify_integrity(backup_id)
         entry.restored = True
         logger.info("バックアップ復元: %s", backup_id)
-        return dict(entry.state_snapshot)
+        return copy.deepcopy(entry.state_snapshot)
 
     def purge_expired(self, now: float | None = None) -> int:
         """期限切れバックアップを削除する。
