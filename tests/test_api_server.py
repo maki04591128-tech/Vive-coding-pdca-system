@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from vibe_pdca.engine.api_server import (
     APIEndpoint,
     APIKeyAuth,
@@ -127,6 +129,19 @@ class TestAPIKeyAuth:
         auth.add_key("k2", scope="write")
         keys = auth.list_keys()
         assert set(keys) == {"k1", "k2"}
+
+    def test_add_key_invalid_scope_raises(self) -> None:
+        """無効なスコープを指定するとValueErrorが発生すること。"""
+        auth = APIKeyAuth()
+        with pytest.raises(ValueError, match="無効なスコープ"):
+            auth.add_key("key-bad", scope="superadmin")
+
+    def test_add_key_all_valid_scopes(self) -> None:
+        """read / write / admin の3種類すべてが登録できること。"""
+        auth = APIKeyAuth()
+        for scope in ("read", "write", "admin"):
+            auth.add_key(f"key-{scope}", scope=scope)
+            assert auth.get_scope(f"key-{scope}") == scope
 
 
 # ============================================================

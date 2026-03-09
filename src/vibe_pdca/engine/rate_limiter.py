@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 import time
 from dataclasses import dataclass
 
@@ -65,6 +66,7 @@ class TokenBucket:
         self._rate = rate
         self._tokens = float(capacity)
         self._last_refill = time.monotonic()
+        self._lock = threading.Lock()
 
     def _refill(self) -> None:
         """経過時間に基づいてトークンを補充する。"""
@@ -79,8 +81,9 @@ class TokenBucket:
     @property
     def available(self) -> float:
         """利用可能なトークン数を返す。"""
-        self._refill()
-        return self._tokens
+        with self._lock:
+            self._refill()
+            return self._tokens
 
     def consume(self, n: int = 1) -> bool:
         """トークンを消費する。
@@ -95,10 +98,11 @@ class TokenBucket:
         bool
             消費に成功した場合True。
         """
-        self._refill()
-        if self._tokens >= n:
-            self._tokens -= n
-            return True
+        with self._lock:
+            self._refill()
+            if self._tokens >= n:
+                self._tokens -= n
+                return True
         logger.info(
             "トークン不足: 要求=%d, 残り=%.1f",
             n,
@@ -108,8 +112,9 @@ class TokenBucket:
 
     def reset(self) -> None:
         """バケットを最大容量にリセットする。"""
-        self._tokens = float(self._capacity)
-        self._last_refill = time.monotonic()
+        with self._lock:
+            self._tokens = float(self._capacity)
+            self._last_refill = time.monotonic()
 
 
 # ── RateLimitTracker ──

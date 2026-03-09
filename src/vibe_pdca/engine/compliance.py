@@ -292,7 +292,7 @@ class ComplianceChecker:
 
         # データ取り扱いチェック
         has_personal_data = context.get("has_personal_data", False)
-        has_encryption = context.get("has_encryption", True)
+        has_encryption = context.get("has_encryption", False)
         all_violations.extend(
             self.check_data_handling(has_personal_data, has_encryption),
         )

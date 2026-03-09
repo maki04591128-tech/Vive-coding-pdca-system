@@ -18,6 +18,7 @@ from vibe_pdca.models.pdca import (
     Decision,
     DecisionType,
     Milestone,
+    TaskStatus,
 )
 
 logger = logging.getLogger(__name__)
@@ -201,7 +202,7 @@ class ActDecisionMaker:
         total_tasks = len(cycle.tasks) if cycle else 0
         completed_tasks = sum(
             1 for t in (cycle.tasks if cycle else [])
-            if t.status.value == "completed"
+            if t.status == TaskStatus.COMPLETED
         )
 
         # サマリテキスト生成

@@ -1,5 +1,6 @@
 """マルチユーザー同時アクセス制御のテスト。"""
 
+import threading
 import time
 
 from vibe_pdca.engine.concurrency_control import (
@@ -239,3 +240,61 @@ class TestApprovalGuard:
         guard = ApprovalGuard()
         guard.reset("res-99")  # エラーにならないことを確認
         assert guard.is_approved("res-99") is False
+
+
+# ============================================================
+# テスト: スレッドセーフティ
+# ============================================================
+
+
+class TestOptimisticLockManagerThreadSafety:
+    """楽観的ロックマネージャの並行アクセステスト。"""
+
+    def test_concurrent_acquire_no_corruption(self):
+        """複数スレッドから同時に acquire しても内部状態が壊れないこと。"""
+        mgr = OptimisticLockManager()
+        errors: list[Exception] = []
+
+        def worker(i: int) -> None:
+            try:
+                mgr.acquire(f"res-{i}", f"holder-{i}", version=0)
+            except Exception as exc:
+                errors.append(exc)
+
+        threads = [threading.Thread(target=worker, args=(i,)) for i in range(20)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert errors == []
+        assert len(mgr.list_locks()) == 20
+
+
+class TestExclusiveLockManagerThreadSafety:
+    """排他ロックマネージャの並行アクセステスト。"""
+
+    def test_concurrent_acquire_same_resource(self):
+        """同一リソースへの並行 acquire で正確に1つだけ成功すること。"""
+        mgr = ExclusiveLockManager()
+        results: list[ResourceLock | None] = []
+        lock = threading.Lock()
+
+        def worker(holder: str) -> None:
+            result = mgr.acquire("shared-res", holder, ttl_seconds=60)
+            with lock:
+                results.append(result)
+
+        threads = [
+            threading.Thread(target=worker, args=(f"h-{i}",))
+            for i in range(10)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        successes = [r for r in results if r is not None]
+        failures = [r for r in results if r is None]
+        assert len(successes) == 1  # 排他ロックは1つだけ成功
+        assert len(failures) == 9   # 残りは全て失敗

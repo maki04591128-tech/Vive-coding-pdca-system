@@ -92,7 +92,7 @@ def classify_change_type(file_path: str) -> ChangeType:
     lower = file_path.lower()
 
     # 依存関係ファイルを先にチェック（.txt拡張子より優先）
-    if any(lower.endswith(ext) for ext in (".lock", "requirements.txt", "Pipfile")):
+    if any(lower.endswith(ext) for ext in (".lock", "requirements.txt", "pipfile")):
         return ChangeType.DEPENDENCY
     if lower.endswith((".md", ".rst", ".txt", ".adoc")):
         return ChangeType.DOCUMENTATION
@@ -170,6 +170,7 @@ class Executor:
 
             if result.success:
                 total_diff += result.diff_lines
+                max_file_diff = max(max_file_diff, result.diff_lines)
                 task.status = TaskStatus.IN_PROGRESS
                 if result.pr_number:
                     task.pr_number = result.pr_number

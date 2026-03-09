@@ -338,12 +338,14 @@ class HotReloadManager:
     @property
     def apply_mode(self) -> ApplyMode:
         """現在の適用モードを返す。"""
-        return self._apply_mode
+        with self._lock:
+            return self._apply_mode
 
     @apply_mode.setter
     def apply_mode(self, mode: ApplyMode) -> None:
         """適用モードを変更する。"""
-        self._apply_mode = mode
+        with self._lock:
+            self._apply_mode = mode
         logger.info("適用モードを %s に変更しました", mode.value)
 
     @property
@@ -355,7 +357,8 @@ class HotReloadManager:
     @property
     def has_pending(self) -> bool:
         """遅延適用待ちの設定があるかどうかを返す。"""
-        return self._pending_config is not None
+        with self._lock:
+            return self._pending_config is not None
 
     def register_callback(
         self,
@@ -387,11 +390,12 @@ class HotReloadManager:
             return False
 
         current_mtime = self._config_path.stat().st_mtime
-        if current_mtime <= self._last_mtime:
-            return False
+        with self._lock:
+            if current_mtime <= self._last_mtime:
+                return False
+            self._last_mtime = current_mtime
 
         logger.info("設定ファイルの変更を検知しました: %s", self._config_path)
-        self._last_mtime = current_mtime
 
         new_config = self._read_config()
 
@@ -402,7 +406,9 @@ class HotReloadManager:
                 logger.error("設定バリデーションエラー: %s", "; ".join(errors))
                 return False
 
-        if self._apply_mode == ApplyMode.IMMEDIATE:
+        with self._lock:
+            mode = self._apply_mode
+        if mode == ApplyMode.IMMEDIATE:
             self._apply_config(new_config, description="ファイル変更の即時適用")
         else:
             with self._lock:
@@ -483,7 +489,9 @@ class HotReloadManager:
     def _update_mtime(self) -> None:
         """現在のファイル mtime を記録する。"""
         if self._config_path.exists():
-            self._last_mtime = self._config_path.stat().st_mtime
+            mtime = self._config_path.stat().st_mtime
+            with self._lock:
+                self._last_mtime = mtime
 
     def _apply_config(self, config: dict[str, Any], description: str = "") -> None:
         """設定を適用しバージョンストアに記録する。"""

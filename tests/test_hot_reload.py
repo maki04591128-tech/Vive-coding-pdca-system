@@ -555,3 +555,39 @@ class TestHotReloadManager:
         manager.rollback(1)
         assert len(received) == 1
         assert received[0][0] == {"v": 1}
+
+
+class TestHotReloadThreadSafety:
+    """HotReloadManager のスレッドセーフティテスト。"""
+
+    def test_concurrent_apply_mode_toggle(self, tmp_path):
+        """複数スレッドから apply_mode を同時切替しても例外が発生しないこと。"""
+        import threading
+
+        cfg_file = tmp_path / "config.yml"
+        cfg_file.write_text(yaml.dump({"llm": {"mode": "local"}}))
+        manager = HotReloadManager(cfg_file)
+        manager.load_initial()
+
+        errors: list[Exception] = []
+        lock = threading.Lock()
+
+        def toggle_mode() -> None:
+            try:
+                for _ in range(50):
+                    manager.apply_mode = ApplyMode.DEFERRED
+                    _ = manager.apply_mode
+                    manager.apply_mode = ApplyMode.IMMEDIATE
+                    _ = manager.apply_mode
+            except Exception as exc:
+                with lock:
+                    errors.append(exc)
+
+        threads = [threading.Thread(target=toggle_mode) for _ in range(4)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert errors == []
+        assert manager.apply_mode in (ApplyMode.IMMEDIATE, ApplyMode.DEFERRED)

@@ -9,6 +9,7 @@ M3 タスク 3-5: 要件定義書 §20 準拠。
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import logging
 import time
@@ -85,7 +86,7 @@ class BackupManager:
         entry = BackupEntry(
             operation_id=operation_id,
             operation_description=operation_description,
-            state_snapshot=dict(state_snapshot),
+            state_snapshot=copy.deepcopy(state_snapshot),
         )
         entry.checksum = entry.compute_checksum()
         self._backups.append(entry)
@@ -131,7 +132,7 @@ class BackupManager:
         self.verify_integrity(backup_id)
         entry.restored = True
         logger.info("バックアップ復元: %s", backup_id)
-        return dict(entry.state_snapshot)
+        return copy.deepcopy(entry.state_snapshot)
 
     def purge_expired(self, now: float | None = None) -> int:
         """期限切れバックアップを削除する。

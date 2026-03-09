@@ -440,3 +440,40 @@ class TestBackgroundMonitoring:
         checker.start_background()
         assert checker._thread.name == "llm-health-checker"
         checker.stop_background()
+
+
+# ============================================================
+# テスト: HealthChecker スレッドセーフティ
+# ============================================================
+
+
+class TestHealthCheckerThreadSafety:
+    """check_all()の並行呼び出しでstatusesが壊れないことを検証する。"""
+
+    def test_concurrent_check_all(self):
+        """複数スレッドがcheck_all()を同時に呼んでも例外が発生しないこと。"""
+        import threading
+
+        providers = {
+            f"p{i}": MockCloudProvider(f"p{i}") for i in range(5)
+        }
+        checker = HealthChecker(providers=providers, interval=60.0)
+        errors: list[Exception] = []
+        lock = threading.Lock()
+
+        def run_check() -> None:
+            try:
+                checker.check_all()
+            except Exception as exc:
+                with lock:
+                    errors.append(exc)
+
+        threads = [threading.Thread(target=run_check) for _ in range(10)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert errors == []
+        # 全プロバイダのステータスが記録されていること
+        assert len(checker.statuses) == 5

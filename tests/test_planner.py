@@ -185,6 +185,18 @@ class TestTaskGeneration:
         fix_tasks = [t for t in result.tasks if "修正:" in t.title]
         assert len(fix_tasks) >= 1
 
+    def test_non_dict_findings_skipped(self, planner, sample_milestone):
+        """previous_findingsに辞書以外が含まれる場合、安全にスキップされること。"""
+        context = {
+            "previous_findings": [
+                "これは文字列",
+                {"description": "正しい指摘", "suggestion": "修正案"},
+            ],
+        }
+        result = planner.generate_tasks(sample_milestone, context=context)
+        fix_tasks = [t for t in result.tasks if "修正:" in t.title]
+        assert len(fix_tasks) == 1  # 辞書のみがタスク化される
+
     def test_tasks_include_test_tasks(self, planner, sample_milestone):
         """テストタスクが生成されること。"""
         result = planner.generate_tasks(sample_milestone)

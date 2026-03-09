@@ -212,3 +212,32 @@ class TestRateLimitDashboard:
     def test_utilization_unknown(self) -> None:
         dash = self._make_dashboard()
         assert dash.get_utilization("missing") == 0.0
+
+
+# ── TokenBucket スレッドセーフティ ──
+
+
+class TestTokenBucketThreadSafety:
+    """TokenBucket の並行アクセスで状態が壊れないことを検証する。"""
+
+    def test_concurrent_consume(self) -> None:
+        """複数スレッドが同時にconsumeしても合計消費数がcapacity以下。"""
+        import threading
+
+        bucket = TokenBucket(capacity=100, rate=0.0)  # 補充なし
+        results: list[bool] = []
+        lock = threading.Lock()
+
+        def consume_one() -> None:
+            ok = bucket.consume(1)
+            with lock:
+                results.append(ok)
+
+        threads = [threading.Thread(target=consume_one) for _ in range(200)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        # 補充なし100トークンに対して200スレッド → 100以下しか成功しない
+        assert sum(results) <= 100

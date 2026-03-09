@@ -44,6 +44,7 @@ class HealthChecker:
         self._interval = interval
         self._on_status_change = on_status_change
         self._statuses: dict[str, ProviderHealthStatus] = {}
+        self._statuses_lock = threading.Lock()
         self._running = False
         self._thread: threading.Thread | None = None
         self._stop_event = threading.Event()
@@ -53,11 +54,13 @@ class HealthChecker:
     @property
     def statuses(self) -> dict[str, ProviderHealthStatus]:
         """全プロバイダの最新ヘルスステータスを返す。"""
-        return dict(self._statuses)
+        with self._statuses_lock:
+            return dict(self._statuses)
 
     def get_status(self, provider_name: str) -> ProviderHealthStatus | None:
         """特定プロバイダのヘルスステータスを返す。"""
-        return self._statuses.get(provider_name)
+        with self._statuses_lock:
+            return self._statuses.get(provider_name)
 
     def check_all(self) -> dict[str, ProviderHealthStatus]:
         """全プロバイダのヘルスチェックを即座に実行する。"""
@@ -65,8 +68,9 @@ class HealthChecker:
         results: dict[str, ProviderHealthStatus] = {}
         for name, provider in self._providers.items():
             result = self._check_provider(name, provider)
-            old_status = self._statuses.get(name)
-            self._statuses[name] = result
+            with self._statuses_lock:
+                old_status = self._statuses.get(name)
+                self._statuses[name] = result
             results[name] = result
 
             # 状態変化コールバック
@@ -160,7 +164,8 @@ class HealthChecker:
             is_healthy = provider.health_check()
             latency_ms = (time.monotonic() - start) * 1000
 
-            old = self._statuses.get(name)
+            with self._statuses_lock:
+                old = self._statuses.get(name)
             consecutive_failures = 0 if is_healthy else (
                 (old.consecutive_failures + 1) if old else 1
             )
@@ -186,7 +191,8 @@ class HealthChecker:
 
         except Exception as e:
             latency_ms = (time.monotonic() - start) * 1000
-            old = self._statuses.get(name)
+            with self._statuses_lock:
+                old = self._statuses.get(name)
             consecutive_failures = (old.consecutive_failures + 1) if old else 1
 
             logger.error("ヘルスチェック例外: %s - %s", name, e)

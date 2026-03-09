@@ -194,6 +194,8 @@ class Planner:
         for finding in previous_findings[:2]:
             if len(tasks) >= max_tasks:
                 break
+            if not isinstance(finding, dict):
+                continue
             task_id = _generate_id("task")
             tasks.append(Task(
                 id=task_id,

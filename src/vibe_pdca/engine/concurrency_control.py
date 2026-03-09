@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 import time
 from dataclasses import dataclass, field
 from enum import StrEnum
@@ -76,6 +77,7 @@ class OptimisticLockManager:
 
     def __init__(self) -> None:
         self._locks: dict[str, ResourceLock] = {}
+        self._lock = threading.Lock()
 
     def acquire(
         self,
@@ -89,31 +91,32 @@ class OptimisticLockManager:
         バージョンをインクリメントして新しいロックを返す。
         リソースが未登録の場合は version=0 で初回取得として扱う。
         """
-        existing = self._locks.get(resource_id)
-        if existing is not None:
-            if existing.version != version:
+        with self._lock:
+            existing = self._locks.get(resource_id)
+            if existing is not None:
+                if existing.version != version:
+                    logger.warning(
+                        "楽観的ロック失敗: resource=%s "
+                        "expected_version=%d actual=%d",
+                        resource_id, version, existing.version,
+                    )
+                    return None
+            elif version != 0:
                 logger.warning(
-                    "楽観的ロック失敗: resource=%s "
-                    "expected_version=%d actual=%d",
-                    resource_id, version, existing.version,
+                    "楽観的ロック失敗: resource=%s は未登録 "
+                    "(expected version=%d)",
+                    resource_id, version,
                 )
                 return None
-        elif version != 0:
-            logger.warning(
-                "楽観的ロック失敗: resource=%s は未登録 "
-                "(expected version=%d)",
-                resource_id, version,
-            )
-            return None
 
-        new_lock = ResourceLock(
-            resource_id=resource_id,
-            lock_type=LockType.OPTIMISTIC,
-            holder=holder,
-            version=version + 1,
-            acquired_at=time.time(),
-        )
-        self._locks[resource_id] = new_lock
+            new_lock = ResourceLock(
+                resource_id=resource_id,
+                lock_type=LockType.OPTIMISTIC,
+                holder=holder,
+                version=version + 1,
+                acquired_at=time.time(),
+            )
+            self._locks[resource_id] = new_lock
         logger.info(
             "楽観的ロック取得: resource=%s holder=%s v=%d",
             resource_id, holder, new_lock.version,
@@ -122,10 +125,11 @@ class OptimisticLockManager:
 
     def release(self, resource_id: str, holder: str) -> bool:
         """ロックを解放する。保持者が一致する場合のみ成功。"""
-        lock = self._locks.get(resource_id)
-        if lock is None or lock.holder != holder:
-            return False
-        del self._locks[resource_id]
+        with self._lock:
+            lock = self._locks.get(resource_id)
+            if lock is None or lock.holder != holder:
+                return False
+            del self._locks[resource_id]
         logger.info(
             "楽観的ロック解放: resource=%s holder=%s",
             resource_id, holder,
@@ -136,20 +140,23 @@ class OptimisticLockManager:
         self, resource_id: str, expected_version: int,
     ) -> bool:
         """リソースの現在バージョンが期待値と一致するか確認する。"""
-        lock = self._locks.get(resource_id)
-        if lock is None:
-            return expected_version == 0
-        return lock.version == expected_version
+        with self._lock:
+            lock = self._locks.get(resource_id)
+            if lock is None:
+                return expected_version == 0
+            return lock.version == expected_version
 
     def get_lock(self, resource_id: str) -> ResourceLock | None:
         """リソースの現在のロック情報を取得する。"""
-        return self._locks.get(resource_id)
+        with self._lock:
+            return self._locks.get(resource_id)
 
     def list_locks(self) -> list[ResourceLock]:
         """全ロックのリストを返す。"""
-        return sorted(
-            self._locks.values(), key=lambda lk: lk.resource_id,
-        )
+        with self._lock:
+            return sorted(
+                self._locks.values(), key=lambda lk: lk.resource_id,
+            )
 
 
 # ============================================================
@@ -166,6 +173,7 @@ class ExclusiveLockManager:
 
     def __init__(self) -> None:
         self._locks: dict[str, ResourceLock] = {}
+        self._lock = threading.Lock()
 
     def acquire(
         self,
@@ -177,28 +185,29 @@ class ExclusiveLockManager:
 
         既にロックされている場合（期限切れでなければ）は None を返す。
         """
-        existing = self._locks.get(resource_id)
-        if (
-            existing is not None
-            and existing.expires_at is not None
-            and existing.expires_at > time.time()
-        ):
+        with self._lock:
+            existing = self._locks.get(resource_id)
+            if (
+                existing is not None
+                and existing.expires_at is not None
+                and existing.expires_at > time.time()
+            ):
                 logger.warning(
                     "排他ロック失敗: resource=%s は %s が保持中",
                     resource_id, existing.holder,
                 )
                 return None
 
-        now = time.time()
-        lock = ResourceLock(
-            resource_id=resource_id,
-            lock_type=LockType.EXCLUSIVE,
-            holder=holder,
-            version=0,
-            acquired_at=now,
-            expires_at=now + ttl_seconds,
-        )
-        self._locks[resource_id] = lock
+            now = time.time()
+            lock = ResourceLock(
+                resource_id=resource_id,
+                lock_type=LockType.EXCLUSIVE,
+                holder=holder,
+                version=0,
+                acquired_at=now,
+                expires_at=now + ttl_seconds,
+            )
+            self._locks[resource_id] = lock
         logger.info(
             "排他ロック取得: resource=%s holder=%s ttl=%ds",
             resource_id, holder, int(ttl_seconds),
@@ -207,10 +216,11 @@ class ExclusiveLockManager:
 
     def release(self, resource_id: str, holder: str) -> bool:
         """排他ロックを解放する。保持者が一致する場合のみ成功。"""
-        lock = self._locks.get(resource_id)
-        if lock is None or lock.holder != holder:
-            return False
-        del self._locks[resource_id]
+        with self._lock:
+            lock = self._locks.get(resource_id)
+            if lock is None or lock.holder != holder:
+                return False
+            del self._locks[resource_id]
         logger.info(
             "排他ロック解放: resource=%s holder=%s",
             resource_id, holder,
@@ -219,22 +229,24 @@ class ExclusiveLockManager:
 
     def is_locked(self, resource_id: str) -> bool:
         """リソースがロックされているか（期限内）確認する。"""
-        lock = self._locks.get(resource_id)
-        if lock is None:
-            return False
-        return (
-            lock.expires_at is None or lock.expires_at > time.time()
-        )
+        with self._lock:
+            lock = self._locks.get(resource_id)
+            if lock is None:
+                return False
+            return (
+                lock.expires_at is None or lock.expires_at > time.time()
+            )
 
     def cleanup_expired(self) -> int:
         """期限切れのロックを除去し、除去数を返す。"""
-        now = time.time()
-        expired = [
-            rid for rid, lk in self._locks.items()
-            if lk.expires_at is not None and lk.expires_at <= now
-        ]
-        for rid in expired:
-            del self._locks[rid]
+        with self._lock:
+            now = time.time()
+            expired = [
+                rid for rid, lk in self._locks.items()
+                if lk.expires_at is not None and lk.expires_at <= now
+            ]
+            for rid in expired:
+                del self._locks[rid]
         if expired:
             logger.info("期限切れロック除去: %d件", len(expired))
         return len(expired)
