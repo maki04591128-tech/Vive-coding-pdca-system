@@ -77,7 +77,8 @@ class TestAlerts:
             mc.raise_alert(AlertType.CI_FAILURE, AlertSeverity.WARNING, f"alert-{i}")
         data = mc.get_dashboard_data()
         assert len(data.recent_alerts) == 10
-        # 最新の10件（5〜14）が返される
+        # _alertsはlist.append()で追加されるため挿入順序保持
+        # [-10:]は最新10件(alert-5〜alert-14)を返す
         assert data.recent_alerts[0].message == "alert-5"
         assert data.recent_alerts[-1].message == "alert-14"
 
