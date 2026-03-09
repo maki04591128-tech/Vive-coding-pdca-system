@@ -459,12 +459,14 @@ class TestHealthCheckerThreadSafety:
         }
         checker = HealthChecker(providers=providers, interval=60.0)
         errors: list[Exception] = []
+        lock = threading.Lock()
 
         def run_check() -> None:
             try:
                 checker.check_all()
             except Exception as exc:
-                errors.append(exc)
+                with lock:
+                    errors.append(exc)
 
         threads = [threading.Thread(target=run_check) for _ in range(10)]
         for t in threads:

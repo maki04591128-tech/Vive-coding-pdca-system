@@ -225,14 +225,13 @@ class TestTokenBucketThreadSafety:
         import threading
 
         bucket = TokenBucket(capacity=100, rate=0.0)  # 補充なし
-        success_count = 0
+        results: list[bool] = []
         lock = threading.Lock()
 
         def consume_one() -> None:
-            nonlocal success_count
-            if bucket.consume(1):
-                with lock:
-                    success_count += 1
+            ok = bucket.consume(1)
+            with lock:
+                results.append(ok)
 
         threads = [threading.Thread(target=consume_one) for _ in range(200)]
         for t in threads:
@@ -241,4 +240,4 @@ class TestTokenBucketThreadSafety:
             t.join()
 
         # 補充なし100トークンに対して200スレッド → 100以下しか成功しない
-        assert success_count <= 100
+        assert sum(results) <= 100
