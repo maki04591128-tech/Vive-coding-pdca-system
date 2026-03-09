@@ -14,6 +14,8 @@ UI部品（ウィジェット）が含まれています。
   - AlertPanel      : レベル別フィルタ付きアラート通知パネル
 """
 
+import contextlib
+
 __all__ = [
     "StatusCard",
     "CostCard",
@@ -24,3 +26,12 @@ __all__ = [
     "RadarCard",
     "AlertPanel",
 ]
+
+with contextlib.suppress(ImportError):  # flet が未インストールの場合
+    from vibe_pdca.gui.components.alert_panel import AlertPanel
+    from vibe_pdca.gui.components.cost_chart_card import CostChartCard
+    from vibe_pdca.gui.components.pdca_card import PDCAStatusCard
+    from vibe_pdca.gui.components.radar_card import RadarCard
+    from vibe_pdca.gui.components.status_card import CostCard, StatusCard
+    from vibe_pdca.gui.components.timeline_card import TimelineCard
+    from vibe_pdca.gui.components.traceability_card import TraceabilityCard

@@ -170,6 +170,7 @@ class Executor:
 
             if result.success:
                 total_diff += result.diff_lines
+                max_file_diff = max(max_file_diff, result.diff_lines)
                 task.status = TaskStatus.IN_PROGRESS
                 if result.pr_number:
                     task.pr_number = result.pr_number

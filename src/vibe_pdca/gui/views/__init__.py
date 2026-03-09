@@ -11,6 +11,8 @@
   - ModeSettingsView : 運転モード設定画面（§10.2）
 """
 
+import contextlib
+
 __all__ = [
     "DashboardView",
     "GoalInputView",
@@ -18,3 +20,10 @@ __all__ = [
     "InterventionView",
     "ModeSettingsView",
 ]
+
+with contextlib.suppress(ImportError):  # flet が未インストールの場合
+    from vibe_pdca.gui.views.dashboard import DashboardView
+    from vibe_pdca.gui.views.goal_input import GoalInputView
+    from vibe_pdca.gui.views.intervention_view import InterventionView
+    from vibe_pdca.gui.views.mode_settings import ModeSettingsView
+    from vibe_pdca.gui.views.progress_view import ProgressView

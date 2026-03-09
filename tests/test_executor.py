@@ -117,3 +117,30 @@ class TestExecutor:
         result = executor.execute_tasks(tasks)
         assert result.all_succeeded
         assert tasks[0].status == TaskStatus.IN_PROGRESS
+
+    def test_max_file_diff_lines_tracked(self, executor):
+        """max_file_diff_lines が各タスクの diff_lines の最大値を追跡する。"""
+        from unittest.mock import patch
+
+        from vibe_pdca.engine.executor import ExecutionResult
+
+        diff_values = [50, 200, 120]
+        call_count = 0
+
+        def fake_execute(task, dry_run=False):
+            nonlocal call_count
+            val = diff_values[call_count]
+            call_count += 1
+            return ExecutionResult(task_id=task.id, success=True, diff_lines=val)
+
+        tasks = [
+            Task(id="t-1", title="A"),
+            Task(id="t-2", title="B"),
+            Task(id="t-3", title="C"),
+        ]
+
+        with patch.object(executor, "_execute_single_task", side_effect=fake_execute):
+            result = executor.execute_tasks(tasks)
+
+        assert result.max_file_diff_lines == 200
+        assert result.total_diff_lines == 370
