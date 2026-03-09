@@ -63,6 +63,24 @@ class TestAlerts:
         assert mc.acknowledge_alert(0)
         assert len(mc.get_unacknowledged_alerts()) == 0
 
+    def test_acknowledge_alert_invalid_index(self):
+        """範囲外のインデックスでは False を返す。"""
+        mc = MetricsCollector()
+        mc.raise_alert(AlertType.CI_FAILURE, AlertSeverity.CRITICAL, "CI失敗")
+        assert not mc.acknowledge_alert(-1)
+        assert not mc.acknowledge_alert(99)
+
+    def test_recent_alerts_capped_at_10(self):
+        """ダッシュボードの recent_alerts は最新10件に制限される。"""
+        mc = MetricsCollector()
+        for i in range(15):
+            mc.raise_alert(AlertType.CI_FAILURE, AlertSeverity.WARNING, f"alert-{i}")
+        data = mc.get_dashboard_data()
+        assert len(data.recent_alerts) == 10
+        # 最新の10件（5〜14）が返される
+        assert data.recent_alerts[0].message == "alert-5"
+        assert data.recent_alerts[-1].message == "alert-14"
+
 
 class TestDashboard:
     def test_get_dashboard_data(self):

@@ -63,6 +63,22 @@ class TestChangeTypeClassification:
     def test_classify_unknown_defaults_to_source(self):
         assert classify_change_type("unknown_file") == ChangeType.SOURCE_CODE
 
+    def test_classify_requirements_txt_takes_priority_over_txt(self):
+        """requirements.txt は .txt (ドキュメント) より先に依存関係として分類される。"""
+        assert classify_change_type("requirements.txt") == ChangeType.DEPENDENCY
+
+    def test_classify_test_directory_file(self):
+        """tests/ 配下のファイルはテストとして分類される。"""
+        assert classify_change_type("tests/test_utils.py") == ChangeType.TEST
+
+    def test_classify_env_file(self):
+        """.env ファイルは設定として分類される。"""
+        assert classify_change_type(".env") == ChangeType.CONFIG
+
+    def test_classify_pipfile_as_dependency(self):
+        """Pipfile は依存関係として分類される。"""
+        assert classify_change_type("Pipfile") == ChangeType.DEPENDENCY
+
 
 # ============================================================
 # テスト: ゲート取得

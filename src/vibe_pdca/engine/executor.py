@@ -92,7 +92,7 @@ def classify_change_type(file_path: str) -> ChangeType:
     lower = file_path.lower()
 
     # 依存関係ファイルを先にチェック（.txt拡張子より優先）
-    if any(lower.endswith(ext) for ext in (".lock", "requirements.txt", "Pipfile")):
+    if any(lower.endswith(ext) for ext in (".lock", "requirements.txt", "pipfile")):
         return ChangeType.DEPENDENCY
     if lower.endswith((".md", ".rst", ".txt", ".adoc")):
         return ChangeType.DOCUMENTATION
