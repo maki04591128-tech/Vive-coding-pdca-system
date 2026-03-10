@@ -49,7 +49,7 @@ class TestPathValidation:
         assert not result.valid
 
     def test_path_traversal_url_encoded_backslash(self):
-        """URLエンコードされた '..\\ ' (..%5c) を検出すること。"""
+        """URLエンコードされた '..\\' (..%5c) を検出すること。"""
         v = InputValidator()
         result = v.validate_path("..%5cWindows%5csystem32")
         assert not result.valid
