@@ -42,6 +42,18 @@ class TestPathValidation:
         result = v.validate_path("../../etc/passwd")
         assert not result.valid
 
+    def test_path_traversal_url_encoded_slash(self):
+        """URLエンコードされた '../' (..%2f) を検出すること。"""
+        v = InputValidator()
+        result = v.validate_path("..%2fetc/passwd")
+        assert not result.valid
+
+    def test_path_traversal_url_encoded_backslash(self):
+        """URLエンコードされた '..\\ ' (..%5c) を検出すること。"""
+        v = InputValidator()
+        result = v.validate_path("..%5cWindows%5csystem32")
+        assert not result.valid
+
     def test_nul_byte(self):
         v = InputValidator()
         result = v.validate_path("file.py\x00.txt")

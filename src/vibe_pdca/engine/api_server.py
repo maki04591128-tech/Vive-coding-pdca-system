@@ -291,7 +291,17 @@ class APIRouter:
                 body={"error": "Not Found"},
             )
 
-        if endpoint.requires_auth and self._auth is not None:
+        if endpoint.requires_auth:
+            if self._auth is None:
+                logger.warning(
+                    "認証が必要ですが認証マネージャー未設定: %s %s",
+                    request.method,
+                    request.endpoint,
+                )
+                return APIResponse(
+                    status_code=403,
+                    body={"error": "Forbidden"},
+                )
             api_key = request.headers.get("Authorization", "")
             if not self._auth.validate_key(api_key):
                 logger.warning("認証失敗: %s %s", request.method, request.endpoint)

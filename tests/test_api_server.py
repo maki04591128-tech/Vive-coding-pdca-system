@@ -224,6 +224,19 @@ class TestAPIRouter:
         assert resp.status_code == 401
         assert resp.body["error"] == "Unauthorized"
 
+    def test_handle_request_forbidden_when_auth_not_configured(self) -> None:
+        """認証マネージャー未設定で認証必須エンドポイントへアクセスすると403。"""
+        router = APIRouter(auth=None)
+        ep = self._make_endpoint(requires_auth=True)
+        router.register_endpoint(ep)
+        req = APIRequest(
+            endpoint="/api/v1/status",
+            method=APIMethod.GET,
+        )
+        resp = router.handle_request(req)
+        assert resp.status_code == 403
+        assert resp.body["error"] == "Forbidden"
+
 
 # ============================================================
 # テスト: EndpointRegistry

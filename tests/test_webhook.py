@@ -164,6 +164,29 @@ class TestEventQueue:
         assert q.pop() is e1
         assert q.pop() is e2
 
+    def test_concurrent_push_respects_max_size(self) -> None:
+        """複数スレッドからの同時pushでmax_sizeを超えないこと。"""
+        import threading
+
+        q = EventQueue(max_size=50)
+        results: list[bool] = []
+        lock = threading.Lock()
+
+        def push_many() -> None:
+            for _ in range(30):
+                ok = q.push(WebhookEvent(event_type=WebhookEventType.ISSUE_OPENED))
+                with lock:
+                    results.append(ok)
+
+        threads = [threading.Thread(target=push_many) for _ in range(3)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert q.size <= 50
+        assert results.count(True) == q.size
+
 
 # ── BackpressureController ──
 

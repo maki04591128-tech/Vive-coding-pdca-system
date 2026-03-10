@@ -147,6 +147,8 @@ class CloudLLMProvider(BaseLLMProvider):
                     system=request.system_prompt,
                     messages=[{"role": "user", "content": request.user_prompt}],
                 )
+                if not resp.content:
+                    raise RuntimeError("Anthropic API が空のコンテンツを返しました")
                 content = resp.content[0].text
                 input_tokens = resp.usage.input_tokens
                 output_tokens = resp.usage.output_tokens
@@ -168,7 +170,9 @@ class CloudLLMProvider(BaseLLMProvider):
                     kwargs["response_format"] = {"type": "json_object"}
 
                 resp = client.chat.completions.create(**kwargs)
-                content = resp.choices[0].message.content
+                if not resp.choices:
+                    raise RuntimeError("OpenAI API が空のchoicesを返しました")
+                content = resp.choices[0].message.content or ""
                 input_tokens = resp.usage.prompt_tokens
                 output_tokens = resp.usage.completion_tokens
 
@@ -296,7 +300,9 @@ class LocalLLMProvider(BaseLLMProvider):
                 kwargs["response_format"] = {"type": "json_object"}
 
             resp = client.chat.completions.create(**kwargs)
-            content = resp.choices[0].message.content
+            if not resp.choices:
+                raise RuntimeError("ローカルLLMが空のchoicesを返しました")
+            content = resp.choices[0].message.content or ""
             input_tokens = getattr(resp.usage, "prompt_tokens", 0) or 0
             output_tokens = getattr(resp.usage, "completion_tokens", 0) or 0
 

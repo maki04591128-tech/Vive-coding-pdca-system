@@ -103,7 +103,7 @@ class IntentClassifier:
             IntentType.FEEDBACK: feedback_score,
         }
 
-        best_type = max(scores, key=scores.get)  # type: ignore[arg-type]
+        best_type = max(scores, key=lambda k: scores[k])
         best_score = scores[best_type]
 
         if best_score == 0:

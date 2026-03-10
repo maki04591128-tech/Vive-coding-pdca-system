@@ -86,6 +86,16 @@ class TestMonorepoScopeResolver:
         result = self.resolver.resolve_scope("/repo/", "packages/core/")
         assert result == ["/repo/packages/core"]
 
+    def test_resolve_scope_path_traversal_blocked(self) -> None:
+        """パストラバーサル('../')を含むスコープはリポジトリ全体にフォールバック。"""
+        result = self.resolver.resolve_scope("/repo", "../../etc")
+        assert result == ["/repo"]
+
+    def test_resolve_scope_nested_traversal_blocked(self) -> None:
+        """中間にパストラバーサルを含むスコープもブロックされること。"""
+        result = self.resolver.resolve_scope("/repo", "packages/../../../etc")
+        assert result == ["/repo"]
+
     def test_detect_affected_packages_single(self) -> None:
         changed = ["packages/core/src/main.py"]
         packages = ["packages/core", "packages/utils"]

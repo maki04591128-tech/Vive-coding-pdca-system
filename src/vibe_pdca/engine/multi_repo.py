@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
+from pathlib import PurePosixPath
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +78,12 @@ class MonorepoScopeResolver:
             return [repo_path]
 
         base = repo_path.rstrip("/")
-        resolved = f"{base}/{scope_path.strip('/')}"
+        clean_scope = scope_path.strip("/")
+        resolved = f"{base}/{clean_scope}"
+        # パストラバーサル防止: 解決後パスがベースパス配下にあることを確認
+        if ".." in PurePosixPath(clean_scope).parts:
+            logger.warning("パストラバーサル検出: scope_path=%s", scope_path)
+            return [repo_path]
         logger.debug("スコープ解決: %s", resolved)
         return [resolved]
 
