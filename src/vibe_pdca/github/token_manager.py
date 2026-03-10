@@ -332,9 +332,9 @@ class AccessLogger:
             error_count = sum(1 for e in self._entries if e.status_code >= 400)
             avg_duration = sum(e.duration_ms for e in self._entries) / total
 
-        return {
-            "total_calls": total,
-            "error_count": error_count,
-            "error_rate": error_count / total,
-            "avg_duration_ms": round(avg_duration, 2),
-        }
+            return {
+                "total_calls": total,
+                "error_count": error_count,
+                "error_rate": error_count / total,
+                "avg_duration_ms": round(avg_duration, 2),
+            }

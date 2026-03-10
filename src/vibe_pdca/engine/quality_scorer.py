@@ -544,10 +544,14 @@ class QualityAwareRetrier:
             # 必須キー検証（JSONが有効で必須キー指定がある場合）
             required_keys = context.get("required_keys")
             if json_score.score == 1.0 and required_keys:
-                data = json.loads(text)
-                scores.append(
-                    validator.validate_required_keys(data, required_keys)
-                )
+                try:
+                    data = json.loads(text)
+                except json.JSONDecodeError:
+                    data = None
+                if data is not None:
+                    scores.append(
+                        validator.validate_required_keys(data, required_keys)
+                    )
             # Markdown見出し検証
             required_headings = context.get("required_headings")
             if required_headings:
