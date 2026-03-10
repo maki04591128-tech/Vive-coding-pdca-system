@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import logging
 import re
+import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -282,6 +283,7 @@ class AccessLogger:
     def __init__(self) -> None:
         """初期化。"""
         self._entries: list[TokenAccessLog] = []
+        self._lock = threading.Lock()
 
     def log(self, entry: TokenAccessLog) -> None:
         """アクセスログを記録する。
@@ -289,7 +291,8 @@ class AccessLogger:
         Args:
             entry: ログエントリ。
         """
-        self._entries.append(entry)
+        with self._lock:
+            self._entries.append(entry)
         logger.debug(
             "API呼出: %s %s → %d (%.1fms)",
             entry.method,
@@ -307,7 +310,8 @@ class AccessLogger:
         Returns:
             直近のログエントリ（新しい順）。
         """
-        return list(reversed(self._entries[-count:]))
+        with self._lock:
+            return list(reversed(self._entries[-count:]))
 
     def get_summary(self) -> dict[str, object]:
         """アクセスログのサマリーを取得する。
@@ -315,17 +319,18 @@ class AccessLogger:
         Returns:
             総呼出回数、エラー率、平均応答時間などの集計情報。
         """
-        total = len(self._entries)
-        if total == 0:
-            return {
-                "total_calls": 0,
-                "error_count": 0,
-                "error_rate": 0.0,
-                "avg_duration_ms": 0.0,
-            }
+        with self._lock:
+            total = len(self._entries)
+            if total == 0:
+                return {
+                    "total_calls": 0,
+                    "error_count": 0,
+                    "error_rate": 0.0,
+                    "avg_duration_ms": 0.0,
+                }
 
-        error_count = sum(1 for e in self._entries if e.status_code >= 400)
-        avg_duration = sum(e.duration_ms for e in self._entries) / total
+            error_count = sum(1 for e in self._entries if e.status_code >= 400)
+            avg_duration = sum(e.duration_ms for e in self._entries) / total
 
         return {
             "total_calls": total,

@@ -381,3 +381,39 @@ class TestAccessLogger:
         assert summary["error_count"] == 0
         assert summary["error_rate"] == 0.0
         assert summary["avg_duration_ms"] == 15.0
+
+
+class TestAccessLoggerThreadSafety:
+    """AccessLogger の並行アクセステスト。"""
+
+    @staticmethod
+    def _make_entry(**kwargs: object) -> TokenAccessLog:
+        defaults: dict[str, object] = {
+            "method": "GET",
+            "endpoint": "/repos",
+            "status_code": 200,
+            "timestamp": 1.0,
+            "duration_ms": 10.0,
+        }
+        defaults.update(kwargs)
+        return TokenAccessLog(**defaults)  # type: ignore[arg-type]
+
+    def test_concurrent_log_no_data_loss(self) -> None:
+        """複数スレッドからの同時logでデータが欠落しないこと。"""
+        import threading
+
+        al = AccessLogger()
+        count_per_thread = 50
+
+        def worker() -> None:
+            for _ in range(count_per_thread):
+                al.log(self._make_entry())
+
+        threads = [threading.Thread(target=worker) for _ in range(10)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        summary = al.get_summary()
+        assert summary["total_calls"] == count_per_thread * 10

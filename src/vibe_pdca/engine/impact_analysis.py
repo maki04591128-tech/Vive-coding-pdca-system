@@ -86,7 +86,7 @@ class StaticDependencyAnalyzer:
                 for alias in node.names:
                     imports.append(alias.name)
             elif isinstance(node, ast.ImportFrom) and node.module:
-                    imports.append(node.module)
+                imports.append(node.module)
         return imports
 
     def build_dependency_map(

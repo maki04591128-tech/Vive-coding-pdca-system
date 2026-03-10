@@ -298,3 +298,31 @@ class TestExclusiveLockManagerThreadSafety:
         failures = [r for r in results if r is None]
         assert len(successes) == 1  # 排他ロックは1つだけ成功
         assert len(failures) == 9   # 残りは全て失敗
+
+
+class TestApprovalGuardThreadSafety:
+    """承認ガードの並行アクセステスト。"""
+
+    def test_concurrent_submit_same_resource(self):
+        """同一リソースへの並行承認で正確に1つだけ成功すること。"""
+        guard = ApprovalGuard()
+        results: list[bool] = []
+        lock = threading.Lock()
+
+        def worker(approver: str) -> None:
+            result = guard.submit_approval("shared-res", approver)
+            with lock:
+                results.append(result)
+
+        threads = [
+            threading.Thread(target=worker, args=(f"approver-{i}",))
+            for i in range(10)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert results.count(True) == 1
+        assert results.count(False) == 9
+        assert guard.is_approved("shared-res") is True

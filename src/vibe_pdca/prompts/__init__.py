@@ -478,8 +478,14 @@ def load_templates_from_yaml(
             f"YAMLファイルの構造が不正です（'templates' キーが必要）: {path}"
         )
 
+    raw_templates = data["templates"]
+    if not isinstance(raw_templates, list):
+        raise ValueError(
+            f"'templates' はリストである必要があります: {path}"
+        )
+
     templates: dict[tuple[str, str], str] = {}
-    for entry in data["templates"]:
+    for entry in raw_templates:
         role = entry.get("role", "")
         phase = entry.get("phase", "")
         content = entry.get("content", "")
