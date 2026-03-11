@@ -295,3 +295,32 @@ class TestSimilarityFinder:
             "retry", entries, threshold=0.99
         )
         assert len(low) >= len(high)
+
+
+# ============================================================
+# テスト: 検索スコア上限
+# ============================================================
+
+
+class TestSearchScoreCap:
+    """search() のスコアが 1.0 を超えないこと。"""
+
+    def test_score_capped_at_one(self):
+        from vibe_pdca.engine.knowledge_base import (
+            KnowledgeEntry,
+            KnowledgeStore,
+        )
+
+        kb = KnowledgeStore()
+        kb.add(KnowledgeEntry(
+            entry_id="test-1",
+            category="lesson",
+            title="retry retry retry",
+            content="retry retry retry",
+            tags=["retry"],
+        ))
+        # 1キーワード "retry" で検索 → テキストにも含まれるが score は 1.0 以下
+        results = kb.search("retry")
+        assert len(results) >= 1
+        for r in results:
+            assert r.relevance_score <= 1.0

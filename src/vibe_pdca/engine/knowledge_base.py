@@ -143,7 +143,7 @@ class KnowledgeStore:
             ).lower()
             hits = sum(1 for kw in keywords if kw in text)
             if hits > 0:
-                score = hits / len(keywords)
+                score = min(1.0, hits / len(keywords))
                 scored.append(
                     KnowledgeEntry(
                         entry_id=entry.entry_id,

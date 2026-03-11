@@ -135,8 +135,8 @@ class TrainingDataCollector:
 
         source_dist: dict[str, int] = {}
         total_quality = 0.0
-        oldest = float("inf")
-        newest = 0.0
+        oldest = self._examples[0].created_at
+        newest = self._examples[0].created_at
 
         for ex in self._examples:
             source_dist[ex.source] = source_dist.get(ex.source, 0) + 1

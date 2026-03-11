@@ -89,3 +89,28 @@ class TestUpdateRetention:
         mgr = RetentionManager()
         status = mgr.get_status()
         assert "audit_log" in status
+
+
+# ============================================================
+# テスト: 保持期間バリデーション
+# ============================================================
+
+
+class TestRetentionDaysValidation:
+    """保持期間の値バリデーション。"""
+
+    def test_reject_zero_days(self):
+        from vibe_pdca.audit.retention import RetentionManager, RetentionTarget
+
+        mgr = RetentionManager()
+        assert not mgr.update_retention_days(
+            RetentionTarget.OPERATION_METRICS, 0,
+        )
+
+    def test_reject_negative_days(self):
+        from vibe_pdca.audit.retention import RetentionManager, RetentionTarget
+
+        mgr = RetentionManager()
+        assert not mgr.update_retention_days(
+            RetentionTarget.OPERATION_METRICS, -5,
+        )

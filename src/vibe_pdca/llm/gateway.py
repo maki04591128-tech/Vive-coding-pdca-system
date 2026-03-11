@@ -13,6 +13,7 @@ ADR-001 / §4.2 / §13.2 / §26.1 準拠。
 from __future__ import annotations
 
 import logging
+import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -57,56 +58,63 @@ class CostTracker:
     max_calls_per_cycle: int = 80
     max_calls_per_day: int = 500
     history: list[dict[str, Any]] = field(default_factory=list)
+    _lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False)
 
     def record(self, response: LLMResponse) -> None:
-        self.daily_cost_usd += response.cost_usd
-        self.cycle_cost_usd += response.cost_usd
-        self.daily_calls += 1
-        self.cycle_calls += 1
-        self.history.append({
-            "model": response.model,
-            "provider_type": response.provider_type.value,
-            "role": response.role.value,
-            "cost_usd": response.cost_usd,
-            "input_tokens": response.input_tokens,
-            "output_tokens": response.output_tokens,
-            "latency_ms": response.latency_ms,
-            "fallback_used": response.fallback_used,
-            "timestamp": time.time(),
-        })
+        with self._lock:
+            self.daily_cost_usd += response.cost_usd
+            self.cycle_cost_usd += response.cost_usd
+            self.daily_calls += 1
+            self.cycle_calls += 1
+            self.history.append({
+                "model": response.model,
+                "provider_type": response.provider_type.value,
+                "role": response.role.value,
+                "cost_usd": response.cost_usd,
+                "input_tokens": response.input_tokens,
+                "output_tokens": response.output_tokens,
+                "latency_ms": response.latency_ms,
+                "fallback_used": response.fallback_used,
+                "timestamp": time.time(),
+            })
 
     def check_limits(self) -> tuple[bool, str]:
         """コスト上限チェック。超過時は (False, 理由) を返す。"""
-        if self.daily_cost_usd >= self.daily_limit_usd:
-            return (
-                False,
-                f"日次コスト上限超過: ${self.daily_cost_usd:.2f} >= ${self.daily_limit_usd:.2f}",
-            )
-        if self.cycle_cost_usd >= self.per_cycle_limit_usd:
-            return (
-                False,
-                f"サイクルコスト上限超過: ${self.cycle_cost_usd:.2f}"
-                f" >= ${self.per_cycle_limit_usd:.2f}",
-            )
-        if self.daily_calls >= self.max_calls_per_day:
-            return (
-                False,
-                f"日次呼び出し上限超過: {self.daily_calls} >= {self.max_calls_per_day}",
-            )
-        if self.cycle_calls >= self.max_calls_per_cycle:
-            return (
-                False,
-                f"サイクル呼び出し上限超過: {self.cycle_calls} >= {self.max_calls_per_cycle}",
-            )
-        return True, ""
+        with self._lock:
+            if self.daily_cost_usd >= self.daily_limit_usd:
+                return (
+                    False,
+                    f"日次コスト上限超過: "
+                    f"${self.daily_cost_usd:.2f} >= "
+                    f"${self.daily_limit_usd:.2f}",
+                )
+            if self.cycle_cost_usd >= self.per_cycle_limit_usd:
+                return (
+                    False,
+                    f"サイクルコスト上限超過: ${self.cycle_cost_usd:.2f}"
+                    f" >= ${self.per_cycle_limit_usd:.2f}",
+                )
+            if self.daily_calls >= self.max_calls_per_day:
+                return (
+                    False,
+                    f"日次呼び出し上限超過: {self.daily_calls} >= {self.max_calls_per_day}",
+                )
+            if self.cycle_calls >= self.max_calls_per_cycle:
+                return (
+                    False,
+                    f"サイクル呼び出し上限超過: {self.cycle_calls} >= {self.max_calls_per_cycle}",
+                )
+            return True, ""
 
     def reset_cycle(self) -> None:
-        self.cycle_cost_usd = 0.0
-        self.cycle_calls = 0
+        with self._lock:
+            self.cycle_cost_usd = 0.0
+            self.cycle_calls = 0
 
     def reset_daily(self) -> None:
-        self.daily_cost_usd = 0.0
-        self.daily_calls = 0
+        with self._lock:
+            self.daily_cost_usd = 0.0
+            self.daily_calls = 0
 
 
 # ============================================================

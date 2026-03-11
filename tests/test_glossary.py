@@ -134,3 +134,24 @@ class TestGlossaryExport:
         assert len(exported) == 1
         assert exported[0]["term"] == "PDCA"
         assert isinstance(exported[0], dict)
+
+
+# ============================================================
+# テスト: 空用語名バリデーション
+# ============================================================
+
+
+class TestEmptyTermValidation:
+    """空・空白のみの用語名が拒否されること。"""
+
+    def test_reject_empty_term(self, manager):
+        import pytest
+
+        with pytest.raises(ValueError, match="空にすることはできません"):
+            manager.add("", "定義")
+
+    def test_reject_whitespace_term(self, manager):
+        import pytest
+
+        with pytest.raises(ValueError, match="空にすることはできません"):
+            manager.add("   ", "定義")

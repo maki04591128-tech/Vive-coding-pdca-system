@@ -208,6 +208,10 @@ class RetentionManager:
         if policy is None:
             return False
 
+        if new_days <= 0:
+            logger.warning("保持期間は1日以上である必要があります: %d", new_days)
+            return False
+
         # 監査ログの短縮は人間承認が必要
         if (
             policy.requires_approval_to_shorten

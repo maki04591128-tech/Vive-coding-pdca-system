@@ -96,6 +96,8 @@ class GlossaryManager:
             既に同名の用語が存在する場合。
         """
         normalized = term.strip()
+        if not normalized:
+            raise ValueError("用語名を空にすることはできません")
         if normalized in self._entries:
             raise ValueError(f"用語 '{normalized}' は既に登録されています")
 

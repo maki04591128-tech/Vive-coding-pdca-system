@@ -243,3 +243,42 @@ class TestModelComparator:
 
     def test_get_best_model_no_data(self) -> None:
         assert self.comparator.get_best_model("unknown") is None
+
+
+# ============================================================
+# テスト: データセット統計のタイムスタンプ
+# ============================================================
+
+
+class TestDatasetStatsTimestamp:
+    """get_stats() の oldest/newest が正しく計算されること。"""
+
+    def test_oldest_newest_correct(self):
+        import time
+
+        from vibe_pdca.engine.fine_tuning import (
+            TrainingDataCollector,
+            TrainingExample,
+        )
+
+        now = time.time()
+        builder = TrainingDataCollector()
+        builder.add_example(TrainingExample(
+            input_text="p1",
+            output_text="c1",
+            source="test",
+            quality_score=0.8,
+            created_at=now - 100,
+        ))
+        builder.add_example(TrainingExample(
+            input_text="p2",
+            output_text="c2",
+            source="test",
+            quality_score=0.9,
+            created_at=now,
+        ))
+        stats = builder.get_stats()
+        assert stats.total_examples == 2
+        assert stats.oldest <= stats.newest
+        assert abs(stats.oldest - (now - 100)) < 1.0
+        assert abs(stats.newest - now) < 1.0

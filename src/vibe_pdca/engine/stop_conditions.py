@@ -10,6 +10,7 @@ M2 タスク 2-9: 要件定義書 §6.6, §13.2 準拠。
 from __future__ import annotations
 
 import logging
+import threading
 import time
 from dataclasses import dataclass, field
 from enum import IntEnum, StrEnum
@@ -111,10 +112,12 @@ class StackDetector:
         self._timeout = timeout_seconds
         self._last_heartbeat: float = time.time()
         self._heartbeat_history: list[HeartbeatRecord] = []
+        self._lock = threading.Lock()
 
     @property
     def last_heartbeat(self) -> float:
-        return self._last_heartbeat
+        with self._lock:
+            return self._last_heartbeat
 
     @property
     def timeout_seconds(self) -> float:
@@ -122,39 +125,44 @@ class StackDetector:
 
     @property
     def heartbeat_count(self) -> int:
-        return len(self._heartbeat_history)
+        with self._lock:
+            return len(self._heartbeat_history)
 
     def heartbeat(self, phase: str = "", detail: str = "") -> None:
         """ハートビートを記録する。"""
         now = time.time()
-        self._last_heartbeat = now
-        self._heartbeat_history.append(
-            HeartbeatRecord(timestamp=now, phase=phase, detail=detail)
-        )
+        with self._lock:
+            self._last_heartbeat = now
+            self._heartbeat_history.append(
+                HeartbeatRecord(timestamp=now, phase=phase, detail=detail)
+            )
 
     def is_stacked(self, now: float | None = None) -> bool:
         """スタック状態（6時間タイムアウト）かどうか判定する。"""
         current = now if now is not None else time.time()
-        # 最後のハートビートからの経過時間がタイムアウトを超えていれば停滞
-        elapsed = current - self._last_heartbeat
+        with self._lock:
+            # 最後のハートビートからの経過時間がタイムアウトを超えていれば停滞
+            elapsed = current - self._last_heartbeat
         return elapsed > self._timeout
 
     def elapsed_seconds(self, now: float | None = None) -> float:
         """最後のハートビートからの経過秒数を返す。"""
         current = now if now is not None else time.time()
-        return current - self._last_heartbeat
+        with self._lock:
+            return current - self._last_heartbeat
 
     def get_status(self, now: float | None = None) -> dict[str, Any]:
         """検知状態を返す。"""
         current = now if now is not None else time.time()
-        elapsed = current - self._last_heartbeat
-        return {
-            "last_heartbeat": self._last_heartbeat,
-            "elapsed_seconds": elapsed,
-            "timeout_seconds": self._timeout,
-            "is_stacked": elapsed > self._timeout,
-            "heartbeat_count": len(self._heartbeat_history),
-        }
+        with self._lock:
+            elapsed = current - self._last_heartbeat
+            return {
+                "last_heartbeat": self._last_heartbeat,
+                "elapsed_seconds": elapsed,
+                "timeout_seconds": self._timeout,
+                "is_stacked": elapsed > self._timeout,
+                "heartbeat_count": len(self._heartbeat_history),
+            }
 
 
 # --- 縮退マネージャー: 障害発生時に「止める」「続ける」「代替に切替」を判定 ---
