@@ -262,3 +262,50 @@ class TestReportExporter:
         assert result["cycles"][0]["cycle_number"] == 1
         assert result["cycles"][0]["success"] is True
         assert result["cycles"][1]["phase_durations"] == {"plan": 50.0}
+
+
+# ============================================================
+# テスト: ボトルネック分析のコスト配分
+# ============================================================
+
+
+class TestBottleneckCostAllocation:
+    """コストがフェーズ数で均等に配分されることを確認する。"""
+
+    def test_cost_split_evenly_across_phases(self):
+        """1サイクルのコストがフェーズ数で均等配分される。"""
+        engine = AnalyticsEngine()
+        engine.add_cycle(
+            CycleSummary(
+                cycle_number=1,
+                success=True,
+                duration_seconds=100.0,
+                cost_usd=1.0,
+                phase_durations={"plan": 30.0, "do": 70.0},
+            )
+        )
+        bottlenecks = engine.detect_bottlenecks()
+        total = sum(b.cost_concentration for b in bottlenecks)
+        assert abs(total - 1.0) < 1e-9, f"合計コスト集中度が1.0でない: {total}"
+        # 2フェーズなので各0.5ずつ
+        for b in bottlenecks:
+            assert abs(b.cost_concentration - 0.5) < 1e-9
+
+    def test_cost_not_multiplied_by_phase_count(self):
+        """コストがフェーズ数分だけ重複加算されないことを確認。"""
+        engine = AnalyticsEngine()
+        engine.add_cycle(
+            CycleSummary(
+                cycle_number=1,
+                success=True,
+                duration_seconds=100.0,
+                cost_usd=3.0,
+                phase_durations={"plan": 10.0, "do": 20.0, "check": 30.0},
+            )
+        )
+        bottlenecks = engine.detect_bottlenecks()
+        # 3フェーズ・$3.0 → 各フェーズ $1.0、合計 $3.0
+        phase_costs_sum = sum(
+            b.cost_concentration for b in bottlenecks
+        )
+        assert abs(phase_costs_sum - 1.0) < 1e-9

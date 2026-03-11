@@ -179,11 +179,11 @@ class AnalyticsEngine:
         phase_costs: dict[str, float] = defaultdict(float)
 
         for cycle in self._cycles:
+            ratio = len(cycle.phase_durations)
             for phase, dur in cycle.phase_durations.items():
                 phase_durations[phase].append(dur)
                 if not cycle.success:
                     phase_failures[phase] += 1
-                ratio = len(cycle.phase_durations)
                 if ratio > 0:
                     phase_costs[phase] += cycle.cost_usd / ratio
 

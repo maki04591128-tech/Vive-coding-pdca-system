@@ -342,3 +342,52 @@ class TestImpactAnalyzer:
         ]
         result = self.analyzer.analyze(changes, {}, [])
         assert 0.0 <= result.score <= 1.0
+
+
+# ============================================================
+# テスト: BFS 影響範囲探索
+# ============================================================
+
+
+class TestBFSTraversal:
+    """BFS による依存ファイル探索が正しく動作すること。"""
+
+    def test_transitive_dependencies(self) -> None:
+        """推移的依存関係を正しくたどる。"""
+        dep_map = {
+            "a.py": DependencyInfo(
+                file_path="a.py",
+                imports=["b.py"],
+                imported_by=["c.py"],
+            ),
+            "b.py": DependencyInfo(
+                file_path="b.py",
+                imports=["a.py"],
+                imported_by=["d.py"],
+            ),
+            "c.py": DependencyInfo(
+                file_path="c.py",
+                imports=[],
+                imported_by=[],
+            ),
+        }
+        analyzer = StaticDependencyAnalyzer()
+        affected = analyzer.find_affected_files(["a.py"], dep_map)
+        assert "c.py" in affected
+        # a.py 自体は除外される
+        assert "a.py" not in affected
+
+    def test_large_chain(self) -> None:
+        """長い依存チェーンでも正しくたどれる。"""
+        # a -> b -> c -> d -> e
+        dep_map = {}
+        files = [f"f{i}.py" for i in range(50)]
+        for i, f in enumerate(files):
+            imported_by = [files[i + 1]] if i + 1 < len(files) else []
+            dep_map[f] = DependencyInfo(
+                file_path=f, imports=[], imported_by=imported_by,
+            )
+        analyzer = StaticDependencyAnalyzer()
+        affected = analyzer.find_affected_files(["f0.py"], dep_map)
+        # f0 を除く全ファイルが影響を受ける
+        assert len(affected) == 49
