@@ -116,8 +116,8 @@ class MonorepoScopeResolver:
                     or normalized_changed == normalized_pkg
                 )
                 if is_match and normalized_pkg not in affected:
-                        affected.append(normalized_pkg)
-                        break
+                    affected.append(normalized_pkg)
+                    break
         if affected:
             logger.info("影響パッケージを %d 件検出", len(affected))
         return affected

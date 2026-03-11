@@ -14,6 +14,7 @@ M3 タスク 3-4: 要件定義書 §15 準拠。
 from __future__ import annotations
 
 import logging
+import threading
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
@@ -81,14 +82,17 @@ class CostManager:
         self._current_cycle_calls = 0
         self._daily_history: list[DailyUsage] = []
         self._today_usage = DailyUsage()
+        self._lock = threading.Lock()
 
     @property
     def current_cycle_calls(self) -> int:
-        return self._current_cycle_calls
+        with self._lock:
+            return self._current_cycle_calls
 
     @property
     def today_usage(self) -> DailyUsage:
-        return self._today_usage
+        with self._lock:
+            return self._today_usage
 
     def record_call(
         self,
@@ -102,15 +106,21 @@ class CostManager:
         CostCheckResult
             チェック結果。STOPの場合は呼び出し元が停止すべき。
         """
-        self._current_cycle_calls += 1
-        self._today_usage.llm_calls += 1
-        self._today_usage.llm_tokens += tokens
-        self._today_usage.cost_usd += cost_usd
+        with self._lock:
+            self._current_cycle_calls += 1
+            self._today_usage.llm_calls += 1
+            self._today_usage.llm_tokens += tokens
+            self._today_usage.cost_usd += cost_usd
 
-        return self.check_limits()
+            return self._check_limits_unlocked()
 
     def check_limits(self) -> CostCheckResult:
         """現在の使用量に対する上限チェックを行う。"""
+        with self._lock:
+            return self._check_limits_unlocked()
+
+    def _check_limits_unlocked(self) -> CostCheckResult:
+        """ロック非取得版の上限チェック（内部用）。"""
         # サイクル呼び出し上限
         if self._current_cycle_calls > self._cycle_call_limit:
             return CostCheckResult(
@@ -157,18 +167,25 @@ class CostManager:
 
     def reset_cycle(self) -> None:
         """サイクルカウンタをリセットする。"""
-        self._current_cycle_calls = 0
+        with self._lock:
+            self._current_cycle_calls = 0
 
     def close_day(self) -> None:
         """日次使用量を確定し履歴に追加する。"""
-        self._daily_history.append(self._today_usage)
-        # 直近30日分だけ保持
-        if len(self._daily_history) > 30:
-            self._daily_history = self._daily_history[-30:]
-        self._today_usage = DailyUsage()
+        with self._lock:
+            self._daily_history.append(self._today_usage)
+            # 直近30日分だけ保持
+            if len(self._daily_history) > 30:
+                self._daily_history = self._daily_history[-30:]
+            self._today_usage = DailyUsage()
 
     def get_7day_average_cost(self) -> float:
         """直近7日の平均コストを返す。"""
+        with self._lock:
+            return self._get_7day_average_cost_unlocked()
+
+    def _get_7day_average_cost_unlocked(self) -> float:
+        """ロック非取得版の7日平均コスト（内部用）。"""
         recent = self._daily_history[-7:]
         if not recent:
             return 0.0
@@ -176,7 +193,7 @@ class CostManager:
 
     def _check_cost_spike(self) -> CostCheckResult:
         """コスト急増を検知する。"""
-        avg = self.get_7day_average_cost()
+        avg = self._get_7day_average_cost_unlocked()
         if avg <= 0:
             return CostCheckResult(action=CostAction.ALLOW)
 
@@ -210,12 +227,13 @@ class CostManager:
 
     def get_status(self) -> dict[str, Any]:
         """コスト管理状態を返す。"""
-        return {
-            "cycle_calls": self._current_cycle_calls,
-            "cycle_call_limit": self._cycle_call_limit,
-            "daily_calls": self._today_usage.llm_calls,
-            "daily_call_limit": self._daily_call_limit,
-            "daily_cost_usd": self._today_usage.cost_usd,
-            "daily_cost_limit_usd": self._daily_cost_limit_usd,
-            "7day_avg_cost_usd": self.get_7day_average_cost(),
-        }
+        with self._lock:
+            return {
+                "cycle_calls": self._current_cycle_calls,
+                "cycle_call_limit": self._cycle_call_limit,
+                "daily_calls": self._today_usage.llm_calls,
+                "daily_call_limit": self._daily_call_limit,
+                "daily_cost_usd": self._today_usage.cost_usd,
+                "daily_cost_limit_usd": self._daily_cost_limit_usd,
+                "7day_avg_cost_usd": self._get_7day_average_cost_unlocked(),
+            }
