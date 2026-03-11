@@ -11,6 +11,7 @@ from __future__ import annotations
 import enum
 import logging
 import re
+import threading
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -347,6 +348,7 @@ class ConversationContext:
 
     def __init__(self) -> None:
         self._history: list[dict[str, str]] = []
+        self._lock = threading.Lock()
 
     def add_message(self, role: str, content: str) -> None:
         """メッセージを追加する。
@@ -358,7 +360,8 @@ class ConversationContext:
         content : str
             メッセージ内容。
         """
-        self._history.append({"role": role, "content": content})
+        with self._lock:
+            self._history.append({"role": role, "content": content})
         logger.debug("メッセージ追加: role=%s, length=%d", role, len(content))
 
     def get_history(self, last_n: int = 10) -> list[dict[str, str]]:
@@ -374,14 +377,17 @@ class ConversationContext:
         list[dict[str, str]]
             会話履歴。
         """
-        return self._history[-last_n:]
+        with self._lock:
+            return self._history[-last_n:]
 
     def clear(self) -> None:
         """会話履歴をクリアする。"""
-        self._history.clear()
+        with self._lock:
+            self._history.clear()
         logger.debug("会話履歴をクリア")
 
     @property
     def message_count(self) -> int:
         """メッセージ数。"""
-        return len(self._history)
+        with self._lock:
+            return len(self._history)

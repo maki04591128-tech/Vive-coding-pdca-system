@@ -259,3 +259,69 @@ class TestIntegrityAuditor:
         discrepancies = auditor.compare()
         assert len(discrepancies) == 1
         assert "ローカルに存在しないエントリ" in discrepancies[0]
+
+
+# ── スレッドセーフティ ──
+
+
+class TestTransportManagerThreadSafety:
+    """TransportManager の並行アクセスでデータが壊れない。"""
+
+    def test_concurrent_add_target(self):
+        import threading
+        mgr = TransportManager()
+        errors: list[str] = []
+
+        def add_targets(tid: int):
+            try:
+                for i in range(20):
+                    cfg = TransportConfig(
+                        target=TransportTarget.CLOUDWATCH if (tid + i) % 2 == 0
+                        else TransportTarget.DATADOG,
+                        endpoint=f"ep-{tid}-{i}",
+                    )
+                    mgr.add_target(cfg)
+            except Exception as e:
+                errors.append(str(e))
+
+        threads = [threading.Thread(target=add_targets, args=(t,)) for t in range(4)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert not errors
+        # 2種類のターゲットしかないので最大2
+        assert len(mgr.list_targets()) <= 2
+
+
+class TestIntegrityAuditorThreadSafety:
+    """IntegrityAuditor の並行アクセスでデータが壊れない。"""
+
+    def test_concurrent_add_entries(self):
+        import threading
+        auditor = IntegrityAuditor()
+        errors: list[str] = []
+
+        def add_entries(tid: int):
+            try:
+                for i in range(50):
+                    entry = AuditLogEntry(
+                        entry_id=f"e-{tid}-{i}",
+                        timestamp=1700000000.0,
+                        event_type="test",
+                    )
+                    auditor.add_local(entry)
+                    auditor.add_remote(entry)
+            except Exception as e:
+                errors.append(str(e))
+
+        threads = [threading.Thread(target=add_entries, args=(t,)) for t in range(4)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert not errors
+        assert auditor.get_local_count() == 200
+        assert auditor.get_remote_count() == 200

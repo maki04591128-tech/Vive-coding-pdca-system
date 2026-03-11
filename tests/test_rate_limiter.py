@@ -241,3 +241,22 @@ class TestTokenBucketThreadSafety:
 
         # 補充なし100トークンに対して200スレッド → 100以下しか成功しない
         assert sum(results) <= 100
+
+
+# ── wait_time 防御的チェック ──
+
+
+class TestWaitTimeDefensiveCheck:
+    """wait_time の _configs 不整合時に KeyError が出ないこと。"""
+
+    def test_wait_time_missing_config(self) -> None:
+        """_buckets にあるが _configs にない場合に 0.0 を返す。"""
+        tracker = RateLimitTracker()
+        cfg = RateLimitConfig(
+            provider="test", requests_per_minute=60, tokens_per_minute=90000,
+        )
+        tracker.add_provider(cfg)
+        # 内部状態を手動で壊して _configs からだけ削除
+        tracker._configs.pop("test", None)
+        # KeyError にならず 0.0 を返すこと
+        assert tracker.wait_time("test") == 0.0

@@ -253,3 +253,31 @@ class TestEndpointRegistry:
         assert "/api/v1/goals" in paths
         assert "/api/v1/status" in paths
         assert "/api/v1/export" in paths
+
+
+# ── スレッドセーフティ ──
+
+
+class TestAPIKeyAuthThreadSafety:
+    """APIKeyAuth の並行アクセスでデータが壊れない。"""
+
+    def test_concurrent_add_and_validate(self):
+        import threading
+        auth = APIKeyAuth()
+        errors: list[str] = []
+
+        def add_keys(tid: int):
+            try:
+                for i in range(50):
+                    auth.add_key(f"key-{tid}-{i}", "read")
+            except Exception as e:
+                errors.append(str(e))
+
+        threads = [threading.Thread(target=add_keys, args=(t,)) for t in range(4)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert not errors
+        assert len(auth.list_keys()) == 200

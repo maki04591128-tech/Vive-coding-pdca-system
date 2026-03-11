@@ -417,3 +417,62 @@ class TestAccessLoggerThreadSafety:
 
         summary = al.get_summary()
         assert summary["total_calls"] == count_per_thread * 10
+
+
+# ── スレッドセーフティ ──
+
+
+class TestTokenRotationManagerThreadSafety:
+    """TokenRotationManager の並行アクセスでデータが壊れない。"""
+
+    def test_concurrent_set_token(self):
+        import threading
+        mgr = TokenRotationManager()
+        errors: list[str] = []
+
+        def set_tokens(tid: int):
+            try:
+                for i in range(50):
+                    mgr.set_token(f"token-{tid}-{i}")
+            except Exception as e:
+                errors.append(str(e))
+
+        threads = [threading.Thread(target=set_tokens, args=(t,)) for t in range(4)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert not errors
+        # 最終的にトークンが設定されていること
+        assert mgr.token is not None
+        assert mgr.token.startswith("token-")
+
+    def test_concurrent_rotate(self):
+        import threading
+        counter = {"value": 0}
+        counter_lock = threading.Lock()
+        mgr = TokenRotationManager()
+
+        def factory():
+            with counter_lock:
+                counter["value"] += 1
+                return f"token-{counter['value']}"
+
+        errors: list[str] = []
+
+        def rotate(tid: int):
+            try:
+                for _ in range(10):
+                    mgr.rotate(factory)
+            except Exception as e:
+                errors.append(str(e))
+
+        threads = [threading.Thread(target=rotate, args=(t,)) for t in range(4)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert not errors
+        assert mgr.rotation_count == 40

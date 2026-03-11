@@ -10,6 +10,7 @@ import hashlib
 import hmac
 import json
 import logging
+import threading
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
@@ -120,6 +121,7 @@ class TransportManager:
 
     def __init__(self) -> None:
         self._targets: dict[TransportTarget, TransportConfig] = {}
+        self._lock = threading.Lock()
 
     def add_target(self, config: TransportConfig) -> None:
         """転送先を追加する。
@@ -129,7 +131,8 @@ class TransportManager:
         config : TransportConfig
             追加する転送先設定。
         """
-        self._targets[config.target] = config
+        with self._lock:
+            self._targets[config.target] = config
         logger.info("転送先を追加: %s", config.target.value)
 
     def remove_target(self, target: TransportTarget) -> bool:
@@ -145,10 +148,11 @@ class TransportManager:
         bool
             削除に成功すれば True。
         """
-        if target in self._targets:
-            del self._targets[target]
-            logger.info("転送先を削除: %s", target.value)
-            return True
+        with self._lock:
+            if target in self._targets:
+                del self._targets[target]
+                logger.info("転送先を削除: %s", target.value)
+                return True
         return False
 
     def send(self, entry: AuditLogEntry) -> dict[str, bool]:
@@ -165,7 +169,9 @@ class TransportManager:
             転送先名をキー、送信成否を値とする辞書。
         """
         results: dict[str, bool] = {}
-        for target, config in self._targets.items():
+        with self._lock:
+            targets = list(self._targets.items())
+        for target, config in targets:
             if not config.is_enabled:
                 continue
             logger.debug(
@@ -190,7 +196,9 @@ class TransportManager:
             転送先名をキー、送信件数を値とする辞書。
         """
         results: dict[str, int] = {}
-        for target, config in self._targets.items():
+        with self._lock:
+            targets = list(self._targets.items())
+        for target, config in targets:
             if not config.is_enabled:
                 continue
             sent = 0
@@ -213,7 +221,8 @@ class TransportManager:
         list[TransportConfig]
             転送先設定のリスト。
         """
-        return list(self._targets.values())
+        with self._lock:
+            return list(self._targets.values())
 
 
 # ── IntegrityAuditor ──
@@ -225,6 +234,7 @@ class IntegrityAuditor:
     def __init__(self) -> None:
         self._local: list[AuditLogEntry] = []
         self._remote: list[AuditLogEntry] = []
+        self._lock = threading.Lock()
 
     def add_local(self, entry: AuditLogEntry) -> None:
         """ローカル側のエントリを追加する。
@@ -234,7 +244,8 @@ class IntegrityAuditor:
         entry : AuditLogEntry
             ローカルの監査ログエントリ。
         """
-        self._local.append(entry)
+        with self._lock:
+            self._local.append(entry)
 
     def add_remote(self, entry: AuditLogEntry) -> None:
         """リモート側のエントリを追加する。
@@ -244,7 +255,8 @@ class IntegrityAuditor:
         entry : AuditLogEntry
             リモートの監査ログエントリ。
         """
-        self._remote.append(entry)
+        with self._lock:
+            self._remote.append(entry)
 
     def compare(self) -> list[str]:
         """ローカルとリモートの差異を検出する。
@@ -254,9 +266,12 @@ class IntegrityAuditor:
         list[str]
             不一致の説明文リスト。空リストなら整合性あり。
         """
+        with self._lock:
+            local_snapshot = list(self._local)
+            remote_snapshot = list(self._remote)
         discrepancies: list[str] = []
-        local_map = {e.entry_id: e for e in self._local}
-        remote_map = {e.entry_id: e for e in self._remote}
+        local_map = {e.entry_id: e for e in local_snapshot}
+        remote_map = {e.entry_id: e for e in remote_snapshot}
 
         for eid, local_entry in local_map.items():
             if eid not in remote_map:
@@ -286,7 +301,8 @@ class IntegrityAuditor:
         int
             ローカルエントリ数。
         """
-        return len(self._local)
+        with self._lock:
+            return len(self._local)
 
     def get_remote_count(self) -> int:
         """リモート側のエントリ数を返す。
@@ -296,4 +312,5 @@ class IntegrityAuditor:
         int
             リモートエントリ数。
         """
-        return len(self._remote)
+        with self._lock:
+            return len(self._remote)

@@ -219,8 +219,8 @@ class GovernanceManager:
             decision.approved = True
             decision.reason = "承認不要（C操作）"
 
-        # 却下された場合は代替案を生成
-        if not approved:
+        # 却下された場合は代替案を生成（C操作は承認不要のため除外）
+        if not approved and level != GovernanceLevel.C:
             decision.alternatives = self.generate_alternatives(
                 operation_description,
             )

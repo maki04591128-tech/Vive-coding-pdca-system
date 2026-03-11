@@ -61,16 +61,19 @@ class TokenRotationManager:
         self._created_at: float | None = None
         self._expiry: float | None = None
         self._rotation_count: int = 0
+        self._lock = threading.Lock()
 
     @property
     def token(self) -> str | None:
         """現在のトークンを返す。"""
-        return self._token
+        with self._lock:
+            return self._token
 
     @property
     def rotation_count(self) -> int:
         """ローテーション実行回数を返す。"""
-        return self._rotation_count
+        with self._lock:
+            return self._rotation_count
 
     def set_token(self, token: str, created_at: float | None = None) -> None:
         """トークンと発行時刻を設定する。
@@ -80,13 +83,12 @@ class TokenRotationManager:
             created_at: 発行時刻（Unixタイムスタンプ）。省略時は現在時刻。
         """
         now = time.time()
-        self._token = token
-        self._created_at = created_at if created_at is not None else now
-        self._expiry = self._created_at + _TOKEN_LIFETIME_SECONDS
-        logger.info(
-            "トークン設定完了 (有効期限: %.0f秒後)",
-            self._expiry - now,
-        )
+        with self._lock:
+            self._token = token
+            self._created_at = created_at if created_at is not None else now
+            self._expiry = self._created_at + _TOKEN_LIFETIME_SECONDS
+            remaining = self._expiry - now
+        logger.info("トークン設定完了 (有効期限: %.0f秒後)", remaining)
 
     def needs_rotation(self) -> bool:
         """トークンのローテーションが必要かどうかを判定する。
@@ -94,10 +96,11 @@ class TokenRotationManager:
         Returns:
             ローテーションが必要な場合True。
         """
-        if self._token is None or self._expiry is None:
-            return True
-        remaining = self._expiry - time.time()
-        return remaining <= self.rotation_buffer_seconds
+        with self._lock:
+            if self._token is None or self._expiry is None:
+                return True
+            remaining = self._expiry - time.time()
+            return remaining <= self.rotation_buffer_seconds
 
     def rotate(self, token_factory: Callable[[], str]) -> str:
         """トークンをローテーションする。
@@ -108,11 +111,15 @@ class TokenRotationManager:
         Returns:
             新しいトークン。
         """
-        logger.info("トークンローテーション開始 (回数: %d)", self._rotation_count + 1)
+        with self._lock:
+            count = self._rotation_count + 1
+        logger.info("トークンローテーション開始 (回数: %d)", count)
         new_token = token_factory()
         self.set_token(new_token)
-        self._rotation_count += 1
-        logger.info("トークンローテーション完了 (累計: %d回)", self._rotation_count)
+        with self._lock:
+            self._rotation_count += 1
+            total = self._rotation_count
+        logger.info("トークンローテーション完了 (累計: %d回)", total)
         return new_token
 
 

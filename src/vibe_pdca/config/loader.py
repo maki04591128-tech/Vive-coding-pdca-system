@@ -81,8 +81,11 @@ def load_config(
             config = yaml.safe_load(f) or {}
         logger.info("設定読み込み: %s", default_path)
 
-    # 2. 環境別
-    env_path = config_dir / "environments" / f"{env}.yml"
+    # 2. 環境別（パストラバーサル防止）
+    env_base = Path(env).name  # ディレクトリ区切りを除去
+    if env_base != env:
+        raise ValueError(f"無効な環境名: {env!r}")
+    env_path = config_dir / "environments" / f"{env_base}.yml"
     if env_path.exists():
         with open(env_path, encoding="utf-8") as f:
             env_config = yaml.safe_load(f) or {}

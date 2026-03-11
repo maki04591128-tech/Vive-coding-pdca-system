@@ -84,3 +84,35 @@ class TestBackupExpiry:
         mgr = BackupManager()
         status = mgr.get_status()
         assert status["retention_days"] == 180
+
+
+# ── スレッドセーフティ ──
+
+
+class TestBackupManagerThreadSafety:
+    """BackupManager の並行アクセスでデータが壊れない。"""
+
+    def test_concurrent_create_backup(self):
+        import threading
+        mgr = BackupManager()
+        errors: list[str] = []
+
+        def create_backups(tid: int):
+            try:
+                for i in range(25):
+                    mgr.create_backup(
+                        operation_id=f"op-{tid}-{i}",
+                        operation_description=f"desc-{tid}-{i}",
+                        state_snapshot={"key": f"value-{tid}-{i}"},
+                    )
+            except Exception as e:
+                errors.append(str(e))
+
+        threads = [threading.Thread(target=create_backups, args=(t,)) for t in range(4)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert not errors
+        assert mgr.backup_count == 100

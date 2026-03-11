@@ -99,3 +99,28 @@ class TestProcessOperation:
         status = gov.get_status()
         assert "a_pattern_count" in status
         assert "b_pattern_count" in status
+
+
+# ── C操作 承認ロジック修正テスト ──
+
+
+class TestCLevelApprovalLogic:
+    """C操作は承認不要なため、approved=False でも承認される。"""
+
+    def test_c_operation_ignores_explicit_rejection(self, gov):
+        """C操作で approved=False を渡しても承認される。"""
+        decision = gov.process_operation(
+            "op-c", "軽微なコメント修正", approved=False,
+        )
+        assert decision.approved is True
+        assert decision.reason == "承認不要（C操作）"
+        # C操作なので代替案は生成されない
+        assert decision.alternatives == []
+
+    def test_a_operation_rejection_with_alternatives(self, gov):
+        """A操作で approved=False を渡すと代替案が生成される。"""
+        decision = gov.process_operation(
+            "op-a", "権限拡大の変更", approved=False,
+        )
+        assert decision.approved is False
+        assert len(decision.alternatives) == 3

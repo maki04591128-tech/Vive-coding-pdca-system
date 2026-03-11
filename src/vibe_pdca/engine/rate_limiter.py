@@ -177,7 +177,9 @@ class RateLimitTracker:
             return 0.0
         if bucket.available >= 1.0:
             return 0.0
-        config = self._configs[provider]
+        config = self._configs.get(provider)
+        if config is None:
+            return 0.0
         rate = config.requests_per_minute / 60.0
         if rate <= 0:
             return 0.0
