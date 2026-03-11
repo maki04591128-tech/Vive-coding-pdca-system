@@ -66,6 +66,12 @@ class ContextManager:
         max_tokens: int = MAX_TOTAL_TOKENS,
         file_head_tokens: int = FILE_HEAD_TOKENS,
     ) -> None:
+        if max_files <= 0:
+            raise ValueError(f"max_files は正の整数: {max_files}")
+        if max_tokens <= 0:
+            raise ValueError(f"max_tokens は正の整数: {max_tokens}")
+        if file_head_tokens <= 0:
+            raise ValueError(f"file_head_tokens は正の整数: {file_head_tokens}")
         self._max_files = max_files
         self._max_tokens = max_tokens
         self._file_head_tokens = file_head_tokens

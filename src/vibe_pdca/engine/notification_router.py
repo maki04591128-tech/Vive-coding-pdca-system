@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 import time
 from dataclasses import dataclass, field
 from enum import StrEnum
@@ -113,10 +114,12 @@ class NotificationRouter:
     def __init__(self) -> None:
         self._rules: list[RoutingRule] = []
         self._channels: dict[NotificationChannel, ChannelConfig] = {}
+        self._lock = threading.Lock()
 
     def add_rule(self, rule: RoutingRule) -> None:
         """ルーティングルールを追加する。"""
-        self._rules.append(rule)
+        with self._lock:
+            self._rules.append(rule)
         logger.info(
             "ルール追加: event=%s min_priority=%s channels=%s",
             rule.event_type,
@@ -126,7 +129,8 @@ class NotificationRouter:
 
     def add_channel(self, config: ChannelConfig) -> None:
         """チャネル設定を追加する。"""
-        self._channels[config.channel] = config
+        with self._lock:
+            self._channels[config.channel] = config
         logger.info(
             "チャネル追加: %s (enabled=%s)",
             config.channel, config.is_enabled,
@@ -137,32 +141,35 @@ class NotificationRouter:
 
         明示的にチャネルが指定されている場合はそれを優先する。
         """
-        if message.channel is not None:
-            cfg = self._channels.get(message.channel)
-            if cfg and cfg.is_enabled:
-                return [message.channel]
-            return []
+        with self._lock:
+            if message.channel is not None:
+                cfg = self._channels.get(message.channel)
+                if cfg and cfg.is_enabled:
+                    return [message.channel]
+                return []
 
-        msg_level = _PRIORITY_ORDER.get(message.priority, 0)
-        matched: set[NotificationChannel] = set()
-        for rule in self._rules:
-            rule_level = _PRIORITY_ORDER.get(rule.min_priority, 0)
-            if msg_level >= rule_level:
-                for ch in rule.channels:
-                    cfg = self._channels.get(ch)
-                    if cfg and cfg.is_enabled:
-                        matched.add(ch)
+            msg_level = _PRIORITY_ORDER.get(message.priority, 0)
+            matched: set[NotificationChannel] = set()
+            for rule in self._rules:
+                rule_level = _PRIORITY_ORDER.get(rule.min_priority, 0)
+                if msg_level >= rule_level:
+                    for ch in rule.channels:
+                        cfg = self._channels.get(ch)
+                        if cfg and cfg.is_enabled:
+                            matched.add(ch)
         return sorted(matched, key=lambda c: c.value)
 
     def list_rules(self) -> list[RoutingRule]:
         """登録済みルールのリストを返す。"""
-        return list(self._rules)
+        with self._lock:
+            return list(self._rules)
 
     def list_channels(self) -> list[ChannelConfig]:
         """登録済みチャネル設定のリストを返す。"""
-        return sorted(
-            self._channels.values(), key=lambda c: c.channel.value,
-        )
+        with self._lock:
+            return sorted(
+                self._channels.values(), key=lambda c: c.channel.value,
+            )
 
 
 # ============================================================
@@ -176,6 +183,7 @@ class NotificationDispatcher:
 
     def __init__(self) -> None:
         self._history: list[dict[str, Any]] = []
+        self._lock = threading.Lock()
 
     def dispatch(
         self,
@@ -193,14 +201,16 @@ class NotificationDispatcher:
                 "通知送信: channel=%s title=%s",
                 ch.value, message.title,
             )
-        self._history.append({
-            "title": message.title,
-            "priority": message.priority.value,
-            "channels": [ch.value for ch in channels],
-            "timestamp": time.time(),
-        })
+        with self._lock:
+            self._history.append({
+                "title": message.title,
+                "priority": message.priority.value,
+                "channels": [ch.value for ch in channels],
+                "timestamp": time.time(),
+            })
         return results
 
     def get_history(self, limit: int = 10) -> list[dict[str, Any]]:
         """送信履歴を最新順に返す。"""
-        return list(reversed(self._history[-limit:]))
+        with self._lock:
+            return list(reversed(self._history[-limit:]))

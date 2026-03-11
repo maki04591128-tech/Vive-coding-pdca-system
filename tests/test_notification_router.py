@@ -233,3 +233,69 @@ class TestNotificationDispatcher:
     def test_get_history_empty(self):
         dispatcher = NotificationDispatcher()
         assert dispatcher.get_history() == []
+
+
+# ============================================================
+# テスト: スレッドセーフティ
+# ============================================================
+
+
+class TestNotificationRouterThreadSafety:
+    """NotificationRouter のスレッドセーフティ検証。"""
+
+    def test_concurrent_add_rule(self):
+        """複数スレッドからルール追加しても整合性が保たれる。"""
+        import threading
+        router = NotificationRouter()
+        errors: list[str] = []
+
+        def add(tid: int) -> None:
+            try:
+                for i in range(25):
+                    router.add_rule(RoutingRule(
+                        event_type=f"event-{tid}-{i}",
+                        min_priority=NotificationPriority.LOW,
+                        channels=[NotificationChannel.DISCORD],
+                    ))
+            except Exception as exc:
+                errors.append(str(exc))
+
+        threads = [threading.Thread(target=add, args=(t,)) for t in range(4)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert not errors
+        assert len(router.list_rules()) == 100
+
+
+class TestNotificationDispatcherThreadSafety:
+    """NotificationDispatcher のスレッドセーフティ検証。"""
+
+    def test_concurrent_dispatch(self):
+        """複数スレッドから同時にディスパッチしても整合性が保たれる。"""
+        import threading
+        dispatcher = NotificationDispatcher()
+        errors: list[str] = []
+
+        def dispatch(tid: int) -> None:
+            try:
+                for i in range(25):
+                    msg = NotificationMessage(
+                        title=f"M-{tid}-{i}",
+                        body="body",
+                        priority=NotificationPriority.LOW,
+                    )
+                    dispatcher.dispatch(msg, [NotificationChannel.DISCORD])
+            except Exception as exc:
+                errors.append(str(exc))
+
+        threads = [threading.Thread(target=dispatch, args=(t,)) for t in range(4)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert not errors
+        assert len(dispatcher.get_history(limit=200)) == 100

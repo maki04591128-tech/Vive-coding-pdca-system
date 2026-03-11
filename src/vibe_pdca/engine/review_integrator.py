@@ -81,6 +81,10 @@ class ReviewIntegrator:
         similarity_threshold: float = _SIMILARITY_THRESHOLD,
     ) -> None:
         self._weights = dict(persona_weights or DEFAULT_PERSONA_WEIGHTS)
+        if not 0.0 <= similarity_threshold <= 1.0:
+            raise ValueError(
+                f"similarity_threshold は 0.0〜1.0 の範囲: {similarity_threshold}"
+            )
         self._similarity_threshold = similarity_threshold
 
     @property

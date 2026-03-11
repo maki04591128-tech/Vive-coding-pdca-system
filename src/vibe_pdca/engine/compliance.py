@@ -11,6 +11,7 @@ from __future__ import annotations
 import copy
 import enum
 import logging
+import threading
 import time
 from dataclasses import dataclass, field
 from typing import Any, cast
@@ -92,6 +93,7 @@ class PolicyEngine:
 
     def __init__(self) -> None:
         self._rules: dict[str, PolicyRule] = {}
+        self._lock = threading.Lock()
 
     # ---- ルール操作 ------------------------------------------------
 
@@ -103,7 +105,8 @@ class PolicyEngine:
         rule : PolicyRule
             追加するルール。
         """
-        self._rules[rule.id] = rule
+        with self._lock:
+            self._rules[rule.id] = rule
         logger.info("ルール追加: %s (%s)", rule.id, rule.name)
 
     def remove_rule(self, rule_id: str) -> bool:
@@ -119,10 +122,11 @@ class PolicyEngine:
         bool
             削除に成功した場合 True。
         """
-        if rule_id in self._rules:
-            removed = self._rules.pop(rule_id)
-            logger.info("ルール削除: %s (%s)", rule_id, removed.name)
-            return True
+        with self._lock:
+            if rule_id in self._rules:
+                removed = self._rules.pop(rule_id)
+                logger.info("ルール削除: %s (%s)", rule_id, removed.name)
+                return True
         logger.warning("ルール未検出: %s", rule_id)
         return False
 
@@ -142,7 +146,8 @@ class PolicyEngine:
         list[PolicyRule]
             該当するルール一覧。
         """
-        rules = list(self._rules.values())
+        with self._lock:
+            rules = list(self._rules.values())
         if framework is not None:
             rules = [r for r in rules if r.framework == framework]
         return rules
@@ -150,7 +155,8 @@ class PolicyEngine:
     @property
     def rule_count(self) -> int:
         """登録ルール数。"""
-        return len(self._rules)
+        with self._lock:
+            return len(self._rules)
 
 
 # ============================================================
@@ -542,6 +548,7 @@ class PolicyVersionManager:
 
     def __init__(self) -> None:
         self._versions: list[dict[str, Any]] = []
+        self._lock = threading.Lock()
 
     def add_version(
         self,
@@ -562,13 +569,14 @@ class PolicyVersionManager:
         int
             追加されたバージョン番号 (1始まり)。
         """
-        version_number = len(self._versions) + 1
-        self._versions.append({
-            "version": version_number,
-            "rules": copy.deepcopy(rules),
-            "description": description,
-            "created_at": time.time(),
-        })
+        with self._lock:
+            version_number = len(self._versions) + 1
+            self._versions.append({
+                "version": version_number,
+                "rules": copy.deepcopy(rules),
+                "description": description,
+                "created_at": time.time(),
+            })
         logger.info("ポリシーバージョン %d を追加: %s", version_number, description)
         return version_number
 
@@ -585,9 +593,10 @@ class PolicyVersionManager:
         list[PolicyRule] | None
             該当バージョンのルール一覧。存在しない場合は None。
         """
-        idx = version - 1
-        if 0 <= idx < len(self._versions):
-            return cast(list[PolicyRule], copy.deepcopy(self._versions[idx]["rules"]))
+        with self._lock:
+            idx = version - 1
+            if 0 <= idx < len(self._versions):
+                return cast(list[PolicyRule], copy.deepcopy(self._versions[idx]["rules"]))
         logger.warning("バージョン %d は存在しません", version)
         return None
 
@@ -599,7 +608,8 @@ class PolicyVersionManager:
         int
             最新バージョン番号。バージョンがない場合は 0。
         """
-        return len(self._versions)
+        with self._lock:
+            return len(self._versions)
 
     def get_history(self) -> list[dict[str, Any]]:
         """バージョン履歴を返す。
@@ -609,12 +619,13 @@ class PolicyVersionManager:
         list[dict[str, Any]]
             各バージョンの概要リスト。
         """
-        return [
-            {
-                "version": entry["version"],
-                "description": entry["description"],
-                "rule_count": len(entry["rules"]),
-                "created_at": entry["created_at"],
-            }
-            for entry in self._versions
-        ]
+        with self._lock:
+            return [
+                {
+                    "version": entry["version"],
+                    "description": entry["description"],
+                    "rule_count": len(entry["rules"]),
+                    "created_at": entry["created_at"],
+                }
+                for entry in self._versions
+            ]

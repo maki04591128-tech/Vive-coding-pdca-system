@@ -348,3 +348,28 @@ class TestSummary:
         assert "finding_count" in d
         assert "blocker_count" in d
         assert "escalation_needed" in d
+
+
+# ============================================================
+# テスト: 入力バリデーション
+# ============================================================
+
+
+class TestReviewIntegratorValidation:
+    """ReviewIntegrator の入力バリデーション。"""
+
+    def test_negative_similarity_threshold_rejected(self):
+        import pytest
+        with pytest.raises(ValueError, match="similarity_threshold"):
+            ReviewIntegrator(similarity_threshold=-0.1)
+
+    def test_over_one_similarity_threshold_rejected(self):
+        import pytest
+        with pytest.raises(ValueError, match="similarity_threshold"):
+            ReviewIntegrator(similarity_threshold=1.5)
+
+    def test_valid_boundary_values(self):
+        ri0 = ReviewIntegrator(similarity_threshold=0.0)
+        ri1 = ReviewIntegrator(similarity_threshold=1.0)
+        assert ri0._similarity_threshold == 0.0
+        assert ri1._similarity_threshold == 1.0

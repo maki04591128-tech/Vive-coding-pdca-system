@@ -386,3 +386,68 @@ class TestPolicyVersionManager:
         original = version_manager.get_version(1)
         assert original is not None
         assert original[0].name != "改変"
+
+
+# ============================================================
+# テスト: スレッドセーフティ
+# ============================================================
+
+
+class TestPolicyEngineThreadSafety:
+    """PolicyEngine のスレッドセーフティ検証。"""
+
+    def test_concurrent_add_rule(self):
+        """複数スレッドから同時にルール追加しても整合性が保たれる。"""
+        import threading
+        engine = PolicyEngine()
+        errors: list[str] = []
+
+        def add_rules(start: int) -> None:
+            try:
+                for i in range(50):
+                    rule = PolicyRule(
+                        id=f"R-{start}-{i}",
+                        name=f"Rule {start}-{i}",
+                        description="test",
+                        framework=ComplianceFramework.SOC2,
+                        severity="warning",
+                        condition="test condition",
+                    )
+                    engine.add_rule(rule)
+            except Exception as exc:
+                errors.append(str(exc))
+
+        threads = [threading.Thread(target=add_rules, args=(t,)) for t in range(4)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert not errors
+        assert engine.rule_count == 200
+
+
+class TestPolicyVersionManagerThreadSafety:
+    """PolicyVersionManager のスレッドセーフティ検証。"""
+
+    def test_concurrent_add_version(self):
+        """複数スレッドから同時にバージョン追加しても整合性が保たれる。"""
+        import threading
+        vm = PolicyVersionManager()
+        errors: list[str] = []
+
+        def add_versions(tid: int) -> None:
+            try:
+                for i in range(20):
+                    vm.add_version([], f"Thread-{tid} v{i}")
+            except Exception as exc:
+                errors.append(str(exc))
+
+        threads = [threading.Thread(target=add_versions, args=(t,)) for t in range(4)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert not errors
+        assert vm.get_latest_version() == 80

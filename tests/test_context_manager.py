@@ -157,3 +157,27 @@ class TestBuildContextTruncation:
         assert result.truncated is True
         # max_tokens が非常に小さいため1ファイルのみ
         assert result.file_count <= 1
+
+
+# ============================================================
+# テスト: 入力バリデーション
+# ============================================================
+
+
+class TestContextManagerValidation:
+    """ContextManager の入力バリデーション。"""
+
+    def test_negative_max_files_rejected(self):
+        import pytest
+        with pytest.raises(ValueError, match="max_files"):
+            ContextManager(max_files=-1)
+
+    def test_zero_max_tokens_rejected(self):
+        import pytest
+        with pytest.raises(ValueError, match="max_tokens"):
+            ContextManager(max_tokens=0)
+
+    def test_negative_file_head_tokens_rejected(self):
+        import pytest
+        with pytest.raises(ValueError, match="file_head_tokens"):
+            ContextManager(file_head_tokens=-5)

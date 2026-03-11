@@ -100,3 +100,60 @@ class TestDashboard:
         mc = MetricsCollector()
         status = mc.get_status()
         assert "cycle_count" in status
+
+
+# ============================================================
+# テスト: スレッドセーフティ
+# ============================================================
+
+
+class TestMetricsCollectorThreadSafety:
+    """MetricsCollector のスレッドセーフティ検証。"""
+
+    def test_concurrent_record_model_usage(self):
+        """複数スレッドから同時にモデル使用量を記録しても整合性が保たれる。"""
+        import threading
+        mc = MetricsCollector()
+        errors: list[str] = []
+
+        def record(tid: int) -> None:
+            try:
+                for _ in range(100):
+                    mc.record_model_usage("gpt-4", calls=1, tokens=10)
+            except Exception as exc:
+                errors.append(str(exc))
+
+        threads = [threading.Thread(target=record, args=(t,)) for t in range(4)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert not errors
+        status = mc.get_status()
+        assert status["model_count"] == 1
+
+    def test_concurrent_record_cycle(self):
+        """複数スレッドから同時にサイクルメトリクスを記録しても整合性が保たれる。"""
+        import threading
+        mc = MetricsCollector()
+        errors: list[str] = []
+
+        def record(tid: int) -> None:
+            try:
+                for i in range(25):
+                    mc.record_cycle(CycleMetrics(
+                        cycle_number=tid * 25 + i,
+                        success=True,
+                    ))
+            except Exception as exc:
+                errors.append(str(exc))
+
+        threads = [threading.Thread(target=record, args=(t,)) for t in range(4)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert not errors
+        assert mc.cycle_count == 100
