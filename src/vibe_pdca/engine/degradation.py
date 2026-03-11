@@ -193,7 +193,11 @@ class ModelDegradationDetector:
         """全モデル/ペルソナの劣化レポートを返す。"""
         reports: list[DegradationReport] = []
         for key in self._observations:
-            model_name, persona_role = key.split(":", 1)
+            parts = key.split(":", 1)
+            if len(parts) != 2:
+                logger.warning("不正なキー形式をスキップ: %s", key)
+                continue
+            model_name, persona_role = parts
             reports.append(self.analyze(model_name, persona_role))
         return reports
 

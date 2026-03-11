@@ -241,6 +241,11 @@ class TestSatisfactionTracker:
         assert breakdown["test"] == 3.0
         assert breakdown["design"] == 5.0
 
+    def test_category_breakdown_empty(self):
+        """フィードバックが空の場合、空の辞書を返すこと。"""
+        tracker = SatisfactionTracker(FeedbackCollector())
+        assert tracker.get_category_breakdown() == {}
+
 
 # ============================================================
 # FeedbackLearningBridge
@@ -318,4 +323,9 @@ class TestFeedbackLearningBridge:
             [5, 5, 5], category=FeedbackCategory.DESIGN
         )
         bridge = FeedbackLearningBridge(collector)
+        assert bridge.get_low_satisfaction_patterns() == []
+
+    def test_low_satisfaction_patterns_empty_collector(self):
+        """空のコレクタで低満足度パターンを取得しても安全なこと。"""
+        bridge = FeedbackLearningBridge(FeedbackCollector())
         assert bridge.get_low_satisfaction_patterns() == []

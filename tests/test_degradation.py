@@ -224,3 +224,26 @@ class TestAutoAdjustWeights:
         roles = {r.persona_role for r in reports}
         assert "programmer" in roles
         assert "PM" in roles
+
+    def test_get_all_reports_malformed_key_skipped(self):
+        """不正なキー形式が存在しても安全にスキップされること。"""
+        det = ModelDegradationDetector()
+        det.record_observation(ModelObservation(
+            cycle_number=1,
+            model_name="gpt",
+            persona_role="programmer",
+            quality_score=0.9,
+        ))
+        # 不正なキーを手動注入
+        det._observations["malformed_no_colon"] = [
+            ModelObservation(
+                cycle_number=1,
+                model_name="gpt",
+                persona_role="programmer",
+                quality_score=0.8,
+            ),
+        ]
+        reports = det.get_all_reports()
+        # 正常なキーの分だけレポートが生成される
+        assert len(reports) == 1
+        assert reports[0].model_name == "gpt"

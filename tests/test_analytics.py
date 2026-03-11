@@ -188,6 +188,18 @@ class TestAnalyticsEngine:
         engine = AnalyticsEngine()
         assert engine.detect_bottlenecks() == []
 
+    def test_detect_bottlenecks_empty_phase_durations(self):
+        """phase_durationsが空のサイクルでもボトルネック検出が安全なこと。"""
+        engine = AnalyticsEngine()
+        engine.add_cycle(CycleSummary(
+            cycle_number=1,
+            success=True,
+            duration_seconds=100.0,
+            cost_usd=0.10,
+            phase_durations={},
+        ))
+        assert engine.detect_bottlenecks() == []
+
     def test_generate_summary_report(self):
         engine = self._make_engine_with_cycles()
         report = engine.generate_summary_report(ReportPeriod.WEEKLY)

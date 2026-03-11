@@ -207,7 +207,7 @@ class StatisticalAnalyzer:
         se = math.sqrt(
             var_a / len(scores_a) + var_b / len(scores_b),
         )
-        if se == 0:
+        if se < 1e-12:
             return mean_a != mean_b
         t_stat = abs(mean_a - mean_b) / se
         # 自由度の近似値に基づく閾値（p < 0.05 相当: t > 1.96）

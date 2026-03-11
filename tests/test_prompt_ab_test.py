@@ -210,3 +210,16 @@ class TestStatisticalAnalyzer:
         ]
         result = analyzer.compare(results_a, results_b)
         assert result["significant"] is False
+
+    def test_compare_identical_scores_zero_variance(self):
+        """両群のスコアが完全に同一の場合（分散ゼロ）でも安全に処理されること。"""
+        analyzer = StatisticalAnalyzer()
+        results_a = [
+            ABTestResult("t", "a", i, True, 0.85, 0.01) for i in range(5)
+        ]
+        results_b = [
+            ABTestResult("t", "b", i, True, 0.85, 0.01) for i in range(5)
+        ]
+        result = analyzer.compare(results_a, results_b)
+        # 同一スコアなので有意差なし
+        assert result["significant"] is False
