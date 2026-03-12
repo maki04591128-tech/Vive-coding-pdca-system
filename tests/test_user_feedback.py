@@ -329,3 +329,37 @@ class TestFeedbackLearningBridge:
         """空のコレクタで低満足度パターンを取得しても安全なこと。"""
         bridge = FeedbackLearningBridge(FeedbackCollector())
         assert bridge.get_low_satisfaction_patterns() == []
+
+
+class TestFeedbackCollectorThreadSafety:
+    """FeedbackCollectorのスレッドセーフティテスト。"""
+
+    def test_concurrent_submit_feedback(self):
+        import threading
+
+        collector = FeedbackCollector()
+        n_threads = 10
+        entries_per_thread = 50
+        barrier = threading.Barrier(n_threads)
+
+        def worker(thread_id):
+            barrier.wait()
+            for i in range(entries_per_thread):
+                entry = FeedbackEntry(
+                    cycle_number=thread_id,
+                    rating=3,
+                    category=FeedbackCategory.CODE_QUALITY,
+                    comment=f"thread-{thread_id}-{i}",
+                )
+                collector.submit_feedback(entry)
+
+        threads = [
+            threading.Thread(target=worker, args=(tid,))
+            for tid in range(n_threads)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert collector.feedback_count == n_threads * entries_per_thread

@@ -282,3 +282,37 @@ class TestDatasetStatsTimestamp:
         assert stats.oldest <= stats.newest
         assert abs(stats.oldest - (now - 100)) < 1.0
         assert abs(stats.newest - now) < 1.0
+
+
+class TestTrainingDataCollectorThreadSafety:
+    """TrainingDataCollectorのスレッドセーフティテスト。"""
+
+    def test_concurrent_add_example(self):
+        import threading
+
+        collector = TrainingDataCollector()
+        n_threads = 10
+        examples_per_thread = 50
+        barrier = threading.Barrier(n_threads)
+
+        def worker(thread_id):
+            barrier.wait()
+            for i in range(examples_per_thread):
+                ex = TrainingExample(
+                    input_text=f"input-{thread_id}-{i}",
+                    output_text=f"output-{thread_id}-{i}",
+                    source="test",
+                    quality_score=0.8,
+                )
+                collector.add_example(ex)
+
+        threads = [
+            threading.Thread(target=worker, args=(tid,))
+            for tid in range(n_threads)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert collector.example_count == n_threads * examples_per_thread
