@@ -13,6 +13,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import threading
 import time
 from dataclasses import dataclass, field
 
@@ -83,6 +84,7 @@ class CheckpointManager:
     """
 
     def __init__(self) -> None:
+        self._lock = threading.Lock()
         self._checkpoints: list[CheckpointData] = []
 
     @staticmethod
@@ -115,7 +117,8 @@ class CheckpointManager:
         """
         if not data.checksum:
             data.checksum = self.compute_checksum(data.state)
-        self._checkpoints.append(data)
+        with self._lock:
+            self._checkpoints.append(data)
         logger.info(
             "チェックポイント保存: cycle=%d, phase=%s, checksum=%s",
             data.cycle_number,
@@ -132,10 +135,11 @@ class CheckpointManager:
         CheckpointData | None
             最新のチェックポイント。存在しない場合None。
         """
-        if not self._checkpoints:
-            logger.info("チェックポイントなし")
-            return None
-        latest = self._checkpoints[-1]
+        with self._lock:
+            if not self._checkpoints:
+                logger.info("チェックポイントなし")
+                return None
+            latest = self._checkpoints[-1]
         logger.info(
             "チェックポイント読み込み: cycle=%d, phase=%s",
             latest.cycle_number,
@@ -145,7 +149,8 @@ class CheckpointManager:
 
     def list_checkpoints(self) -> list[CheckpointData]:
         """保存済みチェックポイントの一覧を返す。"""
-        return list(self._checkpoints)
+        with self._lock:
+            return list(self._checkpoints)
 
     def validate(self, data: CheckpointData) -> bool:
         """チェックポイントの整合性を検証する。

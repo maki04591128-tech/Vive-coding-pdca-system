@@ -12,6 +12,7 @@ M2 タスク 2-7: 要件定義書 §17, §18.2 準拠。
 from __future__ import annotations
 
 import logging
+import threading
 import uuid
 from dataclasses import dataclass, field
 from typing import Any
@@ -82,13 +83,15 @@ class GovernanceManager:
         a_patterns: list[str] | None = None,
         b_patterns: list[str] | None = None,
     ) -> None:
+        self._lock = threading.Lock()
         self._a_patterns = a_patterns or list(A_PATTERNS)
         self._b_patterns = b_patterns or list(B_PATTERNS)
         self._decisions: list[GovernanceDecision] = []
 
     @property
     def decision_count(self) -> int:
-        return len(self._decisions)
+        with self._lock:
+            return len(self._decisions)
 
     def classify(
         self,
@@ -226,13 +229,15 @@ class GovernanceManager:
             )
             decision.reason = "却下 – 代替案を提示"
 
-        self._decisions.append(decision)
+        with self._lock:
+            self._decisions.append(decision)
         return decision
 
     def get_status(self) -> dict[str, Any]:
         """ガバナンス管理状態を返す。"""
-        return {
-            "decision_count": self.decision_count,
-            "a_pattern_count": len(self._a_patterns),
-            "b_pattern_count": len(self._b_patterns),
-        }
+        with self._lock:
+            return {
+                "decision_count": len(self._decisions),
+                "a_pattern_count": len(self._a_patterns),
+                "b_pattern_count": len(self._b_patterns),
+            }

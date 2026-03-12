@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 from collections import defaultdict
 from dataclasses import asdict, dataclass, field
 from enum import StrEnum
@@ -114,6 +115,7 @@ class AnalyticsEngine:
     """サイクルメトリクスの集計・分析エンジン。"""
 
     def __init__(self) -> None:
+        self._lock = threading.Lock()
         self._cycles: list[CycleSummary] = []
         self._custom_metrics: dict[str, float] = {}
 
@@ -125,7 +127,8 @@ class AnalyticsEngine:
         summary : CycleSummary
             追加するサイクルサマリー。
         """
-        self._cycles.append(summary)
+        with self._lock:
+            self._cycles.append(summary)
         logger.info("サイクル %d を追加しました", summary.cycle_number)
 
     def get_success_rate(self, last_n: int = 10) -> float:
@@ -141,11 +144,12 @@ class AnalyticsEngine:
         float
             成功率（0.0〜1.0）。サイクルが無い場合は 0.0。
         """
-        if not self._cycles:
-            return 0.0
-        target = self._cycles[-last_n:]
-        successes = sum(1 for c in target if c.success)
-        return successes / len(target)
+        with self._lock:
+            if not self._cycles:
+                return 0.0
+            target = self._cycles[-last_n:]
+            successes = sum(1 for c in target if c.success)
+            return successes / len(target)
 
     def get_cost_trend(self, last_n: int = 10) -> list[float]:
         """直近 N サイクルのコスト推移を返す。
@@ -160,8 +164,9 @@ class AnalyticsEngine:
         list[float]
             コスト（USD）のリスト。古い順。
         """
-        target = self._cycles[-last_n:]
-        return [c.cost_usd for c in target]
+        with self._lock:
+            target = self._cycles[-last_n:]
+            return [c.cost_usd for c in target]
 
     def detect_bottlenecks(self) -> list[BottleneckInfo]:
         """全サイクルのフェーズ所要時間を集計しボトルネックを検出する。
@@ -171,21 +176,22 @@ class AnalyticsEngine:
         list[BottleneckInfo]
             平均所要時間の降順でソートされたボトルネック情報リスト。
         """
-        if not self._cycles:
-            return []
+        with self._lock:
+            if not self._cycles:
+                return []
 
-        phase_durations: dict[str, list[float]] = defaultdict(list)
-        phase_failures: dict[str, int] = defaultdict(int)
-        phase_costs: dict[str, float] = defaultdict(float)
+            phase_durations: dict[str, list[float]] = defaultdict(list)
+            phase_failures: dict[str, int] = defaultdict(int)
+            phase_costs: dict[str, float] = defaultdict(float)
 
-        for cycle in self._cycles:
-            ratio = len(cycle.phase_durations)
-            for phase, dur in cycle.phase_durations.items():
-                phase_durations[phase].append(dur)
-                if not cycle.success:
-                    phase_failures[phase] += 1
-                if ratio > 0:
-                    phase_costs[phase] += cycle.cost_usd / ratio
+            for cycle in self._cycles:
+                ratio = len(cycle.phase_durations)
+                for phase, dur in cycle.phase_durations.items():
+                    phase_durations[phase].append(dur)
+                    if not cycle.success:
+                        phase_failures[phase] += 1
+                    if ratio > 0:
+                        phase_costs[phase] += cycle.cost_usd / ratio
 
         total_cost = sum(phase_costs.values()) or 1.0
 
@@ -217,9 +223,15 @@ class AnalyticsEngine:
         str
             Markdown 形式のレポート文字列。
         """
-        total = len(self._cycles)
-        success_rate = self.get_success_rate(total) if total else 0.0
-        costs = self.get_cost_trend(total)
+        with self._lock:
+            total = len(self._cycles)
+            if total:
+                target = self._cycles[-total:]
+                successes = sum(1 for c in target if c.success)
+                success_rate = successes / len(target)
+            else:
+                success_rate = 0.0
+            costs = [c.cost_usd for c in self._cycles[-total:]] if total else []
         avg_cost = sum(costs) / len(costs) if costs else 0.0
         total_cost = sum(costs)
         bottlenecks = self.detect_bottlenecks()
@@ -273,7 +285,8 @@ class AnalyticsEngine:
         float | None
             メトリクスの値。未設定の場合は None。
         """
-        return self._custom_metrics.get(name)
+        with self._lock:
+            return self._custom_metrics.get(name)
 
     def set_custom_metric(self, name: str, value: float) -> None:
         """カスタムメトリクスの値を設定する。
@@ -285,7 +298,8 @@ class AnalyticsEngine:
         value : float
             設定する値。
         """
-        self._custom_metrics[name] = value
+        with self._lock:
+            self._custom_metrics[name] = value
         logger.debug("カスタムメトリクス '%s' = %f", name, value)
 
 

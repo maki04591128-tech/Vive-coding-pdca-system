@@ -8,6 +8,7 @@ M1 タスク 1-3: 要件定義書 §6.1 準拠。
 from __future__ import annotations
 
 import logging
+import threading
 import time
 from typing import Any
 
@@ -87,6 +88,7 @@ class PDCAStateMachine:
         milestone: Milestone,
         thresholds: dict[str, Any] | None = None,
     ) -> None:
+        self._lock = threading.Lock()
         self._milestone = milestone
         self._thresholds: dict[str, int | float] = {
             **STOP_THRESHOLDS,
@@ -101,14 +103,16 @@ class PDCAStateMachine:
 
     @property
     def milestone(self) -> Milestone:
-        return self._milestone
+        with self._lock:
+            return self._milestone
 
     @property
     def current_cycle(self) -> Cycle | None:
         """現在のサイクルを返す。"""
-        if not self._milestone.cycles:
-            return None
-        return self._milestone.cycles[-1]
+        with self._lock:
+            if not self._milestone.cycles:
+                return None
+            return self._milestone.cycles[-1]
 
     @property
     def current_phase(self) -> PDCAPhase | None:
@@ -126,7 +130,8 @@ class PDCAStateMachine:
 
     @property
     def cycle_count(self) -> int:
-        return len(self._milestone.cycles)
+        with self._lock:
+            return len(self._milestone.cycles)
 
     # ── サイクル管理 ──
 
@@ -143,35 +148,37 @@ class PDCAStateMachine:
         PDCAStateMachineError
             停止中またはサイクル実行中の場合。
         """
-        if self._stopped:
-            raise PDCAStateMachineError(
-                f"停止中のためサイクル開始不可（理由: {self._stop_reason}）"
+        with self._lock:
+            if self._stopped:
+                raise PDCAStateMachineError(
+                    f"停止中のためサイクル開始不可（理由: {self._stop_reason}）"
+                )
+
+            # 前サイクルが完了済みであることを確認
+            current = self._milestone.cycles[-1] if self._milestone.cycles else None
+            if current and current.status == CycleStatus.RUNNING:
+                raise PDCAStateMachineError(
+                    "前サイクルが未完了のため新サイクル開始不可"
+                )
+
+            # タスク数の上限チェック
+            task_list = tasks or []
+            max_tasks = int(self._thresholds["max_tasks_per_cycle"])
+            if len(task_list) > max_tasks:
+                raise PDCAStateMachineError(
+                    f"タスク数上限超過: {len(task_list)} > {max_tasks}"
+                )
+
+            cycle = Cycle(
+                cycle_number=len(self._milestone.cycles) + 1,
+                phase=PDCAPhase.PLAN,
+                status=CycleStatus.RUNNING,
+                tasks=task_list,
             )
+            self._milestone.cycles.append(cycle)
 
-        # 前サイクルが完了済みであることを確認
-        if self.current_cycle and self.current_cycle.status == CycleStatus.RUNNING:
-            raise PDCAStateMachineError(
-                "前サイクルが未完了のため新サイクル開始不可"
-            )
-
-        # タスク数の上限チェック
-        task_list = tasks or []
-        max_tasks = int(self._thresholds["max_tasks_per_cycle"])
-        if len(task_list) > max_tasks:
-            raise PDCAStateMachineError(
-                f"タスク数上限超過: {len(task_list)} > {max_tasks}"
-            )
-
-        cycle = Cycle(
-            cycle_number=self.cycle_count + 1,
-            phase=PDCAPhase.PLAN,
-            status=CycleStatus.RUNNING,
-            tasks=task_list,
-        )
-        self._milestone.cycles.append(cycle)
-
-        if self._milestone.status == MilestoneStatus.OPEN:
-            self._milestone.status = MilestoneStatus.IN_PROGRESS
+            if self._milestone.status == MilestoneStatus.OPEN:
+                self._milestone.status = MilestoneStatus.IN_PROGRESS
 
         logger.info(
             "サイクル %d 開始 (マイルストーン: %s, タスク数: %d)",
@@ -194,28 +201,29 @@ class PDCAStateMachine:
         StopConditionError
             停止条件が発火した場合。
         """
-        cycle = self.current_cycle
-        if cycle is None:
-            raise PDCAStateMachineError("アクティブなサイクルがありません")
+        with self._lock:
+            cycle = self._milestone.cycles[-1] if self._milestone.cycles else None
+            if cycle is None:
+                raise PDCAStateMachineError("アクティブなサイクルがありません")
 
-        if self._stopped:
-            raise PDCAStateMachineError(
-                f"停止中のため遷移不可（理由: {self._stop_reason}）"
-            )
+            if self._stopped:
+                raise PDCAStateMachineError(
+                    f"停止中のため遷移不可（理由: {self._stop_reason}）"
+                )
 
-        # 遷移の妥当性チェック
-        valid_targets = self.VALID_TRANSITIONS.get(cycle.phase, [])
-        if to_phase not in valid_targets:
-            raise InvalidTransitionError(
-                f"不正な遷移: {cycle.phase.value} → {to_phase.value} "
-                f"(有効: {[p.value for p in valid_targets]})"
-            )
+            # 遷移の妥当性チェック
+            valid_targets = self.VALID_TRANSITIONS.get(cycle.phase, [])
+            if to_phase not in valid_targets:
+                raise InvalidTransitionError(
+                    f"不正な遷移: {cycle.phase.value} → {to_phase.value} "
+                    f"(有効: {[p.value for p in valid_targets]})"
+                )
 
-        # タイムアウトチェック
-        self._check_cycle_timeout(cycle)
+            # タイムアウトチェック
+            self._check_cycle_timeout(cycle)
 
-        old_phase = cycle.phase
-        cycle.phase = to_phase
+            old_phase = cycle.phase
+            cycle.phase = to_phase
 
         logger.info(
             "フェーズ遷移: %s → %s (サイクル %d)",
@@ -271,7 +279,7 @@ class PDCAStateMachine:
         self._stopped = True
         self._stop_reason = reason
 
-        cycle = self.current_cycle
+        cycle = self._milestone.cycles[-1] if self._milestone.cycles else None
         if cycle and cycle.status == CycleStatus.RUNNING:
             cycle.status = CycleStatus.STOPPED
             cycle.stop_reason = reason
@@ -310,43 +318,44 @@ class PDCAStateMachine:
         StopReason | None
             発火した停止条件。なければ None。
         """
-        # 1. CI連続失敗
-        self._ci_consecutive_failures = ci_failures
-        if ci_failures >= self._thresholds["ci_consecutive_failure"]:
-            reason = StopReason.CI_CONSECUTIVE_FAILURE
-            self.stop(reason, f"CI連続失敗: {ci_failures}回")
-            return reason
-
-        # 2. 変更量超過（diff行数）
-        if diff_lines_total > self._thresholds["diff_lines_total"]:
-            reason = StopReason.DIFF_SIZE_EXCEEDED
-            self.stop(reason, f"合計diff行数超過: {diff_lines_total}")
-            return reason
-        if diff_lines_max_file > self._thresholds["diff_lines_single_file"]:
-            reason = StopReason.DIFF_SIZE_EXCEEDED
-            self.stop(reason, f"単一ファイルdiff行数超過: {diff_lines_max_file}")
-            return reason
-
-        # 3. 同一エラーの連続リトライ
-        if error_key:
-            self._same_error_count[error_key] = (
-                self._same_error_count.get(error_key, 0) + 1
-            )
-            if self._same_error_count[error_key] > self._thresholds["same_error_retry"]:
-                reason = StopReason.SAME_ERROR_RETRY
-                self.stop(reason, f"同一エラー連続: {error_key}")
+        with self._lock:
+            # 1. CI連続失敗
+            self._ci_consecutive_failures = ci_failures
+            if ci_failures >= self._thresholds["ci_consecutive_failure"]:
+                reason = StopReason.CI_CONSECUTIVE_FAILURE
+                self.stop(reason, f"CI連続失敗: {ci_failures}回")
                 return reason
 
-        # 4. サイクルタイムアウト
-        cycle = self.current_cycle
-        if cycle:
-            elapsed = time.time() - cycle.started_at
-            if elapsed > self._thresholds["cycle_timeout_seconds"]:
-                reason = StopReason.CYCLE_TIMEOUT
-                self.stop(reason, f"タイムアウト: {elapsed:.0f}秒")
+            # 2. 変更量超過（diff行数）
+            if diff_lines_total > self._thresholds["diff_lines_total"]:
+                reason = StopReason.DIFF_SIZE_EXCEEDED
+                self.stop(reason, f"合計diff行数超過: {diff_lines_total}")
+                return reason
+            if diff_lines_max_file > self._thresholds["diff_lines_single_file"]:
+                reason = StopReason.DIFF_SIZE_EXCEEDED
+                self.stop(reason, f"単一ファイルdiff行数超過: {diff_lines_max_file}")
                 return reason
 
-        return None
+            # 3. 同一エラーの連続リトライ
+            if error_key:
+                self._same_error_count[error_key] = (
+                    self._same_error_count.get(error_key, 0) + 1
+                )
+                if self._same_error_count[error_key] > self._thresholds["same_error_retry"]:
+                    reason = StopReason.SAME_ERROR_RETRY
+                    self.stop(reason, f"同一エラー連続: {error_key}")
+                    return reason
+
+            # 4. サイクルタイムアウト
+            cycle = self._milestone.cycles[-1] if self._milestone.cycles else None
+            if cycle:
+                elapsed = time.time() - cycle.started_at
+                if elapsed > self._thresholds["cycle_timeout_seconds"]:
+                    reason = StopReason.CYCLE_TIMEOUT
+                    self.stop(reason, f"タイムアウト: {elapsed:.0f}秒")
+                    return reason
+
+            return None
 
     def check_critical_incident(self, detail: str) -> None:
         """重大インシデント即停止（§6.6）。"""

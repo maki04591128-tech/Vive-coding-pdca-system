@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import threading
 import time
 from typing import Any
 
@@ -39,21 +40,25 @@ class AuditLog:
     """
 
     def __init__(self) -> None:
+        self._lock = threading.Lock()
         self._entries: list[AuditEntry] = []
         self._last_hash: str = GENESIS_HASH
 
     @property
     def entries(self) -> list[AuditEntry]:
         """全エントリ（読み取り専用）。"""
-        return list(self._entries)
+        with self._lock:
+            return list(self._entries)
 
     @property
     def entry_count(self) -> int:
-        return len(self._entries)
+        with self._lock:
+            return len(self._entries)
 
     @property
     def last_hash(self) -> str:
-        return self._last_hash
+        with self._lock:
+            return self._last_hash
 
     def append(
         self,
@@ -86,20 +91,21 @@ class AuditLog:
         AuditEntry
             追記されたエントリ。
         """
-        entry = AuditEntry(
-            sequence=len(self._entries),
-            timestamp=time.time(),
-            actor=actor,
-            action=action,
-            resource_type=resource_type,
-            resource_id=resource_id,
-            detail=detail or {},
-            governance_level=governance_level,
-            previous_hash=self._last_hash,
-        )
-        entry.entry_hash = entry.compute_hash()
-        self._entries.append(entry)
-        self._last_hash = entry.entry_hash
+        with self._lock:
+            entry = AuditEntry(
+                sequence=len(self._entries),
+                timestamp=time.time(),
+                actor=actor,
+                action=action,
+                resource_type=resource_type,
+                resource_id=resource_id,
+                detail=detail or {},
+                governance_level=governance_level,
+                previous_hash=self._last_hash,
+            )
+            entry.entry_hash = entry.compute_hash()
+            self._entries.append(entry)
+            self._last_hash = entry.entry_hash
 
         logger.debug(
             "監査ログ追記: seq=%d actor=%s action=%s",
@@ -120,36 +126,38 @@ class AuditLog:
         AuditLogIntegrityError
             不整合が見つかった場合。
         """
-        expected_prev_hash = GENESIS_HASH
+        with self._lock:
+            expected_prev_hash = GENESIS_HASH
 
-        for entry in self._entries:
-            # previous_hash の検証
-            if entry.previous_hash != expected_prev_hash:
-                raise AuditLogIntegrityError(
-                    f"チェーンハッシュ不整合 (seq={entry.sequence}): "
-                    f"expected prev={expected_prev_hash[:12]}..., "
-                    f"got={entry.previous_hash[:12]}..."
-                )
+            for entry in self._entries:
+                # previous_hash の検証
+                if entry.previous_hash != expected_prev_hash:
+                    raise AuditLogIntegrityError(
+                        f"チェーンハッシュ不整合 (seq={entry.sequence}): "
+                        f"expected prev={expected_prev_hash[:12]}..., "
+                        f"got={entry.previous_hash[:12]}..."
+                    )
 
-            # entry_hash の再計算検証
-            computed = entry.compute_hash()
-            if entry.entry_hash != computed:
-                raise AuditLogIntegrityError(
-                    f"エントリハッシュ不整合 (seq={entry.sequence}): "
-                    f"expected={computed[:12]}..., "
-                    f"got={entry.entry_hash[:12]}..."
-                )
+                # entry_hash の再計算検証
+                computed = entry.compute_hash()
+                if entry.entry_hash != computed:
+                    raise AuditLogIntegrityError(
+                        f"エントリハッシュ不整合 (seq={entry.sequence}): "
+                        f"expected={computed[:12]}..., "
+                        f"got={entry.entry_hash[:12]}..."
+                    )
 
-            expected_prev_hash = entry.entry_hash
+                expected_prev_hash = entry.entry_hash
 
-        return True
+            return True
 
     def to_json_lines(self) -> str:
         """全エントリをJSON Lines形式で出力する。"""
-        lines = []
-        for entry in self._entries:
-            lines.append(entry.model_dump_json())
-        return "\n".join(lines)
+        with self._lock:
+            lines = []
+            for entry in self._entries:
+                lines.append(entry.model_dump_json())
+            return "\n".join(lines)
 
     @classmethod
     def from_json_lines(cls, data: str) -> AuditLog:
@@ -158,14 +166,15 @@ class AuditLog:
         復元後に整合性を自動検証する。
         """
         log = cls()
-        for line in data.strip().split("\n"):
-            if not line.strip():
-                continue
-            entry = AuditEntry.model_validate_json(line)
-            log._entries.append(entry)
+        with log._lock:
+            for line in data.strip().split("\n"):
+                if not line.strip():
+                    continue
+                entry = AuditEntry.model_validate_json(line)
+                log._entries.append(entry)
 
-        if log._entries:
-            log._last_hash = log._entries[-1].entry_hash
+            if log._entries:
+                log._last_hash = log._entries[-1].entry_hash
 
         # 復元時に必ず整合性検証
         log.verify_integrity()

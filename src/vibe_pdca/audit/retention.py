@@ -12,6 +12,7 @@ M3 タスク 3-1: 要件定義書 §16.4 準拠。
 from __future__ import annotations
 
 import logging
+import threading
 import time
 from dataclasses import dataclass
 from enum import StrEnum
@@ -69,6 +70,7 @@ class RetentionManager:
         self,
         custom_days: dict[RetentionTarget, int] | None = None,
     ) -> None:
+        self._lock = threading.Lock()
         self._policies: dict[RetentionTarget, RetentionPolicy] = {}
 
         for target, days in DEFAULT_RETENTION_DAYS.items():
@@ -84,7 +86,8 @@ class RetentionManager:
 
     @property
     def policies(self) -> dict[RetentionTarget, RetentionPolicy]:
-        return dict(self._policies)
+        with self._lock:
+            return dict(self._policies)
 
     def get_cutoff_timestamp(
         self,
@@ -168,7 +171,8 @@ class RetentionManager:
         purged_count = len(expired)
 
         # in-placeで置換（単一操作でアトミックに）
-        items[:] = valid
+        with self._lock:
+            items[:] = valid
 
         logger.info(
             "保持期間パージ: %s – %d件削除, %d件残存",
@@ -204,28 +208,29 @@ class RetentionManager:
         bool
             更新に成功した場合True。
         """
-        policy = self._policies.get(target)
-        if policy is None:
-            return False
+        with self._lock:
+            policy = self._policies.get(target)
+            if policy is None:
+                return False
 
-        if new_days <= 0:
-            logger.warning("保持期間は1日以上である必要があります: %d", new_days)
-            return False
+            if new_days <= 0:
+                logger.warning("保持期間は1日以上である必要があります: %d", new_days)
+                return False
 
-        # 監査ログの短縮は人間承認が必要
-        if (
-            policy.requires_approval_to_shorten
-            and new_days < policy.retention_days
-            and not approved
-        ):
-            logger.warning(
-                "保持期間短縮拒否: %s – 人間承認が必要",
-                target.value,
-            )
-            return False
+            # 監査ログの短縮は人間承認が必要
+            if (
+                policy.requires_approval_to_shorten
+                and new_days < policy.retention_days
+                and not approved
+            ):
+                logger.warning(
+                    "保持期間短縮拒否: %s – 人間承認が必要",
+                    target.value,
+                )
+                return False
 
-        policy.retention_days = new_days
-        policy.description = f"{target.value}: {new_days}日保持"
+            policy.retention_days = new_days
+            policy.description = f"{target.value}: {new_days}日保持"
         logger.info(
             "保持期間更新: %s → %d日", target.value, new_days,
         )
@@ -233,10 +238,11 @@ class RetentionManager:
 
     def get_status(self) -> dict[str, Any]:
         """保持期間管理状態を返す。"""
-        return {
-            target.value: {
-                "retention_days": p.retention_days,
-                "requires_approval_to_shorten": p.requires_approval_to_shorten,
+        with self._lock:
+            return {
+                target.value: {
+                    "retention_days": p.retention_days,
+                    "requires_approval_to_shorten": p.requires_approval_to_shorten,
+                }
+                for target, p in self._policies.items()
             }
-            for target, p in self._policies.items()
-        }
