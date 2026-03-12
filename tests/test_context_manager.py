@@ -181,3 +181,31 @@ class TestContextManagerValidation:
         import pytest
         with pytest.raises(ValueError, match="file_head_tokens"):
             ContextManager(file_head_tokens=-5)
+
+
+class TestContextManagerBarrierThreadSafety:
+    """ContextManagerのBarrierスレッドセーフティテスト。"""
+
+    def test_concurrent_increment_cycle(self) -> None:
+        import threading
+
+        mgr = ContextManager()
+        n_threads = 10
+        ops_per_thread = 50
+        barrier = threading.Barrier(n_threads)
+
+        def worker(tid: int) -> None:
+            barrier.wait()
+            for _ in range(ops_per_thread):
+                mgr.increment_cycle()
+
+        threads = [
+            threading.Thread(target=worker, args=(t,))
+            for t in range(n_threads)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert mgr.cycle_count == n_threads * ops_per_thread

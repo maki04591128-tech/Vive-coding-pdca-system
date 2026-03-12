@@ -247,3 +247,41 @@ class TestAutoAdjustWeights:
         # 正常なキーの分だけレポートが生成される
         assert len(reports) == 1
         assert reports[0].model_name == "gpt"
+
+
+class TestDegradationMonitorBarrierThreadSafety:
+    """DegradationMonitorのBarrierスレッドセーフティテスト。"""
+
+    def test_concurrent_record_observation(self) -> None:
+        import threading
+
+        det = ModelDegradationDetector(window_size=1000)
+        n_threads = 10
+        ops_per_thread = 50
+        barrier = threading.Barrier(n_threads)
+        errors: list[Exception] = []
+
+        def worker(tid: int) -> None:
+            barrier.wait()
+            try:
+                for i in range(ops_per_thread):
+                    obs = ModelObservation(
+                        cycle_number=tid * ops_per_thread + i,
+                        model_name="claude",
+                        persona_role="PM",
+                        quality_score=0.8,
+                    )
+                    det.record_observation(obs)
+            except Exception as exc:
+                errors.append(exc)
+
+        threads = [
+            threading.Thread(target=worker, args=(t,))
+            for t in range(n_threads)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert errors == [], f"Unexpected errors: {errors}"

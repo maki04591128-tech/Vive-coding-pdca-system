@@ -326,3 +326,35 @@ class TestApprovalGuardThreadSafety:
         assert results.count(True) == 1
         assert results.count(False) == 9
         assert guard.is_approved("shared-res") is True
+
+
+class TestOptimisticLockBarrierThreadSafety:
+    """OptimisticLockManagerのBarrierスレッドセーフティテスト。"""
+
+    def test_concurrent_acquire_release(self):
+        import threading
+
+        manager = OptimisticLockManager()
+        n_threads = 10
+        ops_per_thread = 50
+        barrier = threading.Barrier(n_threads)
+
+        def worker(tid: int) -> None:
+            barrier.wait()
+            for i in range(ops_per_thread):
+                resource_id = f"res-{tid}-{i}"
+                holder = f"holder-{tid}"
+                lock = manager.acquire(resource_id, holder, 0)
+                if lock is not None:
+                    manager.release(resource_id, holder)
+
+        threads = [
+            threading.Thread(target=worker, args=(t,))
+            for t in range(n_threads)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert len(manager.list_locks()) == 0

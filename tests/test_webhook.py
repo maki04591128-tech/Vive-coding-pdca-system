@@ -267,3 +267,35 @@ class TestWebhookRouter:
         )
         evt = WebhookEvent(event_type=WebhookEventType.ISSUE_OPENED)
         assert router.route(evt) == "new_handler"
+
+
+class TestEventQueueBarrierThreadSafety:
+    """EventQueueのBarrierスレッドセーフティテスト。"""
+
+    def test_concurrent_push(self) -> None:
+        import threading
+
+        queue = EventQueue(max_size=1000)
+        n_threads = 10
+        ops_per_thread = 50
+        barrier = threading.Barrier(n_threads)
+
+        def worker(tid: int) -> None:
+            barrier.wait()
+            for i in range(ops_per_thread):
+                evt = WebhookEvent(
+                    event_type=WebhookEventType.ISSUE_OPENED,
+                    payload={"tid": tid, "i": i},
+                )
+                queue.push(evt)
+
+        threads = [
+            threading.Thread(target=worker, args=(t,))
+            for t in range(n_threads)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert queue.size == n_threads * ops_per_thread

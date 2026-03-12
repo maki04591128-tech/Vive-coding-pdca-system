@@ -260,3 +260,32 @@ class TestWaitTimeDefensiveCheck:
         tracker._configs.pop("test", None)
         # KeyError にならず 0.0 を返すこと
         assert tracker.wait_time("test") == 0.0
+
+
+class TestTokenBucketBarrierThreadSafety:
+    """TokenBucketのBarrierスレッドセーフティテスト。"""
+
+    def test_concurrent_consume(self) -> None:
+        import threading
+
+        bucket = TokenBucket(capacity=100_000, rate=0.0)
+        n_threads = 10
+        ops_per_thread = 50
+        barrier = threading.Barrier(n_threads)
+
+        def worker(tid: int) -> None:
+            barrier.wait()
+            for _ in range(ops_per_thread):
+                bucket.consume(1)
+
+        threads = [
+            threading.Thread(target=worker, args=(t,))
+            for t in range(n_threads)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        expected = 100_000 - n_threads * ops_per_thread
+        assert int(bucket.available) == expected
