@@ -338,3 +338,31 @@ class TestTimeoutManagerThreadSafety:
         assert not errors
         stats = mgr.get_statistics()
         assert len(stats) > 0
+
+    def test_concurrent_get_effective_timeout_barrier(self):
+        """Barrier同期で全スレッドが同時にget_effective_timeoutを呼び出す。"""
+        import threading
+
+        mgr = TimeoutManager()
+        n_threads = 10
+        ops_per_thread = 50
+        barrier = threading.Barrier(n_threads)
+        errors: list[Exception] = []
+
+        def worker(tid: int) -> None:
+            barrier.wait()
+            try:
+                for _ in range(ops_per_thread):
+                    mgr.get_effective_timeout(PDCAPhase.PLAN)
+            except Exception as exc:
+                errors.append(exc)
+
+        threads = [
+            threading.Thread(target=worker, args=(t,)) for t in range(n_threads)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert errors == []

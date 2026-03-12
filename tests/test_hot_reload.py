@@ -591,3 +591,35 @@ class TestHotReloadThreadSafety:
 
         assert errors == []
         assert manager.apply_mode in (ApplyMode.IMMEDIATE, ApplyMode.DEFERRED)
+
+    def test_concurrent_has_pending_and_apply_mode_barrier(self, tmp_path):
+        """Barrier同期で全スレッドが同時にhas_pendingとapply_modeを呼び出す。"""
+        import threading
+
+        cfg_file = tmp_path / "config.yml"
+        cfg_file.write_text(yaml.dump({"llm": {"mode": "local"}}))
+        manager = HotReloadManager(cfg_file)
+        manager.load_initial()
+        n_threads = 10
+        ops_per_thread = 10
+        barrier = threading.Barrier(n_threads)
+        errors: list[Exception] = []
+
+        def worker(tid: int) -> None:
+            barrier.wait()
+            try:
+                for _ in range(ops_per_thread):
+                    _ = manager.has_pending
+                    _ = manager.apply_mode
+            except Exception as exc:
+                errors.append(exc)
+
+        threads = [
+            threading.Thread(target=worker, args=(t,)) for t in range(n_threads)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert errors == []

@@ -204,3 +204,41 @@ class TestOOMHandler:
         report = handler.generate_report("container-xyz", 0)
         assert report["oom_detected"] is False
         assert report["recommendation"] == ""
+
+
+class TestResourceMonitorBarrierThreadSafety:
+    """ResourceMonitorのスレッドセーフティテスト（Barrier同期）。"""
+
+    def test_concurrent_check_usage(self):
+        import threading
+
+        monitor = ResourceMonitor(limit=ResourceLimit(memory_mb=512, cpus=2.0))
+        n_threads = 10
+        ops_per_thread = 50
+        barrier = threading.Barrier(n_threads)
+        errors: list[Exception] = []
+
+        def worker(tid: int) -> None:
+            barrier.wait()
+            try:
+                for _ in range(ops_per_thread):
+                    monitor.check_usage(
+                        ResourceUsage(
+                            memory_mb=100.0,
+                            cpu_percent=30.0,
+                            disk_mb=50.0,
+                            pid_count=10,
+                        )
+                    )
+            except Exception as exc:
+                errors.append(exc)
+
+        threads = [
+            threading.Thread(target=worker, args=(t,)) for t in range(n_threads)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert errors == []

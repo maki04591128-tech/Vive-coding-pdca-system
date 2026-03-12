@@ -378,3 +378,32 @@ class TestBlockerDetector:
         assert "コアモジュール" in warnings[0].description
         assert "core" in warnings[0].description
         assert "2" in warnings[0].description
+
+
+class TestDependencyGraphBarrierThreadSafety:
+    """DependencyGraphのスレッドセーフティテスト（Barrier同期）。"""
+
+    def test_concurrent_add_task(self):
+        import threading
+
+        graph = DependencyGraph()
+        n_threads = 10
+        ops_per_thread = 50
+        barrier = threading.Barrier(n_threads)
+
+        def worker(tid: int) -> None:
+            barrier.wait()
+            for i in range(ops_per_thread):
+                graph.add_task(
+                    TaskNode(task_id=f"task-{tid}-{i}", title=f"Task {tid}-{i}")
+                )
+
+        threads = [
+            threading.Thread(target=worker, args=(t,)) for t in range(n_threads)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert len(graph.nodes) == n_threads * ops_per_thread
