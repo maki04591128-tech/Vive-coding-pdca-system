@@ -189,3 +189,47 @@ class TestMarkdownReport:
         manager.analyze_stop(stopped_milestone, StopReason.USER_STOP)
         manager.analyze_stop(stopped_milestone, StopReason.CYCLE_TIMEOUT)
         assert manager.report_count == 2
+
+
+# ============================================================
+# テスト: スレッドセーフティ
+# ============================================================
+
+
+class TestInterventionManagerThreadSafety:
+    """InterventionManagerのスレッドセーフティテスト。"""
+
+    def test_concurrent_analyze_stop(self):
+        import threading
+
+        manager = InterventionManager()
+        n_threads = 10
+        barrier = threading.Barrier(n_threads)
+
+        milestone = Milestone(
+            id="m-concurrent",
+            title="concurrent test",
+            cycles=[
+                Cycle(
+                    cycle_number=1,
+                    phase=PDCAPhase.DO,
+                    status=CycleStatus.STOPPED,
+                    stop_reason=StopReason.USER_STOP,
+                    tasks=[
+                        Task(id="t-1", title="タスク1", status=TaskStatus.IN_PROGRESS),
+                    ],
+                ),
+            ],
+        )
+
+        def worker():
+            barrier.wait()
+            manager.analyze_stop(milestone, StopReason.USER_STOP)
+
+        threads = [threading.Thread(target=worker) for _ in range(n_threads)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert manager.report_count == n_threads

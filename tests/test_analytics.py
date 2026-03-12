@@ -309,3 +309,43 @@ class TestBottleneckCostAllocation:
             b.cost_concentration for b in bottlenecks
         )
         assert abs(phase_costs_sum - 1.0) < 1e-9
+
+
+# ============================================================
+# テスト: スレッドセーフティ
+# ============================================================
+
+
+class TestAnalyticsEngineThreadSafety:
+    """AnalyticsEngineのスレッドセーフティテスト。"""
+
+    def test_concurrent_add_cycle(self):
+        import threading
+
+        engine = AnalyticsEngine()
+        n_threads = 10
+        cycles_per_thread = 50
+        barrier = threading.Barrier(n_threads)
+
+        def worker(thread_id):
+            barrier.wait()
+            for i in range(cycles_per_thread):
+                engine.add_cycle(
+                    CycleSummary(
+                        cycle_number=thread_id * 100 + i,
+                        success=True,
+                        duration_seconds=10.0,
+                        cost_usd=0.01,
+                    )
+                )
+
+        threads = [
+            threading.Thread(target=worker, args=(tid,))
+            for tid in range(n_threads)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert engine.get_success_rate(last_n=n_threads * cycles_per_thread) == 1.0

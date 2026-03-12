@@ -124,3 +124,40 @@ class TestCLevelApprovalLogic:
         )
         assert decision.approved is False
         assert len(decision.alternatives) == 3
+
+
+# ============================================================
+# テスト: スレッドセーフティ
+# ============================================================
+
+
+class TestGovernanceManagerThreadSafety:
+    """GovernanceManagerのスレッドセーフティテスト。"""
+
+    def test_concurrent_process_operation(self):
+        import threading
+
+        gov = GovernanceManager()
+        n_threads = 10
+        ops_per_thread = 20
+        barrier = threading.Barrier(n_threads)
+
+        def worker(thread_id):
+            barrier.wait()
+            for i in range(ops_per_thread):
+                gov.process_operation(
+                    operation_id=f"op-{thread_id}-{i}",
+                    operation_description="テスト操作",
+                    approved=True,
+                )
+
+        threads = [
+            threading.Thread(target=worker, args=(tid,))
+            for tid in range(n_threads)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert gov.decision_count == n_threads * ops_per_thread
