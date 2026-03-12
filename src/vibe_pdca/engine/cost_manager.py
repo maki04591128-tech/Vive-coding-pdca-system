@@ -13,6 +13,7 @@ M3 タスク 3-4: 要件定義書 §15 準拠。
 
 from __future__ import annotations
 
+import datetime
 import logging
 import threading
 from dataclasses import dataclass
@@ -173,6 +174,8 @@ class CostManager:
     def close_day(self) -> None:
         """日次使用量を確定し履歴に追加する。"""
         with self._lock:
+            if not self._today_usage.date:
+                self._today_usage.date = datetime.date.today().isoformat()
             self._daily_history.append(self._today_usage)
             # 直近30日分だけ保持
             if len(self._daily_history) > 30:

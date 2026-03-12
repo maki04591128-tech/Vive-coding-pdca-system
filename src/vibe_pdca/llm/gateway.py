@@ -154,6 +154,7 @@ class LLMGateway:
         self.cost_tracker = CostTracker()
 
         # 動作モード
+        self._lock = threading.Lock()
         self._preferred_mode: ProviderType = ProviderType.CLOUD
         self._auto_fallback_enabled: bool = True
 
@@ -206,7 +207,8 @@ class LLMGateway:
     @property
     def preferred_mode(self) -> ProviderType:
         """現在の優先モードを返す。"""
-        return self._preferred_mode
+        with self._lock:
+            return self._preferred_mode
 
     def set_mode(self, mode: ProviderType, reason: str = "") -> None:
         """手動で優先モードを切り替える。
@@ -218,8 +220,9 @@ class LLMGateway:
         reason : str
             切替理由（監査ログ用）。
         """
-        old_mode = self._preferred_mode
-        self._preferred_mode = mode
+        with self._lock:
+            old_mode = self._preferred_mode
+            self._preferred_mode = mode
         logger.info(
             "LLMモード切替: %s → %s (理由: %s)",
             old_mode.value, mode.value, reason or "なし",
@@ -227,21 +230,25 @@ class LLMGateway:
 
     @property
     def auto_fallback_enabled(self) -> bool:
-        return self._auto_fallback_enabled
+        with self._lock:
+            return self._auto_fallback_enabled
 
     def set_auto_fallback(self, enabled: bool) -> None:
         """自動フォールバックの有効 / 無効を設定する。"""
-        self._auto_fallback_enabled = enabled
+        with self._lock:
+            self._auto_fallback_enabled = enabled
         logger.info("自動フォールバック: %s", "有効" if enabled else "無効")
 
     @property
     def response_language(self) -> str | None:
         """応答言語設定を返す。"""
-        return self._response_language
+        with self._lock:
+            return self._response_language
 
     def set_response_language(self, language: str | None) -> None:
         """応答言語を設定する。Noneで言語強制を無効化する。"""
-        self._response_language = language
+        with self._lock:
+            self._response_language = language
         logger.info("応答言語設定: %s", language or "なし（無効）")
 
     # ── ヘルスチェック ──
@@ -299,7 +306,9 @@ class LLMGateway:
             raise CostLimitExceededError(reason)
 
         # プライマリ → セカンダリ → ローカルの順にフォールバックしてリクエスト
-        if self._preferred_mode == ProviderType.CLOUD:
+        with self._lock:
+            mode = self._preferred_mode
+        if mode == ProviderType.CLOUD:
             return self._call_with_cloud_fallback(request)
         else:
             return self._call_with_local_fallback(request)
@@ -309,10 +318,12 @@ class LLMGateway:
 
         既に指示が含まれている場合（PromptBuilder経由等）はスキップする。
         """
-        if not self._response_language:
+        with self._lock:
+            lang = self._response_language
+        if not lang:
             return request
 
-        directive = _LANGUAGE_DIRECTIVES.get(self._response_language)
+        directive = _LANGUAGE_DIRECTIVES.get(lang)
         if not directive:
             return request
 
@@ -381,7 +392,9 @@ class LLMGateway:
                     cb.record_failure(error=str(e))
 
         # 自動フォールバック: ローカル LLM
-        if self._auto_fallback_enabled:
+        with self._lock:
+            auto_fb = self._auto_fallback_enabled
+        if auto_fb:
             logger.warning(
                 "全クラウドプロバイダ利用不可 → ローカルLLMへ自動フォールバック (role=%s)",
                 request.role.value,
@@ -399,7 +412,9 @@ class LLMGateway:
         try:
             return self._call_local(request)
         except Exception as e:
-            if self._auto_fallback_enabled:
+            with self._lock:
+                auto_fb = self._auto_fallback_enabled
+            if auto_fb:
                 logger.warning(
                     "ローカルLLM利用不可 → クラウドLLMへフォールバック (role=%s): %s",
                     request.role.value, e,
@@ -445,8 +460,13 @@ class LLMGateway:
 
     def get_status(self) -> dict[str, Any]:
         """ゲートウェイの現在のステータスを返す。"""
+        with self._lock:
+            mode = self._preferred_mode
+            auto_fb = self._auto_fallback_enabled
+            lang = self._response_language
+
         cloud_status = {}
-        for name, cb in self._circuit_breakers.items():
+        for name, cb in list(self._circuit_breakers.items()):
             cloud_status[name] = {
                 "circuit_state": cb.state.value,
                 "consecutive_failures": cb.metrics.consecutive_failures,
@@ -454,7 +474,7 @@ class LLMGateway:
             }
 
         local_status = {}
-        for name, provider in self._local_providers.items():
+        for name, provider in list(self._local_providers.items()):
             info: dict[str, Any] = {
                 "model": provider.model,
                 "base_url": getattr(provider, "base_url", None),
@@ -465,9 +485,9 @@ class LLMGateway:
             local_status[name] = info
 
         return {
-            "preferred_mode": self._preferred_mode.value,
-            "auto_fallback_enabled": self._auto_fallback_enabled,
-            "response_language": self._response_language,
+            "preferred_mode": mode.value,
+            "auto_fallback_enabled": auto_fb,
+            "response_language": lang,
             "cloud_providers": cloud_status,
             "local_providers": local_status,
             "cost": {

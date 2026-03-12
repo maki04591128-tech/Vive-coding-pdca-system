@@ -104,3 +104,24 @@ class TestCostManagerThreadSafety:
         assert cm.current_cycle_calls == expected
         assert cm.today_usage.llm_calls == expected
         assert cm.today_usage.llm_tokens == expected
+
+
+class TestCloseDayDate:
+    """close_day()でDailyUsage.dateが自動設定されることをテスト。"""
+
+    def test_close_day_sets_date(self):
+        import datetime
+
+        cm = CostManager()
+        cm.record_call(cost_usd=1.0)
+        cm.close_day()
+        history = cm._daily_history
+        assert len(history) == 1
+        assert history[0].date == datetime.date.today().isoformat()
+
+    def test_close_day_preserves_explicit_date(self):
+        cm = CostManager()
+        cm._today_usage = DailyUsage(date="2025-01-15", cost_usd=5.0)
+        cm.close_day()
+        history = cm._daily_history
+        assert history[0].date == "2025-01-15"
