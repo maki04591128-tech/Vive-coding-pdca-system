@@ -125,3 +125,35 @@ class TestDiscordLiaisonThreadSafety:
 
         assert not errors
         assert liaison.notification_count == 100
+
+
+class TestDiscordLiaisonBarrierThreadSafety:
+    """DiscordLiaison のBarrier同期スレッドセーフティテスト。"""
+
+    def test_concurrent_send_notification_with_barrier(self) -> None:
+        import threading
+
+        liaison = DiscordLiaison(webhook_url="https://example.com/wh")
+        n_threads = 10
+        ops_per_thread = 25
+        barrier = threading.Barrier(n_threads)
+
+        def worker(tid: int) -> None:
+            barrier.wait()
+            for i in range(ops_per_thread):
+                liaison.send_notification(
+                    NotificationType.B_NOTIFY,
+                    f"T{tid}-{i}",
+                    "body",
+                )
+
+        threads = [
+            threading.Thread(target=worker, args=(t,))
+            for t in range(n_threads)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert liaison.notification_count == n_threads * ops_per_thread

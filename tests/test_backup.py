@@ -116,3 +116,35 @@ class TestBackupManagerThreadSafety:
 
         assert not errors
         assert mgr.backup_count == 100
+
+
+class TestBackupManagerBarrierThreadSafety:
+    """BackupManager のBarrier同期スレッドセーフティテスト。"""
+
+    def test_concurrent_create_backup_with_barrier(self) -> None:
+        import threading
+
+        mgr = BackupManager()
+        n_threads = 10
+        ops_per_thread = 20
+        barrier = threading.Barrier(n_threads)
+
+        def worker(tid: int) -> None:
+            barrier.wait()
+            for i in range(ops_per_thread):
+                mgr.create_backup(
+                    operation_id=f"op-{tid}-{i}",
+                    operation_description=f"desc-{tid}-{i}",
+                    state_snapshot={"key": f"value-{tid}-{i}"},
+                )
+
+        threads = [
+            threading.Thread(target=worker, args=(t,))
+            for t in range(n_threads)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert mgr.backup_count == n_threads * ops_per_thread

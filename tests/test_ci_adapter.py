@@ -386,3 +386,30 @@ class TestCIAdapterRegistryThreadSafety:
 
         assert not errors
         assert CIProvider.GITHUB_ACTIONS in registry.list_providers()
+
+
+class TestCIAdapterRegistryBarrierThreadSafety:
+    """CIAdapterRegistry のBarrier同期スレッドセーフティテスト。"""
+
+    def test_concurrent_register_with_barrier(self) -> None:
+        import threading
+
+        registry = CIAdapterRegistry()
+        n_threads = 10
+        barrier = threading.Barrier(n_threads)
+
+        def worker(tid: int) -> None:
+            barrier.wait()
+            adapter = GitHubActionsAdapter()
+            registry.register(CIProvider.GITHUB_ACTIONS, adapter)
+
+        threads = [
+            threading.Thread(target=worker, args=(t,))
+            for t in range(n_threads)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert CIProvider.GITHUB_ACTIONS in registry.list_providers()

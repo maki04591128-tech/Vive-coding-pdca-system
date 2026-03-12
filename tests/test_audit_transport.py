@@ -325,3 +325,39 @@ class TestIntegrityAuditorThreadSafety:
         assert not errors
         assert auditor.get_local_count() == 200
         assert auditor.get_remote_count() == 200
+
+
+class TestIntegrityAuditorBarrierThreadSafety:
+    """IntegrityAuditor のBarrier同期スレッドセーフティテスト。"""
+
+    def test_concurrent_add_entries_with_barrier(self) -> None:
+        import threading
+
+        auditor = IntegrityAuditor()
+        n_threads = 10
+        ops_per_thread = 50
+        barrier = threading.Barrier(n_threads)
+
+        def worker(tid: int) -> None:
+            barrier.wait()
+            for i in range(ops_per_thread):
+                entry = AuditLogEntry(
+                    entry_id=f"e-{tid}-{i}",
+                    timestamp=1700000000.0,
+                    event_type="test",
+                )
+                auditor.add_local(entry)
+                auditor.add_remote(entry)
+
+        threads = [
+            threading.Thread(target=worker, args=(t,))
+            for t in range(n_threads)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        expected = n_threads * ops_per_thread
+        assert auditor.get_local_count() == expected
+        assert auditor.get_remote_count() == expected

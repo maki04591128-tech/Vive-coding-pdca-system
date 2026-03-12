@@ -157,3 +157,34 @@ class TestMetricsCollectorThreadSafety:
 
         assert not errors
         assert mc.cycle_count == 100
+
+
+class TestMetricsCollectorBarrierThreadSafety:
+    """MetricsCollector のBarrier同期スレッドセーフティテスト。"""
+
+    def test_concurrent_record_cycle_with_barrier(self) -> None:
+        import threading
+
+        mc = MetricsCollector()
+        n_threads = 10
+        ops_per_thread = 25
+        barrier = threading.Barrier(n_threads)
+
+        def worker(tid: int) -> None:
+            barrier.wait()
+            for i in range(ops_per_thread):
+                mc.record_cycle(CycleMetrics(
+                    cycle_number=tid * ops_per_thread + i,
+                    success=True,
+                ))
+
+        threads = [
+            threading.Thread(target=worker, args=(t,))
+            for t in range(n_threads)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert mc.cycle_count == n_threads * ops_per_thread

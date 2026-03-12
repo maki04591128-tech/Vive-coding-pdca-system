@@ -281,3 +281,31 @@ class TestAPIKeyAuthThreadSafety:
 
         assert not errors
         assert len(auth.list_keys()) == 200
+
+
+class TestAPIKeyAuthBarrierThreadSafety:
+    """APIKeyAuth のBarrier同期スレッドセーフティテスト。"""
+
+    def test_concurrent_add_key_with_barrier(self) -> None:
+        import threading
+
+        auth = APIKeyAuth()
+        n_threads = 10
+        ops_per_thread = 50
+        barrier = threading.Barrier(n_threads)
+
+        def worker(tid: int) -> None:
+            barrier.wait()
+            for i in range(ops_per_thread):
+                auth.add_key(f"key-{tid}-{i}", "read")
+
+        threads = [
+            threading.Thread(target=worker, args=(t,))
+            for t in range(n_threads)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert len(auth.list_keys()) == n_threads * ops_per_thread

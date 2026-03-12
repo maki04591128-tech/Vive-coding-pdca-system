@@ -168,3 +168,38 @@ class TestMultiProjectManagerThreadSafety:
         assert not errors
         usage = mgr.get_usage("proj-ts")
         assert usage.llm_calls == 400
+
+
+class TestMultiProjectManagerBarrierThreadSafety:
+    """MultiProjectManager のBarrier同期スレッドセーフティテスト。"""
+
+    def test_concurrent_record_usage_with_barrier(self) -> None:
+        import threading
+
+        mgr = MultiProjectManager()
+        config = ProjectConfig(
+            project_id="proj-barrier",
+            name="Barrier-Test",
+            repository="repo-barrier",
+        )
+        mgr.register_project(config)
+        n_threads = 10
+        ops_per_thread = 50
+        barrier = threading.Barrier(n_threads)
+
+        def worker(tid: int) -> None:
+            barrier.wait()
+            for _ in range(ops_per_thread):
+                mgr.record_usage("proj-barrier", llm_calls=1, cost_usd=0.01)
+
+        threads = [
+            threading.Thread(target=worker, args=(t,))
+            for t in range(n_threads)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        usage = mgr.get_usage("proj-barrier")
+        assert usage.llm_calls == n_threads * ops_per_thread

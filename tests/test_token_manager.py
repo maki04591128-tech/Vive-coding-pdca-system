@@ -476,3 +476,38 @@ class TestTokenRotationManagerThreadSafety:
 
         assert not errors
         assert mgr.rotation_count == 40
+
+
+class TestTokenRotationManagerBarrierThreadSafety:
+    """TokenRotationManager のBarrier同期スレッドセーフティテスト。"""
+
+    def test_concurrent_rotate_with_barrier(self) -> None:
+        import threading
+
+        counter = {"value": 0}
+        counter_lock = threading.Lock()
+        mgr = TokenRotationManager()
+        n_threads = 10
+        ops_per_thread = 10
+        barrier = threading.Barrier(n_threads)
+
+        def factory() -> str:
+            with counter_lock:
+                counter["value"] += 1
+                return f"token-{counter['value']}"
+
+        def worker(tid: int) -> None:
+            barrier.wait()
+            for _ in range(ops_per_thread):
+                mgr.rotate(factory)
+
+        threads = [
+            threading.Thread(target=worker, args=(t,))
+            for t in range(n_threads)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert mgr.rotation_count == n_threads * ops_per_thread
