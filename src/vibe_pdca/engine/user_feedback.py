@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import enum
 import logging
+import threading
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -104,12 +105,14 @@ class FeedbackCollector:
 
     def __init__(self) -> None:
         self._entries: list[FeedbackEntry] = []
+        self._lock = threading.Lock()
 
     # ----- 登録 -----
 
     def submit_feedback(self, entry: FeedbackEntry) -> None:
         """フィードバックを登録する。"""
-        self._entries.append(entry)
+        with self._lock:
+            self._entries.append(entry)
         logger.info(
             "フィードバック登録: id=%s, cycle=%d, category=%s, rating=%d",
             entry.id,
@@ -130,22 +133,25 @@ class FeedbackCollector:
         cycle_number : int | None
             指定時はそのサイクルのみ抽出。None で全件返却。
         """
-        if cycle_number is None:
-            return list(self._entries)
-        return [e for e in self._entries if e.cycle_number == cycle_number]
+        with self._lock:
+            if cycle_number is None:
+                return list(self._entries)
+            return [e for e in self._entries if e.cycle_number == cycle_number]
 
     def get_category_feedback(
         self, category: FeedbackCategory
     ) -> list[FeedbackEntry]:
         """カテゴリ別フィードバック一覧を返す。"""
-        return [e for e in self._entries if e.category == category]
+        with self._lock:
+            return [e for e in self._entries if e.category == category]
 
     # ----- プロパティ -----
 
     @property
     def feedback_count(self) -> int:
         """登録済みフィードバック件数。"""
-        return len(self._entries)
+        with self._lock:
+            return len(self._entries)
 
 
 # ============================================================

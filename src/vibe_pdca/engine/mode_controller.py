@@ -12,6 +12,7 @@ M2 タスク 2-11: 要件定義書 §10.2 準拠。
 from __future__ import annotations
 
 import logging
+import threading
 from enum import StrEnum
 from typing import Any
 
@@ -86,16 +87,19 @@ class ModeController:
     ) -> None:
         self._mode = initial_mode
         self._history: list[dict[str, Any]] = []
+        self._lock = threading.Lock()
 
     @property
     def mode(self) -> OperationMode:
         """現在の運転モードを返す。"""
-        return self._mode
+        with self._lock:
+            return self._mode
 
     @property
     def mode_history(self) -> list[dict[str, Any]]:
         """モード変更履歴を返す。"""
-        return list(self._history)
+        with self._lock:
+            return list(self._history)
 
     def set_mode(self, new_mode: OperationMode, reason: str = "") -> None:
         """運転モードを変更する。
@@ -107,13 +111,14 @@ class ModeController:
         reason : str
             変更理由。
         """
-        old_mode = self._mode
-        self._mode = new_mode
-        self._history.append({
-            "from": old_mode.value,
-            "to": new_mode.value,
-            "reason": reason,
-        })
+        with self._lock:
+            old_mode = self._mode
+            self._mode = new_mode
+            self._history.append({
+                "from": old_mode.value,
+                "to": new_mode.value,
+                "reason": reason,
+            })
         logger.info(
             "運転モード変更: %s → %s (理由: %s)",
             old_mode.value, new_mode.value, reason,
@@ -132,7 +137,8 @@ class ModeController:
         bool
             自動進行可能なら True。
         """
-        return _AUTO_ADVANCE_MATRIX[self._mode].get(phase, False)
+        with self._lock:
+            return _AUTO_ADVANCE_MATRIX[self._mode].get(phase, False)
 
     def requires_approval(
         self,
@@ -150,19 +156,22 @@ class ModeController:
         bool
             承認が必要なら True。
         """
-        auto = _GOVERNANCE_AUTO[self._mode].get(governance_level, False)
+        with self._lock:
+            auto = _GOVERNANCE_AUTO[self._mode].get(governance_level, False)
         return not auto
 
     def get_status(self) -> dict[str, Any]:
         """現在のモード状態を返す。"""
+        with self._lock:
+            current_mode = self._mode
         return {
-            "mode": self._mode.value,
+            "mode": current_mode.value,
             "auto_advance": {
-                phase.value: self.can_auto_advance(phase)
+                phase.value: _AUTO_ADVANCE_MATRIX[current_mode].get(phase, False)
                 for phase in PDCAPhase
             },
             "approval_required": {
-                level.value: self.requires_approval(level)
+                level.value: not _GOVERNANCE_AUTO[current_mode].get(level, False)
                 for level in GovernanceLevel
             },
         }

@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 from collections import deque
 from dataclasses import dataclass, field
 
@@ -84,33 +85,37 @@ class DependencyGraph:
         self._reverse: dict[str, set[str]] = {}   # task_id → 依存元の集合
         # ※ forward = 「誰に依存しているか」
         # ※ reverse = 「誰がこのタスクに依存しているか」
+        self._lock = threading.Lock()
 
     @property
     def nodes(self) -> dict[str, TaskNode]:
         """登録済みノードの辞書を返す。"""
-        return dict(self._nodes)
+        with self._lock:
+            return dict(self._nodes)
 
     def add_task(self, node: TaskNode) -> None:
         """タスクノードをグラフに追加する。"""
-        if node.task_id in self._nodes:
-            logger.warning("タスク重複: %s は既に登録済み", node.task_id)
-            return
-        self._nodes[node.task_id] = node
-        self._forward.setdefault(node.task_id, set())
-        self._reverse.setdefault(node.task_id, set())
-        # ノードに事前定義された依存関係を登録
-        for dep_id in node.dependencies:
-            self._forward[node.task_id].add(dep_id)
-            self._reverse.setdefault(dep_id, set()).add(node.task_id)
+        with self._lock:
+            if node.task_id in self._nodes:
+                logger.warning("タスク重複: %s は既に登録済み", node.task_id)
+                return
+            self._nodes[node.task_id] = node
+            self._forward.setdefault(node.task_id, set())
+            self._reverse.setdefault(node.task_id, set())
+            # ノードに事前定義された依存関係を登録
+            for dep_id in node.dependencies:
+                self._forward[node.task_id].add(dep_id)
+                self._reverse.setdefault(dep_id, set()).add(node.task_id)
         logger.info("タスク追加: %s (%s)", node.task_id, node.title)
 
     def add_dependency(self, task_id: str, depends_on: str) -> None:
         """task_id が depends_on に依存する関係を追加する。"""
-        self._forward.setdefault(task_id, set()).add(depends_on)
-        self._reverse.setdefault(depends_on, set()).add(task_id)
-        # ノードの dependencies リストにも反映
-        if task_id in self._nodes and depends_on not in self._nodes[task_id].dependencies:
-            self._nodes[task_id].dependencies.append(depends_on)
+        with self._lock:
+            self._forward.setdefault(task_id, set()).add(depends_on)
+            self._reverse.setdefault(depends_on, set()).add(task_id)
+            # ノードの dependencies リストにも反映
+            if task_id in self._nodes and depends_on not in self._nodes[task_id].dependencies:
+                self._nodes[task_id].dependencies.append(depends_on)
         logger.info("依存関係追加: %s → %s", task_id, depends_on)
 
     def get_dependencies(self, task_id: str) -> list[str]:

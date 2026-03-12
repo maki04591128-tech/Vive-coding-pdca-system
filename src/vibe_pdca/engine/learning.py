@@ -9,6 +9,7 @@ M3 タスク 3-10: 要件定義書 §26.8 準拠。
 from __future__ import annotations
 
 import logging
+import threading
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -55,18 +56,22 @@ class LearningFeedback:
         self._failure_records: list[dict[str, Any]] = []
         self._reports: list[FeedbackReport] = []
         self._prompt_additions: list[str] = []
+        self._lock = threading.Lock()
 
     @property
     def record_count(self) -> int:
-        return len(self._failure_records)
+        with self._lock:
+            return len(self._failure_records)
 
     @property
     def report_count(self) -> int:
-        return len(self._reports)
+        with self._lock:
+            return len(self._reports)
 
     @property
     def prompt_additions(self) -> list[str]:
-        return list(self._prompt_additions)
+        with self._lock:
+            return list(self._prompt_additions)
 
     def record_failure(
         self,
@@ -76,12 +81,13 @@ class LearningFeedback:
         severity: str = "medium",
     ) -> None:
         """失敗を記録する。"""
-        self._failure_records.append({
-            "cycle": cycle_number,
-            "type": failure_type,
-            "description": description,
-            "severity": severity,
-        })
+        with self._lock:
+            self._failure_records.append({
+                "cycle": cycle_number,
+                "type": failure_type,
+                "description": description,
+                "severity": severity,
+            })
 
     def should_analyze(self, cycle_number: int) -> bool:
         """フィードバック分析のタイミングか判定する。"""
@@ -104,10 +110,11 @@ class LearningFeedback:
             分析結果。
         """
         start = max(0, cycle_number - self._interval)
-        relevant = [
-            r for r in self._failure_records
-            if start <= r["cycle"] <= cycle_number
-        ]
+        with self._lock:
+            relevant = [
+                r for r in self._failure_records
+                if start <= r["cycle"] <= cycle_number
+            ]
 
         # 直近N サイクルの失敗記録を集計し、パターンとして抽出する
         pattern_counts: dict[str, int] = {}
@@ -144,7 +151,8 @@ class LearningFeedback:
             patterns=patterns,
             prompt_additions=additions,
         )
-        self._reports.append(report)
+        with self._lock:
+            self._reports.append(report)
 
         logger.info(
             "学習フィードバック分析: サイクル%d-%d, %d件パターン, %d件追記",
@@ -160,7 +168,8 @@ class LearningFeedback:
         list[str]
             追加されたプロンプト文。
         """
-        self._prompt_additions.extend(report.prompt_additions)
+        with self._lock:
+            self._prompt_additions.extend(report.prompt_additions)
         report.applied = True
         logger.info(
             "PLANプロンプトへ%d件追記 (B操作)",
@@ -170,9 +179,10 @@ class LearningFeedback:
 
     def get_status(self) -> dict[str, Any]:
         """学習フィードバック状態を返す。"""
-        return {
-            "failure_records": self.record_count,
-            "reports_generated": self.report_count,
-            "prompt_additions": len(self._prompt_additions),
-            "interval_cycles": self._interval,
-        }
+        with self._lock:
+            return {
+                "failure_records": len(self._failure_records),
+                "reports_generated": len(self._reports),
+                "prompt_additions": len(self._prompt_additions),
+                "interval_cycles": self._interval,
+            }

@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import threading
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -613,6 +614,7 @@ class ModelQualityTracker:
         self._role_records: dict[str, list[tuple[str, QualityReport]]] = defaultdict(
             list
         )
+        self._lock = threading.Lock()
 
     def record(self, model_name: str, role: str, report: QualityReport) -> None:
         """品質レポートを記録する。
@@ -626,8 +628,9 @@ class ModelQualityTracker:
         report : QualityReport
             品質レポート。
         """
-        self._model_records[model_name].append((role, report))
-        self._role_records[role].append((model_name, report))
+        with self._lock:
+            self._model_records[model_name].append((role, report))
+            self._role_records[role].append((model_name, report))
         logger.info(
             "品質記録: model=%s role=%s score=%.2f acceptable=%s",
             model_name,

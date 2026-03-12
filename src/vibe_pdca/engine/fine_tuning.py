@@ -9,6 +9,7 @@ Proposal 27: Fine-Tuning Pipeline。
 from __future__ import annotations
 
 import logging
+import threading
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -78,6 +79,7 @@ class TrainingDataCollector:
 
     def __init__(self) -> None:
         self._examples: list[TrainingExample] = []
+        self._lock = threading.Lock()
 
     def add_example(self, example: TrainingExample) -> None:
         """学習データを追加する。
@@ -87,7 +89,8 @@ class TrainingDataCollector:
         example : TrainingExample
             追加する学習データ。
         """
-        self._examples.append(example)
+        with self._lock:
+            self._examples.append(example)
         logger.debug(
             "学習データ追加: source=%s, quality=%.2f",
             example.source,
@@ -113,14 +116,15 @@ class TrainingDataCollector:
         list[TrainingExample]
             条件に一致する学習データのリスト。
         """
-        results: list[TrainingExample] = []
-        for ex in self._examples:
-            if source is not None and ex.source != source:
-                continue
-            if ex.quality_score < min_quality:
-                continue
-            results.append(ex)
-        return results
+        with self._lock:
+            results: list[TrainingExample] = []
+            for ex in self._examples:
+                if source is not None and ex.source != source:
+                    continue
+                if ex.quality_score < min_quality:
+                    continue
+                results.append(ex)
+            return results
 
     def get_stats(self) -> DatasetStats:
         """データセットの統計情報を返す。
@@ -130,29 +134,30 @@ class TrainingDataCollector:
         DatasetStats
             統計情報。
         """
-        if not self._examples:
-            return DatasetStats(total_examples=0)
+        with self._lock:
+            if not self._examples:
+                return DatasetStats(total_examples=0)
 
-        source_dist: dict[str, int] = {}
-        total_quality = 0.0
-        oldest = self._examples[0].created_at
-        newest = self._examples[0].created_at
+            source_dist: dict[str, int] = {}
+            total_quality = 0.0
+            oldest = self._examples[0].created_at
+            newest = self._examples[0].created_at
 
-        for ex in self._examples:
-            source_dist[ex.source] = source_dist.get(ex.source, 0) + 1
-            total_quality += ex.quality_score
-            if ex.created_at < oldest:
-                oldest = ex.created_at
-            if ex.created_at > newest:
-                newest = ex.created_at
+            for ex in self._examples:
+                source_dist[ex.source] = source_dist.get(ex.source, 0) + 1
+                total_quality += ex.quality_score
+                if ex.created_at < oldest:
+                    oldest = ex.created_at
+                if ex.created_at > newest:
+                    newest = ex.created_at
 
-        return DatasetStats(
-            total_examples=len(self._examples),
-            source_distribution=source_dist,
-            avg_quality=total_quality / len(self._examples),
-            oldest=oldest,
-            newest=newest,
-        )
+            return DatasetStats(
+                total_examples=len(self._examples),
+                source_distribution=source_dist,
+                avg_quality=total_quality / len(self._examples),
+                oldest=oldest,
+                newest=newest,
+            )
 
     def export_jsonl(self, min_quality: float = 0.5) -> list[dict[str, str]]:
         """JSONL互換の辞書リストをエクスポートする。
@@ -180,7 +185,8 @@ class TrainingDataCollector:
     @property
     def example_count(self) -> int:
         """登録済み学習データ数。"""
-        return len(self._examples)
+        with self._lock:
+            return len(self._examples)
 
 
 # ============================================================
@@ -194,6 +200,7 @@ class FineTuneManager:
     def __init__(self, collector: TrainingDataCollector) -> None:
         self._collector = collector
         self._jobs: dict[str, FineTuneJob] = {}
+        self._lock = threading.Lock()
 
     def is_ready(self, min_examples: int = 100) -> bool:
         """ファインチューニングに十分なデータがあるか判定する。
@@ -236,7 +243,8 @@ class FineTuneManager:
             config=config,
             started_at=time.time(),
         )
-        self._jobs[job_id] = job
+        with self._lock:
+            self._jobs[job_id] = job
         logger.info("ジョブ作成: %s (model=%s)", job_id, config.base_model)
         return job
 
@@ -263,7 +271,8 @@ class FineTuneManager:
         list[FineTuneJob]
             ジョブのリスト。
         """
-        return list(self._jobs.values())
+        with self._lock:
+            return list(self._jobs.values())
 
     def validate_dataset(
         self, min_quality: float = 0.5
@@ -318,6 +327,7 @@ class ModelComparator:
 
     def __init__(self) -> None:
         self._results: dict[str, dict[str, list[float]]] = {}
+        self._lock = threading.Lock()
 
     def add_result(
         self, model_name: str, task_type: str, score: float
@@ -333,11 +343,12 @@ class ModelComparator:
         score : float
             スコア。
         """
-        if model_name not in self._results:
-            self._results[model_name] = {}
-        if task_type not in self._results[model_name]:
-            self._results[model_name][task_type] = []
-        self._results[model_name][task_type].append(score)
+        with self._lock:
+            if model_name not in self._results:
+                self._results[model_name] = {}
+            if task_type not in self._results[model_name]:
+                self._results[model_name][task_type] = []
+            self._results[model_name][task_type].append(score)
         logger.debug(
             "結果追加: model=%s, task=%s, score=%.4f",
             model_name,
