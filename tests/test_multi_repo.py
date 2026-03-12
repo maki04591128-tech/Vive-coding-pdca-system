@@ -86,6 +86,16 @@ class TestMonorepoScopeResolver:
         result = self.resolver.resolve_scope("/repo/", "packages/core/")
         assert result == ["/repo/packages/core"]
 
+    def test_resolve_scope_path_traversal_blocked(self) -> None:
+        """パストラバーサル('../')を含むスコープはリポジトリ全体にフォールバック。"""
+        result = self.resolver.resolve_scope("/repo", "../../etc")
+        assert result == ["/repo"]
+
+    def test_resolve_scope_nested_traversal_blocked(self) -> None:
+        """中間にパストラバーサルを含むスコープもブロックされること。"""
+        result = self.resolver.resolve_scope("/repo", "packages/../../../etc")
+        assert result == ["/repo"]
+
     def test_detect_affected_packages_single(self) -> None:
         changed = ["packages/core/src/main.py"]
         packages = ["packages/core", "packages/utils"]
@@ -268,3 +278,41 @@ class TestReleaseCoordinator:
     def test_get_release_order_no_deps(self) -> None:
         order = self.coordinator.get_release_order(["b", "a"], [])
         assert sorted(order) == ["a", "b"]
+
+
+class TestCrossRepoCoordinatorBarrierThreadSafety:
+    """CrossRepoCoordinatorのスレッドセーフティテスト（Barrier同期）。"""
+
+    def test_concurrent_register_repos(self):
+        import threading
+
+        coordinator = CrossRepoCoordinator()
+        n_threads = 10
+        ops_per_thread = 10
+        barrier = threading.Barrier(n_threads)
+        errors: list[Exception] = []
+
+        def worker(tid: int) -> None:
+            barrier.wait()
+            try:
+                for i in range(ops_per_thread):
+                    coordinator.register_repos(
+                        [
+                            RepoScope(
+                                name=f"repo-{tid}-{i}",
+                                repo_url=f"https://example.com/{tid}/{i}",
+                            ),
+                        ]
+                    )
+            except Exception as exc:
+                errors.append(exc)
+
+        threads = [
+            threading.Thread(target=worker, args=(t,)) for t in range(n_threads)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert errors == []

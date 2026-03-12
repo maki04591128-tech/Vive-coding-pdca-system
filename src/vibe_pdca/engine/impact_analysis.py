@@ -11,6 +11,7 @@ from __future__ import annotations
 import ast
 import logging
 import re
+from collections import deque
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -86,7 +87,7 @@ class StaticDependencyAnalyzer:
                 for alias in node.names:
                     imports.append(alias.name)
             elif isinstance(node, ast.ImportFrom) and node.module:
-                    imports.append(node.module)
+                imports.append(node.module)
         return imports
 
     def build_dependency_map(
@@ -144,10 +145,10 @@ class StaticDependencyAnalyzer:
             影響を受けるファイルのリスト（変更ファイル自体は含まない）。
         """
         visited: set[str] = set()
-        queue = list(changed_files)
+        queue = deque(changed_files)
 
         while queue:
-            current = queue.pop(0)
+            current = queue.popleft()
             if current in visited:
                 continue
             visited.add(current)

@@ -241,3 +241,51 @@ class TestTokenBucketThreadSafety:
 
         # 補充なし100トークンに対して200スレッド → 100以下しか成功しない
         assert sum(results) <= 100
+
+
+# ── wait_time 防御的チェック ──
+
+
+class TestWaitTimeDefensiveCheck:
+    """wait_time の _configs 不整合時に KeyError が出ないこと。"""
+
+    def test_wait_time_missing_config(self) -> None:
+        """_buckets にあるが _configs にない場合に 0.0 を返す。"""
+        tracker = RateLimitTracker()
+        cfg = RateLimitConfig(
+            provider="test", requests_per_minute=60, tokens_per_minute=90000,
+        )
+        tracker.add_provider(cfg)
+        # 内部状態を手動で壊して _configs からだけ削除
+        tracker._configs.pop("test", None)
+        # KeyError にならず 0.0 を返すこと
+        assert tracker.wait_time("test") == 0.0
+
+
+class TestTokenBucketBarrierThreadSafety:
+    """TokenBucketのBarrierスレッドセーフティテスト。"""
+
+    def test_concurrent_consume(self) -> None:
+        import threading
+
+        bucket = TokenBucket(capacity=100_000, rate=0.0)
+        n_threads = 10
+        ops_per_thread = 50
+        barrier = threading.Barrier(n_threads)
+
+        def worker(tid: int) -> None:
+            barrier.wait()
+            for _ in range(ops_per_thread):
+                bucket.consume(1)
+
+        threads = [
+            threading.Thread(target=worker, args=(t,))
+            for t in range(n_threads)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        expected = 100_000 - n_threads * ops_per_thread
+        assert int(bucket.available) == expected

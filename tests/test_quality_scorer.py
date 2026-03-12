@@ -463,3 +463,46 @@ class TestModelQualityTracker:
         stats = tracker.get_role_stats("unknown")
         assert stats["total_evaluations"] == 0
         assert stats["average_score"] == 0.0
+
+
+class TestModelQualityTrackerBarrierThreadSafety:
+    """ModelQualityTrackerのスレッドセーフティテスト（Barrier同期）。"""
+
+    def test_concurrent_record(self):
+        import threading
+
+        tracker = ModelQualityTracker()
+        n_threads = 10
+        ops_per_thread = 50
+        barrier = threading.Barrier(n_threads)
+        errors: list[Exception] = []
+
+        def worker(tid: int) -> None:
+            barrier.wait()
+            try:
+                for _i in range(ops_per_thread):
+                    report = QualityReport(
+                        scores=[
+                            QualityScore(
+                                dimension=QualityDimension.STRUCTURAL_VALIDITY,
+                                score=0.8,
+                            ),
+                        ],
+                        overall_score=0.8,
+                        is_acceptable=True,
+                    )
+                    tracker.record(
+                        model_name="m1", role="assistant", report=report
+                    )
+            except Exception as exc:
+                errors.append(exc)
+
+        threads = [
+            threading.Thread(target=worker, args=(t,)) for t in range(n_threads)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert errors == []

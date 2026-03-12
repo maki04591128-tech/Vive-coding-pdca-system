@@ -304,3 +304,65 @@ class TestTimeoutManager:
         assert mgr.phase_timeout is pt
         assert mgr.complexity is cbt
         assert mgr.extension is ext
+
+
+# ============================================================
+# テスト: スレッドセーフティ
+# ============================================================
+
+
+class TestTimeoutManagerThreadSafety:
+    """TimeoutManager のスレッドセーフティ検証。"""
+
+    def test_concurrent_start_end_phase(self):
+        """複数スレッドからフェーズ開始・終了しても整合性が保たれる。"""
+        import threading
+        mgr = TimeoutManager()
+        errors: list[str] = []
+
+        def run_phases(tid: int) -> None:
+            try:
+                phase = list(PDCAPhase)[tid % len(PDCAPhase)]
+                for _ in range(20):
+                    mgr.start_phase(phase, now=float(tid * 1000))
+                    mgr.end_phase(phase, now=float(tid * 1000 + 10))
+            except Exception as exc:
+                errors.append(str(exc))
+
+        threads = [threading.Thread(target=run_phases, args=(t,)) for t in range(4)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert not errors
+        stats = mgr.get_statistics()
+        assert len(stats) > 0
+
+    def test_concurrent_get_effective_timeout_barrier(self):
+        """Barrier同期で全スレッドが同時にget_effective_timeoutを呼び出す。"""
+        import threading
+
+        mgr = TimeoutManager()
+        n_threads = 10
+        ops_per_thread = 50
+        barrier = threading.Barrier(n_threads)
+        errors: list[Exception] = []
+
+        def worker(tid: int) -> None:
+            barrier.wait()
+            try:
+                for _ in range(ops_per_thread):
+                    mgr.get_effective_timeout(PDCAPhase.PLAN)
+            except Exception as exc:
+                errors.append(exc)
+
+        threads = [
+            threading.Thread(target=worker, args=(t,)) for t in range(n_threads)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert errors == []

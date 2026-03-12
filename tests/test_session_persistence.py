@@ -209,3 +209,36 @@ class TestCrashRecoveryManager:
         flag = DirtyShutdownFlag(is_dirty=False, process_id="p-2")
         updated = rm.mark_start(flag)
         assert updated.is_dirty is True
+
+
+class TestCheckpointManagerBarrierThreadSafety:
+    """CheckpointManagerのBarrierスレッドセーフティテスト。"""
+
+    def test_concurrent_save(self) -> None:
+        import threading
+
+        mgr = CheckpointManager()
+        n_threads = 10
+        ops_per_thread = 10
+        barrier = threading.Barrier(n_threads)
+
+        def worker(tid: int) -> None:
+            barrier.wait()
+            for i in range(ops_per_thread):
+                data = CheckpointData(
+                    cycle_number=tid * ops_per_thread + i,
+                    phase=f"phase-{tid}-{i}",
+                    state={"tid": tid, "i": i},
+                )
+                mgr.save(data)
+
+        threads = [
+            threading.Thread(target=worker, args=(t,))
+            for t in range(n_threads)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert len(mgr.list_checkpoints()) == n_threads * ops_per_thread

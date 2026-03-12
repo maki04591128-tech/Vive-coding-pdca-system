@@ -262,33 +262,38 @@ class ApprovalGuard:
 
     def __init__(self) -> None:
         self._approvals: dict[str, str] = {}
+        self._lock = threading.Lock()
 
     def submit_approval(
         self, resource_id: str, approver: str,
     ) -> bool:
         """承認を登録する。既に承認済みの場合は False。"""
-        if resource_id in self._approvals:
-            logger.warning(
-                "承認重複: resource=%s は既に %s が承認済み",
-                resource_id, self._approvals[resource_id],
+        with self._lock:
+            if resource_id in self._approvals:
+                logger.warning(
+                    "承認重複: resource=%s は既に %s が承認済み",
+                    resource_id, self._approvals[resource_id],
+                )
+                return False
+            self._approvals[resource_id] = approver
+            logger.info(
+                "承認登録: resource=%s approver=%s",
+                resource_id, approver,
             )
-            return False
-        self._approvals[resource_id] = approver
-        logger.info(
-            "承認登録: resource=%s approver=%s",
-            resource_id, approver,
-        )
-        return True
+            return True
 
     def is_approved(self, resource_id: str) -> bool:
         """リソースが承認済みかどうかを返す。"""
-        return resource_id in self._approvals
+        with self._lock:
+            return resource_id in self._approvals
 
     def get_approver(self, resource_id: str) -> str | None:
         """承認者を返す。未承認の場合は None。"""
-        return self._approvals.get(resource_id)
+        with self._lock:
+            return self._approvals.get(resource_id)
 
     def reset(self, resource_id: str) -> None:
         """リソースの承認状態をリセットする。"""
-        self._approvals.pop(resource_id, None)
-        logger.info("承認リセット: resource=%s", resource_id)
+        with self._lock:
+            self._approvals.pop(resource_id, None)
+            logger.info("承認リセット: resource=%s", resource_id)

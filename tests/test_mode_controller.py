@@ -108,3 +108,35 @@ class TestFullAutoMode:
     def test_governance_b_c_auto(self, full_auto_ctrl):
         assert not full_auto_ctrl.requires_approval(GovernanceLevel.B)
         assert not full_auto_ctrl.requires_approval(GovernanceLevel.C)
+
+
+class TestModeControllerThreadSafety:
+    """ModeControllerのスレッドセーフティテスト。"""
+
+    def test_concurrent_set_mode(self):
+        import threading
+
+        ctrl = ModeController()
+        n_threads = 10
+        modes_per_thread = 50
+        barrier = threading.Barrier(n_threads)
+
+        modes = [OperationMode.MANUAL, OperationMode.SEMI_AUTO, OperationMode.FULL_AUTO]
+
+        def worker(thread_id):
+            barrier.wait()
+            for i in range(modes_per_thread):
+                mode = modes[i % len(modes)]
+                ctrl.set_mode(mode, reason=f"thread-{thread_id}-{i}")
+
+        threads = [
+            threading.Thread(target=worker, args=(tid,))
+            for tid in range(n_threads)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert len(ctrl.mode_history) == n_threads * modes_per_thread
+        assert ctrl.mode in modes

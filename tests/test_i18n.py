@@ -364,3 +364,36 @@ class TestLoadMessagesDir:
         en_keys = store.list_keys(Locale.EN)
         assert len(ja_keys) > 0
         assert len(en_keys) > 0
+
+
+class TestTranslationStoreBarrierThreadSafety:
+    """TranslationStoreのBarrierスレッドセーフティテスト。"""
+
+    def test_concurrent_add(self) -> None:
+        import threading
+
+        store = TranslationStore()
+        n_threads = 10
+        ops_per_thread = 50
+        barrier = threading.Barrier(n_threads)
+
+        def worker(tid: int) -> None:
+            barrier.wait()
+            for i in range(ops_per_thread):
+                entry = TranslationEntry(
+                    key=f"key-{tid}-{i}",
+                    locale=Locale.JA,
+                    value=f"value-{tid}-{i}",
+                )
+                store.add(entry)
+
+        threads = [
+            threading.Thread(target=worker, args=(t,))
+            for t in range(n_threads)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert store.count == n_threads * ops_per_thread

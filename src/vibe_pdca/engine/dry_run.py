@@ -8,6 +8,7 @@ M3 タスク 3-7: 要件定義書 §26.7 準拠。
 from __future__ import annotations
 
 import logging
+import threading
 from dataclasses import dataclass, field
 
 logger = logging.getLogger(__name__)
@@ -66,11 +67,13 @@ class DryRunExecutor:
     """
 
     def __init__(self) -> None:
+        self._lock = threading.Lock()
         self._results: list[DryRunResult] = []
 
     @property
     def run_count(self) -> int:
-        return len(self._results)
+        with self._lock:
+            return len(self._results)
 
     def execute(
         self,
@@ -138,7 +141,8 @@ class DryRunExecutor:
             warnings=warnings,
         )
 
-        self._results.append(result)
+        with self._lock:
+            self._results.append(result)
         logger.info(
             "ドライラン完了: タスク=%d, サイクル=%d, コスト=$%.2f",
             estimated_tasks, estimated_cycles, estimated_cost,

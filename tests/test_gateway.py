@@ -586,3 +586,102 @@ class TestUnknownLanguageDirective:
 
         injected = gw._inject_language_directive(request_pm)
         assert injected.system_prompt == request_pm.system_prompt
+
+
+# ============================================================
+# テスト: CostTracker スレッドセーフティ
+# ============================================================
+
+
+class TestCostTrackerThreadSafety:
+    """CostTracker の並行アクセスが安全であること。"""
+
+    def test_concurrent_record(self):
+        """複数スレッドから同時に record() しても整合性が保たれる。"""
+        import threading
+
+        from vibe_pdca.llm.gateway import CostTracker
+        from vibe_pdca.llm.models import LLMResponse, ProviderType, Role
+
+        ct = CostTracker()
+        barrier = threading.Barrier(4)
+
+        def worker():
+            resp = LLMResponse(
+                content="test",
+                model="m",
+                provider_type=ProviderType.CLOUD,
+                role=Role.PM,
+                cost_usd=0.01,
+                input_tokens=10,
+                output_tokens=10,
+                latency_ms=1.0,
+            )
+            barrier.wait()
+            for _ in range(100):
+                ct.record(resp)
+
+        threads = [threading.Thread(target=worker) for _ in range(4)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert ct.daily_calls == 400
+        assert len(ct.history) == 400
+
+
+class TestGatewayModeThreadSafety:
+    """LLMGatewayのモード設定スレッドセーフティテスト。"""
+
+    def test_concurrent_set_mode(self):
+        import threading
+
+        gw = LLMGateway()
+        n = 50
+        barrier = threading.Barrier(2)
+
+        def set_cloud():
+            barrier.wait()
+            for _ in range(n):
+                gw.set_mode(ProviderType.CLOUD, reason="cloud")
+
+        def set_local():
+            barrier.wait()
+            for _ in range(n):
+                gw.set_mode(ProviderType.LOCAL, reason="local")
+
+        t1 = threading.Thread(target=set_cloud)
+        t2 = threading.Thread(target=set_local)
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
+
+        # 最終モードはCLOUDかLOCALのどちらか
+        assert gw.preferred_mode in (ProviderType.CLOUD, ProviderType.LOCAL)
+
+    def test_concurrent_set_language(self):
+        import threading
+
+        gw = LLMGateway()
+        barrier = threading.Barrier(2)
+
+        def set_ja():
+            barrier.wait()
+            for _ in range(50):
+                gw.set_response_language("ja")
+
+        def set_none():
+            barrier.wait()
+            for _ in range(50):
+                gw.set_response_language(None)
+
+        t1 = threading.Thread(target=set_ja)
+        t2 = threading.Thread(target=set_none)
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
+
+        assert gw.response_language in ("ja", None)

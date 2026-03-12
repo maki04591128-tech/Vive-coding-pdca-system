@@ -244,6 +244,13 @@ templates:
         with pytest.raises(ValueError, match="templates"):
             load_templates_from_yaml(yaml_file)
 
+    def test_load_templates_non_list_templates(self, tmp_path):
+        """templatesキーがリスト以外の場合にValueErrorが発生すること。"""
+        yaml_file = tmp_path / "bad2.yml"
+        yaml_file.write_text("templates: not_a_list", encoding="utf-8")
+        with pytest.raises(ValueError, match="リスト"):
+            load_templates_from_yaml(yaml_file)
+
     def test_prompt_builder_from_yaml(self, tmp_path):
         """PromptBuilder.from_yaml()でYAMLから構築できること。"""
         yaml_content = """

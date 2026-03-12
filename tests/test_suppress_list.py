@@ -106,3 +106,46 @@ class TestSuppressExpiry:
         sl = SuppressList()
         status = sl.get_status()
         assert "total_entries" in status
+
+
+# ============================================================
+# テスト: SuppressList スレッドセーフティ
+# ============================================================
+
+
+class TestSuppressListThreadSafety:
+    """SuppressList の並行アクセスが安全であること。"""
+
+    def test_concurrent_register_and_check(self):
+        """複数スレッドから同時に登録・照合しても整合性が保たれる。"""
+        import threading
+
+        sl = SuppressList()
+        barrier = threading.Barrier(4)
+
+        def register_worker(idx):
+            barrier.wait()
+            for i in range(50):
+                sl.register(
+                    pattern=f"pattern-{idx}-{i}",
+                    reason="test",
+                    registered_by="admin",
+                    approved=True,
+                )
+
+        def check_worker():
+            barrier.wait()
+            for _ in range(50):
+                sl.is_suppressed("pattern-0-0 test finding")
+
+        threads = [
+            threading.Thread(target=register_worker, args=(i,))
+            for i in range(3)
+        ]
+        threads.append(threading.Thread(target=check_worker))
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert sl.entry_count == 150

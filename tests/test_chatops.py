@@ -207,3 +207,31 @@ class TestConversationContext:
         self.ctx.clear()
         assert self.ctx.message_count == 0
         assert self.ctx.get_history() == []
+
+
+# ── スレッドセーフティ ──
+
+
+class TestConversationContextThreadSafety:
+    """ConversationContext の並行アクセスでデータが壊れない。"""
+
+    def test_concurrent_add_message(self):
+        import threading
+        ctx = ConversationContext()
+        errors: list[str] = []
+
+        def add_messages(tid: int):
+            try:
+                for i in range(50):
+                    ctx.add_message("user", f"msg-{tid}-{i}")
+            except Exception as e:
+                errors.append(str(e))
+
+        threads = [threading.Thread(target=add_messages, args=(t,)) for t in range(4)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert not errors
+        assert ctx.message_count == 200

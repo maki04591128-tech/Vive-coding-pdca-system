@@ -84,3 +84,67 @@ class TestBackupExpiry:
         mgr = BackupManager()
         status = mgr.get_status()
         assert status["retention_days"] == 180
+
+
+# ── スレッドセーフティ ──
+
+
+class TestBackupManagerThreadSafety:
+    """BackupManager の並行アクセスでデータが壊れない。"""
+
+    def test_concurrent_create_backup(self):
+        import threading
+        mgr = BackupManager()
+        errors: list[str] = []
+
+        def create_backups(tid: int):
+            try:
+                for i in range(25):
+                    mgr.create_backup(
+                        operation_id=f"op-{tid}-{i}",
+                        operation_description=f"desc-{tid}-{i}",
+                        state_snapshot={"key": f"value-{tid}-{i}"},
+                    )
+            except Exception as e:
+                errors.append(str(e))
+
+        threads = [threading.Thread(target=create_backups, args=(t,)) for t in range(4)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert not errors
+        assert mgr.backup_count == 100
+
+
+class TestBackupManagerBarrierThreadSafety:
+    """BackupManager のBarrier同期スレッドセーフティテスト。"""
+
+    def test_concurrent_create_backup_with_barrier(self) -> None:
+        import threading
+
+        mgr = BackupManager()
+        n_threads = 10
+        ops_per_thread = 20
+        barrier = threading.Barrier(n_threads)
+
+        def worker(tid: int) -> None:
+            barrier.wait()
+            for i in range(ops_per_thread):
+                mgr.create_backup(
+                    operation_id=f"op-{tid}-{i}",
+                    operation_description=f"desc-{tid}-{i}",
+                    state_snapshot={"key": f"value-{tid}-{i}"},
+                )
+
+        threads = [
+            threading.Thread(target=worker, args=(t,))
+            for t in range(n_threads)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert mgr.backup_count == n_threads * ops_per_thread

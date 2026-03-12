@@ -11,6 +11,7 @@ M2 タスク 2-6: 要件定義書 §18 準拠。
 from __future__ import annotations
 
 import logging
+import threading
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -97,14 +98,17 @@ class DiscordLiaison:
         self._channel_id = channel_id
         self._pending_approvals: dict[str, ApprovalRequest] = {}
         self._notification_history: list[NotificationMessage] = []
+        self._lock = threading.Lock()
 
     @property
     def pending_approval_count(self) -> int:
-        return len(self._pending_approvals)
+        with self._lock:
+            return len(self._pending_approvals)
 
     @property
     def notification_count(self) -> int:
-        return len(self._notification_history)
+        with self._lock:
+            return len(self._notification_history)
 
     def create_approval_request(
         self,
@@ -129,7 +133,8 @@ class DiscordLiaison:
             operation_description=operation_description,
             governance_level=governance_level,
         )
-        self._pending_approvals[request.id] = request
+        with self._lock:
+            self._pending_approvals[request.id] = request
 
         logger.info(
             "承認リクエスト作成: %s (%s)",
@@ -170,7 +175,8 @@ class DiscordLiaison:
         if request.approval_count >= request.required_approvals:
             request.status = ApprovalStatus.APPROVED
             request.resolved_at = time.time()
-            del self._pending_approvals[request_id]
+            with self._lock:
+                self._pending_approvals.pop(request_id, None)
             logger.info("承認完了: %s", request_id)
 
         return request
@@ -205,7 +211,8 @@ class DiscordLiaison:
         })
         request.status = ApprovalStatus.REJECTED
         request.resolved_at = time.time()
-        del self._pending_approvals[request_id]
+        with self._lock:
+            self._pending_approvals.pop(request_id, None)
         logger.info("承認却下: %s (理由: %s)", request_id, reason)
         return request
 
@@ -220,18 +227,19 @@ class DiscordLiaison:
         current = now if now is not None else time.time()
         timed_out: list[ApprovalRequest] = []
 
-        for request_id in list(self._pending_approvals.keys()):
-            request = self._pending_approvals[request_id]
-            elapsed = current - request.created_at
-            if elapsed > request.timeout_seconds:
-                request.status = ApprovalStatus.TIMEOUT
-                request.resolved_at = current
-                del self._pending_approvals[request_id]
-                timed_out.append(request)
-                logger.warning(
-                    "承認タイムアウト: %s (経過: %.0f秒)",
-                    request_id, elapsed,
-                )
+        with self._lock:
+            for request_id in list(self._pending_approvals.keys()):
+                request = self._pending_approvals[request_id]
+                elapsed = current - request.created_at
+                if elapsed > request.timeout_seconds:
+                    request.status = ApprovalStatus.TIMEOUT
+                    request.resolved_at = current
+                    del self._pending_approvals[request_id]
+                    timed_out.append(request)
+                    logger.warning(
+                        "承認タイムアウト: %s (経過: %.0f秒)",
+                        request_id, elapsed,
+                    )
 
         return timed_out
 
@@ -263,7 +271,8 @@ class DiscordLiaison:
             body=body,
             channel_id=self._channel_id,
         )
-        self._notification_history.append(message)
+        with self._lock:
+            self._notification_history.append(message)
 
         logger.info(
             "Discord通知: [%s] %s",
@@ -299,14 +308,16 @@ class DiscordLiaison:
 
     def get_status(self) -> dict[str, Any]:
         """Discord連携状態を返す。"""
-        return {
-            "pending_approvals": self.pending_approval_count,
-            "total_notifications": self.notification_count,
-            "webhook_configured": bool(self._webhook_url),
-        }
+        with self._lock:
+            return {
+                "pending_approvals": len(self._pending_approvals),
+                "total_notifications": len(self._notification_history),
+                "webhook_configured": bool(self._webhook_url),
+            }
 
     def _get_pending_request(self, request_id: str) -> ApprovalRequest:
         """保留中の承認リクエストを取得する。"""
-        if request_id not in self._pending_approvals:
-            raise KeyError(f"保留中の承認リクエストが見つかりません: {request_id}")
-        return self._pending_approvals[request_id]
+        with self._lock:
+            if request_id not in self._pending_approvals:
+                raise KeyError(f"保留中の承認リクエストが見つかりません: {request_id}")
+            return self._pending_approvals[request_id]

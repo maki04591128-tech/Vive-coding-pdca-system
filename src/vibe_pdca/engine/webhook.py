@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 import time
 import uuid
 from collections import deque
@@ -100,6 +101,7 @@ class EventQueue:
     def __init__(self, max_size: int = 1000) -> None:
         self._max_size = max_size
         self._queue: deque[WebhookEvent] = deque()
+        self._lock = threading.Lock()
 
     @property
     def max_size(self) -> int:
@@ -124,39 +126,43 @@ class EventQueue:
         bool
             追加に成功した場合True、キュー満杯の場合False。
         """
-        if self.is_full:
-            logger.warning(
-                "イベントキュー満杯 (max=%d), イベント破棄: %s",
-                self._max_size,
+        with self._lock:
+            if self.is_full:
+                logger.warning(
+                    "イベントキュー満杯 (max=%d), イベント破棄: %s",
+                    self._max_size,
+                    event.event_id,
+                )
+                return False
+            self._queue.append(event)
+            logger.info(
+                "イベント追加: %s (type=%s, size=%d)",
                 event.event_id,
+                event.event_type,
+                self.size,
             )
-            return False
-        self._queue.append(event)
-        logger.info(
-            "イベント追加: %s (type=%s, size=%d)",
-            event.event_id,
-            event.event_type,
-            self.size,
-        )
-        return True
+            return True
 
     def pop(self) -> WebhookEvent | None:
         """先頭のイベントを取り出す。空の場合None。"""
-        if not self._queue:
-            return None
-        return self._queue.popleft()
+        with self._lock:
+            if not self._queue:
+                return None
+            return self._queue.popleft()
 
     def peek(self) -> WebhookEvent | None:
         """先頭のイベントを参照する (取り出さない)。"""
-        if not self._queue:
-            return None
-        return self._queue[0]
+        with self._lock:
+            if not self._queue:
+                return None
+            return self._queue[0]
 
     def clear(self) -> None:
         """キューを空にする。"""
-        count = len(self._queue)
-        self._queue.clear()
-        logger.info("イベントキューをクリア (削除件数=%d)", count)
+        with self._lock:
+            count = len(self._queue)
+            self._queue.clear()
+            logger.info("イベントキューをクリア (削除件数=%d)", count)
 
 
 # ── BackpressureController ──

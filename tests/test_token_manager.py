@@ -381,3 +381,133 @@ class TestAccessLogger:
         assert summary["error_count"] == 0
         assert summary["error_rate"] == 0.0
         assert summary["avg_duration_ms"] == 15.0
+
+
+class TestAccessLoggerThreadSafety:
+    """AccessLogger の並行アクセステスト。"""
+
+    @staticmethod
+    def _make_entry(**kwargs: object) -> TokenAccessLog:
+        defaults: dict[str, object] = {
+            "method": "GET",
+            "endpoint": "/repos",
+            "status_code": 200,
+            "timestamp": 1.0,
+            "duration_ms": 10.0,
+        }
+        defaults.update(kwargs)
+        return TokenAccessLog(**defaults)  # type: ignore[arg-type]
+
+    def test_concurrent_log_no_data_loss(self) -> None:
+        """複数スレッドからの同時logでデータが欠落しないこと。"""
+        import threading
+
+        al = AccessLogger()
+        count_per_thread = 50
+
+        def worker() -> None:
+            for _ in range(count_per_thread):
+                al.log(self._make_entry())
+
+        threads = [threading.Thread(target=worker) for _ in range(10)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        summary = al.get_summary()
+        assert summary["total_calls"] == count_per_thread * 10
+
+
+# ── スレッドセーフティ ──
+
+
+class TestTokenRotationManagerThreadSafety:
+    """TokenRotationManager の並行アクセスでデータが壊れない。"""
+
+    def test_concurrent_set_token(self):
+        import threading
+        mgr = TokenRotationManager()
+        errors: list[str] = []
+
+        def set_tokens(tid: int):
+            try:
+                for i in range(50):
+                    mgr.set_token(f"token-{tid}-{i}")
+            except Exception as e:
+                errors.append(str(e))
+
+        threads = [threading.Thread(target=set_tokens, args=(t,)) for t in range(4)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert not errors
+        # 最終的にトークンが設定されていること
+        assert mgr.token is not None
+        assert mgr.token.startswith("token-")
+
+    def test_concurrent_rotate(self):
+        import threading
+        counter = {"value": 0}
+        counter_lock = threading.Lock()
+        mgr = TokenRotationManager()
+
+        def factory():
+            with counter_lock:
+                counter["value"] += 1
+                return f"token-{counter['value']}"
+
+        errors: list[str] = []
+
+        def rotate(tid: int):
+            try:
+                for _ in range(10):
+                    mgr.rotate(factory)
+            except Exception as e:
+                errors.append(str(e))
+
+        threads = [threading.Thread(target=rotate, args=(t,)) for t in range(4)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert not errors
+        assert mgr.rotation_count == 40
+
+
+class TestTokenRotationManagerBarrierThreadSafety:
+    """TokenRotationManager のBarrier同期スレッドセーフティテスト。"""
+
+    def test_concurrent_rotate_with_barrier(self) -> None:
+        import threading
+
+        counter = {"value": 0}
+        counter_lock = threading.Lock()
+        mgr = TokenRotationManager()
+        n_threads = 10
+        ops_per_thread = 10
+        barrier = threading.Barrier(n_threads)
+
+        def factory() -> str:
+            with counter_lock:
+                counter["value"] += 1
+                return f"token-{counter['value']}"
+
+        def worker(tid: int) -> None:
+            barrier.wait()
+            for _ in range(ops_per_thread):
+                mgr.rotate(factory)
+
+        threads = [
+            threading.Thread(target=worker, args=(t,))
+            for t in range(n_threads)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert mgr.rotation_count == n_threads * ops_per_thread

@@ -298,3 +298,63 @@ class TestExclusiveLockManagerThreadSafety:
         failures = [r for r in results if r is None]
         assert len(successes) == 1  # 排他ロックは1つだけ成功
         assert len(failures) == 9   # 残りは全て失敗
+
+
+class TestApprovalGuardThreadSafety:
+    """承認ガードの並行アクセステスト。"""
+
+    def test_concurrent_submit_same_resource(self):
+        """同一リソースへの並行承認で正確に1つだけ成功すること。"""
+        guard = ApprovalGuard()
+        results: list[bool] = []
+        lock = threading.Lock()
+
+        def worker(approver: str) -> None:
+            result = guard.submit_approval("shared-res", approver)
+            with lock:
+                results.append(result)
+
+        threads = [
+            threading.Thread(target=worker, args=(f"approver-{i}",))
+            for i in range(10)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert results.count(True) == 1
+        assert results.count(False) == 9
+        assert guard.is_approved("shared-res") is True
+
+
+class TestOptimisticLockBarrierThreadSafety:
+    """OptimisticLockManagerのBarrierスレッドセーフティテスト。"""
+
+    def test_concurrent_acquire_release(self):
+        import threading
+
+        manager = OptimisticLockManager()
+        n_threads = 10
+        ops_per_thread = 50
+        barrier = threading.Barrier(n_threads)
+
+        def worker(tid: int) -> None:
+            barrier.wait()
+            for i in range(ops_per_thread):
+                resource_id = f"res-{tid}-{i}"
+                holder = f"holder-{tid}"
+                lock = manager.acquire(resource_id, holder, 0)
+                if lock is not None:
+                    manager.release(resource_id, holder)
+
+        threads = [
+            threading.Thread(target=worker, args=(t,))
+            for t in range(n_threads)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert len(manager.list_locks()) == 0

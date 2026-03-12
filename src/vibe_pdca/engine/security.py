@@ -30,8 +30,11 @@ _PROMPT_INJECTION_PATTERNS: list[re.Pattern[str]] = [
     re.compile(r"\{\{.*?\}\}", re.DOTALL),
 ]
 
-_PATH_TRAVERSAL_PATTERN = re.compile(r"\.\./|\.\.\\")
-# ※ "../" でディレクトリを遡り、許可外のファイルにアクセスする攻撃を検出
+_PATH_TRAVERSAL_PATTERN = re.compile(
+    r"\.\./|\.\.\\|\.\.%2[fF]|\.\.%5[cC]"
+)
+# ※ "../" や "..\\" に加えURLエンコード済み("..%2f", "..%5c")の
+#    パストラバーサルも検出する
 
 
 class InputValidationError(Exception):

@@ -164,6 +164,29 @@ class TestEventQueue:
         assert q.pop() is e1
         assert q.pop() is e2
 
+    def test_concurrent_push_respects_max_size(self) -> None:
+        """複数スレッドからの同時pushでmax_sizeを超えないこと。"""
+        import threading
+
+        q = EventQueue(max_size=50)
+        results: list[bool] = []
+        lock = threading.Lock()
+
+        def push_many() -> None:
+            for _ in range(30):
+                ok = q.push(WebhookEvent(event_type=WebhookEventType.ISSUE_OPENED))
+                with lock:
+                    results.append(ok)
+
+        threads = [threading.Thread(target=push_many) for _ in range(3)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert q.size <= 50
+        assert results.count(True) == q.size
+
 
 # ── BackpressureController ──
 
@@ -244,3 +267,35 @@ class TestWebhookRouter:
         )
         evt = WebhookEvent(event_type=WebhookEventType.ISSUE_OPENED)
         assert router.route(evt) == "new_handler"
+
+
+class TestEventQueueBarrierThreadSafety:
+    """EventQueueのBarrierスレッドセーフティテスト。"""
+
+    def test_concurrent_push(self) -> None:
+        import threading
+
+        queue = EventQueue(max_size=1000)
+        n_threads = 10
+        ops_per_thread = 50
+        barrier = threading.Barrier(n_threads)
+
+        def worker(tid: int) -> None:
+            barrier.wait()
+            for i in range(ops_per_thread):
+                evt = WebhookEvent(
+                    event_type=WebhookEventType.ISSUE_OPENED,
+                    payload={"tid": tid, "i": i},
+                )
+                queue.push(evt)
+
+        threads = [
+            threading.Thread(target=worker, args=(t,))
+            for t in range(n_threads)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert queue.size == n_threads * ops_per_thread

@@ -357,3 +357,59 @@ class TestCIAdapterRegistry:
         registry = CIAdapterRegistry()
         with pytest.raises(KeyError, match=r"未登録のCIプロバイダー"):
             registry.normalize(CIProvider.CIRCLECI, {})
+
+
+# ── スレッドセーフティ ──
+
+
+class TestCIAdapterRegistryThreadSafety:
+    """CIAdapterRegistry の並行アクセスでデータが壊れない。"""
+
+    def test_concurrent_register(self):
+        import threading
+        registry = CIAdapterRegistry()
+        errors: list[str] = []
+
+        def register_adapter(tid: int):
+            try:
+                adapter = GitHubActionsAdapter()
+                # 同じプロバイダに複数スレッドが同時に登録
+                registry.register(CIProvider.GITHUB_ACTIONS, adapter)
+            except Exception as e:
+                errors.append(str(e))
+
+        threads = [threading.Thread(target=register_adapter, args=(t,)) for t in range(4)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert not errors
+        assert CIProvider.GITHUB_ACTIONS in registry.list_providers()
+
+
+class TestCIAdapterRegistryBarrierThreadSafety:
+    """CIAdapterRegistry のBarrier同期スレッドセーフティテスト。"""
+
+    def test_concurrent_register_with_barrier(self) -> None:
+        import threading
+
+        registry = CIAdapterRegistry()
+        n_threads = 10
+        barrier = threading.Barrier(n_threads)
+
+        def worker(tid: int) -> None:
+            barrier.wait()
+            adapter = GitHubActionsAdapter()
+            registry.register(CIProvider.GITHUB_ACTIONS, adapter)
+
+        threads = [
+            threading.Thread(target=worker, args=(t,))
+            for t in range(n_threads)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert CIProvider.GITHUB_ACTIONS in registry.list_providers()

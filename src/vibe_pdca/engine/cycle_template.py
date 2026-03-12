@@ -173,6 +173,15 @@ class TemplateExporter:
 
     def import_dict(self, data: dict[str, Any]) -> CycleTemplate:
         """辞書形式からテンプレートをインポートする。"""
+        for key in ("template_id", "name", "cycle_type"):
+            if key not in data:
+                raise ValueError(f"テンプレートに必須キー '{key}' がありません")
+        try:
+            cycle_type = CycleType(data["cycle_type"])
+        except ValueError as err:
+            raise ValueError(
+                f"不正なサイクル種別: {data['cycle_type']!r}"
+            ) from err
         phases = [
             PhaseConfig(
                 phase_name=p["phase_name"],
@@ -193,7 +202,7 @@ class TemplateExporter:
         return CycleTemplate(
             template_id=data["template_id"],
             name=data["name"],
-            cycle_type=CycleType(data["cycle_type"]),
+            cycle_type=cycle_type,
             phases=phases,
             personas=personas,
             max_tasks=data.get("max_tasks", 7),

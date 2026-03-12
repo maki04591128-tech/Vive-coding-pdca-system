@@ -295,3 +295,67 @@ class TestSimilarityFinder:
             "retry", entries, threshold=0.99
         )
         assert len(low) >= len(high)
+
+
+# ============================================================
+# テスト: 検索スコア上限
+# ============================================================
+
+
+class TestSearchScoreCap:
+    """search() のスコアが 1.0 を超えないこと。"""
+
+    def test_score_capped_at_one(self):
+        from vibe_pdca.engine.knowledge_base import (
+            KnowledgeEntry,
+            KnowledgeStore,
+        )
+
+        kb = KnowledgeStore()
+        kb.add(KnowledgeEntry(
+            entry_id="test-1",
+            category="lesson",
+            title="retry retry retry",
+            content="retry retry retry",
+            tags=["retry"],
+        ))
+        # 1キーワード "retry" で検索 → テキストにも含まれるが score は 1.0 以下
+        results = kb.search("retry")
+        assert len(results) >= 1
+        for r in results:
+            assert r.relevance_score <= 1.0
+
+
+class TestKnowledgeStoreBarrierThreadSafety:
+    """KnowledgeStoreのBarrierスレッドセーフティテスト。"""
+
+    def test_concurrent_add(self) -> None:
+        import threading
+
+        kb = KnowledgeStore()
+        n_threads = 10
+        ops_per_thread = 50
+        barrier = threading.Barrier(n_threads)
+
+        def worker(tid: int) -> None:
+            barrier.wait()
+            for i in range(ops_per_thread):
+                entry = KnowledgeEntry(
+                    entry_id=f"entry-{tid}-{i}",
+                    category="lesson",
+                    title=f"Title {tid}-{i}",
+                    content=f"Content {tid}-{i}",
+                    tags=["test"],
+                )
+                kb.add(entry)
+
+        threads = [
+            threading.Thread(target=worker, args=(t,))
+            for t in range(n_threads)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert kb.count == n_threads * ops_per_thread

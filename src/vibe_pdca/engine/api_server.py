@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 from dataclasses import dataclass, field
 from enum import StrEnum
 
@@ -114,6 +115,7 @@ class APIKeyAuth:
 
     def __init__(self) -> None:
         self._keys: dict[str, str] = {}
+        self._lock = threading.Lock()
 
     def add_key(self, key: str, scope: str = "read") -> None:
         """APIキーを登録する。
@@ -135,7 +137,8 @@ class APIKeyAuth:
                 f"無効なスコープ: {scope!r} "
                 f"(有効値: {', '.join(sorted(self.VALID_SCOPES))})"
             )
-        self._keys[key] = scope
+        with self._lock:
+            self._keys[key] = scope
         logger.info("APIキーを追加しました: scope=%s", scope)
 
     def validate_key(self, key: str) -> bool:
@@ -151,7 +154,8 @@ class APIKeyAuth:
         bool
             キーが有効なら True。
         """
-        return key in self._keys
+        with self._lock:
+            return key in self._keys
 
     def get_scope(self, key: str) -> str | None:
         """APIキーのスコープを取得する。
@@ -166,7 +170,8 @@ class APIKeyAuth:
         str | None
             スコープ文字列。キーが存在しない場合は None。
         """
-        return self._keys.get(key)
+        with self._lock:
+            return self._keys.get(key)
 
     def revoke_key(self, key: str) -> bool:
         """APIキーを無効化する。
@@ -181,10 +186,11 @@ class APIKeyAuth:
         bool
             キーが存在して削除できた場合は True。
         """
-        if key in self._keys:
-            del self._keys[key]
-            logger.info("APIキーを無効化しました")
-            return True
+        with self._lock:
+            if key in self._keys:
+                del self._keys[key]
+                logger.info("APIキーを無効化しました")
+                return True
         return False
 
     def list_keys(self) -> list[str]:
@@ -195,7 +201,8 @@ class APIKeyAuth:
         list[str]
             APIキー文字列のリスト。
         """
-        return list(self._keys.keys())
+        with self._lock:
+            return list(self._keys.keys())
 
 
 # ── APIRouter ──
@@ -211,6 +218,7 @@ class APIRouter:
         self._endpoints: list[APIEndpoint] = []
         self._handlers: dict[str, object] = {}
         self._auth = auth
+        self._lock = threading.Lock()
 
     def register_endpoint(self, endpoint: APIEndpoint) -> None:
         """エンドポイントを登録する。
@@ -220,9 +228,10 @@ class APIRouter:
         endpoint : APIEndpoint
             登録するエンドポイント定義。
         """
-        self._endpoints.append(endpoint)
-        route_key = f"{endpoint.method}:{endpoint.path}"
-        self._handlers[route_key] = endpoint
+        with self._lock:
+            self._endpoints.append(endpoint)
+            route_key = f"{endpoint.method}:{endpoint.path}"
+            self._handlers[route_key] = endpoint
         logger.info(
             "エンドポイントを登録: %s %s",
             endpoint.method,
@@ -247,7 +256,8 @@ class APIRouter:
             一致するエンドポイント。見つからない場合は None。
         """
         route_key = f"{method}:{path}"
-        result = self._handlers.get(route_key)
+        with self._lock:
+            result = self._handlers.get(route_key)
         if isinstance(result, APIEndpoint):
             return result
         return None
@@ -260,7 +270,8 @@ class APIRouter:
         list[APIEndpoint]
             エンドポイントのリスト。
         """
-        return list(self._endpoints)
+        with self._lock:
+            return list(self._endpoints)
 
     def handle_request(self, request: APIRequest) -> APIResponse:
         """リクエストを処理してレスポンスを返す。
@@ -291,7 +302,17 @@ class APIRouter:
                 body={"error": "Not Found"},
             )
 
-        if endpoint.requires_auth and self._auth is not None:
+        if endpoint.requires_auth:
+            if self._auth is None:
+                logger.warning(
+                    "認証が必要ですが認証マネージャー未設定: %s %s",
+                    request.method,
+                    request.endpoint,
+                )
+                return APIResponse(
+                    status_code=403,
+                    body={"error": "Forbidden"},
+                )
             api_key = request.headers.get("Authorization", "")
             if not self._auth.validate_key(api_key):
                 logger.warning("認証失敗: %s %s", request.method, request.endpoint)

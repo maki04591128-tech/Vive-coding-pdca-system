@@ -157,3 +157,55 @@ class TestBuildContextTruncation:
         assert result.truncated is True
         # max_tokens が非常に小さいため1ファイルのみ
         assert result.file_count <= 1
+
+
+# ============================================================
+# テスト: 入力バリデーション
+# ============================================================
+
+
+class TestContextManagerValidation:
+    """ContextManager の入力バリデーション。"""
+
+    def test_negative_max_files_rejected(self):
+        import pytest
+        with pytest.raises(ValueError, match="max_files"):
+            ContextManager(max_files=-1)
+
+    def test_zero_max_tokens_rejected(self):
+        import pytest
+        with pytest.raises(ValueError, match="max_tokens"):
+            ContextManager(max_tokens=0)
+
+    def test_negative_file_head_tokens_rejected(self):
+        import pytest
+        with pytest.raises(ValueError, match="file_head_tokens"):
+            ContextManager(file_head_tokens=-5)
+
+
+class TestContextManagerBarrierThreadSafety:
+    """ContextManagerのBarrierスレッドセーフティテスト。"""
+
+    def test_concurrent_increment_cycle(self) -> None:
+        import threading
+
+        mgr = ContextManager()
+        n_threads = 10
+        ops_per_thread = 50
+        barrier = threading.Barrier(n_threads)
+
+        def worker(tid: int) -> None:
+            barrier.wait()
+            for _ in range(ops_per_thread):
+                mgr.increment_cycle()
+
+        threads = [
+            threading.Thread(target=worker, args=(t,))
+            for t in range(n_threads)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert mgr.cycle_count == n_threads * ops_per_thread

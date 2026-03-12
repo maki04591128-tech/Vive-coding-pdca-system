@@ -11,6 +11,7 @@ M2 タスク 2-14: 要件定義書 §10.4, §19 準拠。
 from __future__ import annotations
 
 import logging
+import threading
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -153,11 +154,13 @@ class InterventionManager:
     """
 
     def __init__(self) -> None:
+        self._lock = threading.Lock()
         self._reports: list[InterventionReport] = []
 
     @property
     def report_count(self) -> int:
-        return len(self._reports)
+        with self._lock:
+            return len(self._reports)
 
     def analyze_stop(
         self,
@@ -200,7 +203,8 @@ class InterventionManager:
             resume_conditions=resume_conditions,
             recommended_action=recommended,
         )
-        self._reports.append(report)
+        with self._lock:
+            self._reports.append(report)
 
         logger.info(
             "介入レポート生成: %s (P%d, 推奨: %s)",
@@ -210,7 +214,8 @@ class InterventionManager:
 
     def get_reports(self) -> list[InterventionReport]:
         """全レポートを返す。"""
-        return list(self._reports)
+        with self._lock:
+            return list(self._reports)
 
     def _classify_priority(
         self,
@@ -436,17 +441,20 @@ class StateConsistencyChecker:
     """
 
     def __init__(self) -> None:
+        self._lock = threading.Lock()
         self._errors: list[str] = []
 
     @property
     def errors(self) -> list[str]:
         """検出された不整合の一覧。"""
-        return list(self._errors)
+        with self._lock:
+            return list(self._errors)
 
     @property
     def is_consistent(self) -> bool:
         """全チェックに合格したか。"""
-        return len(self._errors) == 0
+        with self._lock:
+            return len(self._errors) == 0
 
     def check_all(
         self,
@@ -467,13 +475,14 @@ class StateConsistencyChecker:
         bool
             全チェック合格なら True。
         """
-        self._errors.clear()
-        self._check_phase_consistency(milestone)
-        self._check_cycle_numbering(milestone)
-        self._check_task_status_consistency(milestone)
-        if audit_entries is not None:
-            self._check_audit_chain(audit_entries)
-        return self.is_consistent
+        with self._lock:
+            self._errors.clear()
+            self._check_phase_consistency(milestone)
+            self._check_cycle_numbering(milestone)
+            self._check_task_status_consistency(milestone)
+            if audit_entries is not None:
+                self._check_audit_chain(audit_entries)
+            return len(self._errors) == 0
 
     def _check_phase_consistency(self, milestone: Milestone) -> None:
         """サイクルのフェーズ整合性を検証する。"""

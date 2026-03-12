@@ -99,3 +99,33 @@ class TestDegradeManager:
         assert "is_degraded" in status
         assert "rules" in status
         assert len(status["rules"]) == 5
+
+
+# ============================================================
+# テスト: StackDetector スレッドセーフティ
+# ============================================================
+
+
+class TestStackDetectorThreadSafety:
+    """StackDetector の並行アクセスが安全であること。"""
+
+    def test_concurrent_heartbeat(self):
+        """複数スレッドから同時にハートビートしても整合性が保たれる。"""
+        import threading
+
+        sd = StackDetector(timeout_seconds=10.0)
+        barrier = threading.Barrier(4)
+
+        def worker():
+            barrier.wait()
+            for _ in range(100):
+                sd.heartbeat(phase="test")
+
+        threads = [threading.Thread(target=worker) for _ in range(4)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert sd.heartbeat_count == 400
+        assert not sd.is_stacked()

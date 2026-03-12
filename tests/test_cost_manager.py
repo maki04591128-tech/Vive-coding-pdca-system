@@ -76,3 +76,52 @@ class TestCostStatus:
         status = cm.get_status()
         assert "cycle_calls" in status
         assert "daily_cost_limit_usd" in status
+
+
+class TestCostManagerThreadSafety:
+    """CostManagerのスレッドセーフティテスト。"""
+
+    def test_concurrent_record_call(self):
+        import threading
+
+        cm = CostManager(cycle_call_limit=10000, daily_call_limit=10000)
+        n_threads = 10
+        calls_per_thread = 100
+        barrier = threading.Barrier(n_threads)
+
+        def worker():
+            barrier.wait()
+            for _ in range(calls_per_thread):
+                cm.record_call(tokens=1, cost_usd=0.01)
+
+        threads = [threading.Thread(target=worker) for _ in range(n_threads)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        expected = n_threads * calls_per_thread
+        assert cm.current_cycle_calls == expected
+        assert cm.today_usage.llm_calls == expected
+        assert cm.today_usage.llm_tokens == expected
+
+
+class TestCloseDayDate:
+    """close_day()でDailyUsage.dateが自動設定されることをテスト。"""
+
+    def test_close_day_sets_date(self):
+        import datetime
+
+        cm = CostManager()
+        cm.record_call(cost_usd=1.0)
+        cm.close_day()
+        history = cm._daily_history
+        assert len(history) == 1
+        assert history[0].date == datetime.date.today().isoformat()
+
+    def test_close_day_preserves_explicit_date(self):
+        cm = CostManager()
+        cm._today_usage = DailyUsage(date="2025-01-15", cost_usd=5.0)
+        cm.close_day()
+        history = cm._daily_history
+        assert history[0].date == "2025-01-15"

@@ -224,3 +224,64 @@ class TestAutoAdjustWeights:
         roles = {r.persona_role for r in reports}
         assert "programmer" in roles
         assert "PM" in roles
+
+    def test_get_all_reports_malformed_key_skipped(self):
+        """不正なキー形式が存在しても安全にスキップされること。"""
+        det = ModelDegradationDetector()
+        det.record_observation(ModelObservation(
+            cycle_number=1,
+            model_name="gpt",
+            persona_role="programmer",
+            quality_score=0.9,
+        ))
+        # 不正なキーを手動注入
+        det._observations["malformed_no_colon"] = [
+            ModelObservation(
+                cycle_number=1,
+                model_name="gpt",
+                persona_role="programmer",
+                quality_score=0.8,
+            ),
+        ]
+        reports = det.get_all_reports()
+        # 正常なキーの分だけレポートが生成される
+        assert len(reports) == 1
+        assert reports[0].model_name == "gpt"
+
+
+class TestDegradationMonitorBarrierThreadSafety:
+    """DegradationMonitorのBarrierスレッドセーフティテスト。"""
+
+    def test_concurrent_record_observation(self) -> None:
+        import threading
+
+        det = ModelDegradationDetector(window_size=1000)
+        n_threads = 10
+        ops_per_thread = 50
+        barrier = threading.Barrier(n_threads)
+        errors: list[Exception] = []
+
+        def worker(tid: int) -> None:
+            barrier.wait()
+            try:
+                for i in range(ops_per_thread):
+                    obs = ModelObservation(
+                        cycle_number=tid * ops_per_thread + i,
+                        model_name="claude",
+                        persona_role="PM",
+                        quality_score=0.8,
+                    )
+                    det.record_observation(obs)
+            except Exception as exc:
+                errors.append(exc)
+
+        threads = [
+            threading.Thread(target=worker, args=(t,))
+            for t in range(n_threads)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert errors == [], f"Unexpected errors: {errors}"

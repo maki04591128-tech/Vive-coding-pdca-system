@@ -14,6 +14,7 @@ M2 タスク 2-8: 要件定義書 §16.5 準拠。
 from __future__ import annotations
 
 import logging
+import threading
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -66,6 +67,13 @@ class ContextManager:
         max_tokens: int = MAX_TOTAL_TOKENS,
         file_head_tokens: int = FILE_HEAD_TOKENS,
     ) -> None:
+        if max_files <= 0:
+            raise ValueError(f"max_files は正の整数: {max_files}")
+        if max_tokens <= 0:
+            raise ValueError(f"max_tokens は正の整数: {max_tokens}")
+        if file_head_tokens <= 0:
+            raise ValueError(f"file_head_tokens は正の整数: {file_head_tokens}")
+        self._lock = threading.Lock()
         self._max_files = max_files
         self._max_tokens = max_tokens
         self._file_head_tokens = file_head_tokens
@@ -74,11 +82,13 @@ class ContextManager:
 
     @property
     def cycle_count(self) -> int:
-        return self._cycle_count
+        with self._lock:
+            return self._cycle_count
 
     @property
     def summaries(self) -> list[str]:
-        return list(self._summaries)
+        with self._lock:
+            return list(self._summaries)
 
     def estimate_tokens(self, text: str) -> int:
         """トークン数を推定する（簡易: 4文字≒1トークン）。"""
@@ -176,25 +186,31 @@ class ContextManager:
 
     def increment_cycle(self) -> None:
         """サイクルカウントを増加させる。"""
-        self._cycle_count += 1
+        with self._lock:
+            self._cycle_count += 1
 
     def add_summary(self, summary: str) -> None:
         """統括要約を追加する。"""
-        self._summaries.append(summary)
-        logger.info("統括要約追加 (計%d件)", len(self._summaries))
+        with self._lock:
+            self._summaries.append(summary)
+            count = len(self._summaries)
+        logger.info("統括要約追加 (計%d件)", count)
 
     def reset_context(self) -> None:
         """コンテキストをリセットする。"""
-        self._summaries.clear()
-        logger.info("コンテキストリセット (サイクル %d)", self._cycle_count)
+        with self._lock:
+            self._summaries.clear()
+            cycle_count = self._cycle_count
+        logger.info("コンテキストリセット (サイクル %d)", cycle_count)
 
     def get_status(self) -> dict[str, Any]:
         """コンテキスト管理状態を返す。"""
-        return {
-            "cycle_count": self._cycle_count,
-            "summary_count": len(self._summaries),
-            "should_summarize": self.should_summarize(),
-            "should_reset": self.should_reset(),
-            "max_files": self._max_files,
-            "max_tokens": self._max_tokens,
-        }
+        with self._lock:
+            return {
+                "cycle_count": self._cycle_count,
+                "summary_count": len(self._summaries),
+                "should_summarize": self.should_summarize(),
+                "should_reset": self.should_reset(),
+                "max_files": self._max_files,
+                "max_tokens": self._max_tokens,
+            }

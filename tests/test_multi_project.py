@@ -130,3 +130,76 @@ class TestResourceUsage:
         status = mgr.get_status()
         assert status["project_count"] == 1
         assert "proj-a" in status["projects"]
+
+
+# ============================================================
+# テスト: スレッドセーフティ
+# ============================================================
+
+
+class TestMultiProjectManagerThreadSafety:
+    """MultiProjectManager のスレッドセーフティ検証。"""
+
+    def test_concurrent_record_usage(self):
+        """複数スレッドから同時にリソース使用量を記録しても整合性が保たれる。"""
+        import threading
+        mgr = MultiProjectManager()
+        config = ProjectConfig(
+            project_id="proj-ts",
+            name="Thread-Safe",
+            repository="repo-ts",
+        )
+        mgr.register_project(config)
+        errors: list[str] = []
+
+        def record(tid: int) -> None:
+            try:
+                for _ in range(100):
+                    mgr.record_usage("proj-ts", llm_calls=1, cost_usd=0.01)
+            except Exception as exc:
+                errors.append(str(exc))
+
+        threads = [threading.Thread(target=record, args=(t,)) for t in range(4)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert not errors
+        usage = mgr.get_usage("proj-ts")
+        assert usage.llm_calls == 400
+
+
+class TestMultiProjectManagerBarrierThreadSafety:
+    """MultiProjectManager のBarrier同期スレッドセーフティテスト。"""
+
+    def test_concurrent_record_usage_with_barrier(self) -> None:
+        import threading
+
+        mgr = MultiProjectManager()
+        config = ProjectConfig(
+            project_id="proj-barrier",
+            name="Barrier-Test",
+            repository="repo-barrier",
+        )
+        mgr.register_project(config)
+        n_threads = 10
+        ops_per_thread = 50
+        barrier = threading.Barrier(n_threads)
+
+        def worker(tid: int) -> None:
+            barrier.wait()
+            for _ in range(ops_per_thread):
+                mgr.record_usage("proj-barrier", llm_calls=1, cost_usd=0.01)
+
+        threads = [
+            threading.Thread(target=worker, args=(t,))
+            for t in range(n_threads)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        usage = mgr.get_usage("proj-barrier")
+        assert usage.llm_calls == n_threads * ops_per_thread

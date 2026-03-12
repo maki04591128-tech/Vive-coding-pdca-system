@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import threading
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -544,10 +545,14 @@ class QualityAwareRetrier:
             # 必須キー検証（JSONが有効で必須キー指定がある場合）
             required_keys = context.get("required_keys")
             if json_score.score == 1.0 and required_keys:
-                data = json.loads(text)
-                scores.append(
-                    validator.validate_required_keys(data, required_keys)
-                )
+                try:
+                    data = json.loads(text)
+                except json.JSONDecodeError:
+                    data = None
+                if data is not None:
+                    scores.append(
+                        validator.validate_required_keys(data, required_keys)
+                    )
             # Markdown見出し検証
             required_headings = context.get("required_headings")
             if required_headings:
@@ -609,6 +614,7 @@ class ModelQualityTracker:
         self._role_records: dict[str, list[tuple[str, QualityReport]]] = defaultdict(
             list
         )
+        self._lock = threading.Lock()
 
     def record(self, model_name: str, role: str, report: QualityReport) -> None:
         """品質レポートを記録する。
@@ -622,8 +628,9 @@ class ModelQualityTracker:
         report : QualityReport
             品質レポート。
         """
-        self._model_records[model_name].append((role, report))
-        self._role_records[role].append((model_name, report))
+        with self._lock:
+            self._model_records[model_name].append((role, report))
+            self._role_records[role].append((model_name, report))
         logger.info(
             "品質記録: model=%s role=%s score=%.2f acceptable=%s",
             model_name,

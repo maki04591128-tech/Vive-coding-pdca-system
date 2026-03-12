@@ -109,3 +109,34 @@ class TestReportCount:
         assert reporter.report_count == 1
         reporter.generate_p1_report("P1", "テスト")
         assert reporter.report_count == 2
+
+
+class TestIncidentReporterBarrierThreadSafety:
+    """IncidentReporterのBarrierスレッドセーフティテスト。"""
+
+    def test_concurrent_generate_p0_report(self) -> None:
+        import threading
+
+        reporter = IncidentReporter()
+        n_threads = 10
+        ops_per_thread = 50
+        barrier = threading.Barrier(n_threads)
+
+        def worker(tid: int) -> None:
+            barrier.wait()
+            for i in range(ops_per_thread):
+                reporter.generate_p0_report(
+                    title=f"Incident-{tid}-{i}",
+                    summary=f"Summary-{tid}-{i}",
+                )
+
+        threads = [
+            threading.Thread(target=worker, args=(t,))
+            for t in range(n_threads)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert reporter.report_count == n_threads * ops_per_thread

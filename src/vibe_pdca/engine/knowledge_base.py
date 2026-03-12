@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -74,6 +75,7 @@ class KnowledgeStore:
 
     def __init__(self) -> None:
         self._entries: dict[str, KnowledgeEntry] = {}
+        self._lock = threading.Lock()
 
     def add(self, entry: KnowledgeEntry) -> None:
         """エントリをストアに追加する。
@@ -83,7 +85,8 @@ class KnowledgeStore:
         entry : KnowledgeEntry
             追加するナレッジエントリ。
         """
-        self._entries[entry.entry_id] = entry
+        with self._lock:
+            self._entries[entry.entry_id] = entry
         logger.info("ナレッジ '%s' を追加しました", entry.title)
 
     def get(self, entry_id: str) -> KnowledgeEntry | None:
@@ -99,7 +102,8 @@ class KnowledgeStore:
         KnowledgeEntry | None
             該当エントリ。存在しない場合は None。
         """
-        return self._entries.get(entry_id)
+        with self._lock:
+            return self._entries.get(entry_id)
 
     def search(
         self,
@@ -130,7 +134,8 @@ class KnowledgeStore:
         if not keywords:
             return []
 
-        candidates: list[KnowledgeEntry] = list(self._entries.values())
+        with self._lock:
+            candidates: list[KnowledgeEntry] = list(self._entries.values())
         if category is not None:
             candidates = [
                 e for e in candidates if e.category == category
@@ -143,7 +148,7 @@ class KnowledgeStore:
             ).lower()
             hits = sum(1 for kw in keywords if kw in text)
             if hits > 0:
-                score = hits / len(keywords)
+                score = min(1.0, hits / len(keywords))
                 scored.append(
                     KnowledgeEntry(
                         entry_id=entry.entry_id,
@@ -175,10 +180,11 @@ class KnowledgeStore:
         list[KnowledgeEntry]
             該当カテゴリのエントリリスト。
         """
-        return [
-            e for e in self._entries.values()
-            if e.category == category
-        ]
+        with self._lock:
+            return [
+                e for e in self._entries.values()
+                if e.category == category
+            ]
 
     @property
     def count(self) -> int:
@@ -189,7 +195,8 @@ class KnowledgeStore:
         int
             エントリ総数。
         """
-        return len(self._entries)
+        with self._lock:
+            return len(self._entries)
 
     def remove(self, entry_id: str) -> bool:
         """IDでエントリを削除する。
@@ -204,11 +211,12 @@ class KnowledgeStore:
         bool
             削除に成功した場合は True。
         """
-        if entry_id in self._entries:
-            del self._entries[entry_id]
-            logger.info("ナレッジ '%s' を削除しました", entry_id)
-            return True
-        return False
+        with self._lock:
+            if entry_id in self._entries:
+                del self._entries[entry_id]
+                logger.info("ナレッジ '%s' を削除しました", entry_id)
+                return True
+            return False
 
 
 # ── PatternExtractor ──

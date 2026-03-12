@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 import time
 from dataclasses import dataclass
 from enum import IntEnum
@@ -213,6 +214,7 @@ class TimeoutManager:
             p: [] for p in PDCAPhase
         }
         self._fired_escalations: dict[PDCAPhase, set[TimeoutEscalation]] = {}
+        self._lock = threading.Lock()
 
     @property
     def phase_timeout(self) -> PhaseTimeout:
@@ -229,8 +231,9 @@ class TimeoutManager:
     def start_phase(self, phase: PDCAPhase, now: float | None = None) -> None:
         """フェーズの計測を開始する。"""
         current = now if now is not None else time.time()
-        self._phase_start_times[phase] = current
-        self._fired_escalations[phase] = set()
+        with self._lock:
+            self._phase_start_times[phase] = current
+            self._fired_escalations[phase] = set()
         self._extension.reset()
         effective = self.get_effective_timeout(phase)
         logger.info(
@@ -241,10 +244,12 @@ class TimeoutManager:
     def end_phase(self, phase: PDCAPhase, now: float | None = None) -> None:
         """フェーズの計測を終了し、実績時間を記録する。"""
         current = now if now is not None else time.time()
-        start = self._phase_start_times.get(phase)
+        with self._lock:
+            start = self._phase_start_times.get(phase)
+            if start is not None:
+                actual = current - start
+                self._phase_actual_times[phase].append(actual)
         if start is not None:
-            actual = current - start
-            self._phase_actual_times[phase].append(actual)
             logger.info("フェーズ終了: %s (実績: %.1fs)", phase.value, actual)
 
     def get_effective_timeout(self, phase: PDCAPhase) -> float:
@@ -264,50 +269,52 @@ class TimeoutManager:
         同一フェーズで同一レベルのエスカレーションは1度だけ発火する。
         """
         current = now if now is not None else time.time()
-        start = self._phase_start_times.get(phase)
-        if start is None:
-            return []
+        with self._lock:
+            start = self._phase_start_times.get(phase)
+            if start is None:
+                return []
 
-        elapsed = current - start
-        effective = self.get_effective_timeout(phase)
-        if effective <= 0:
-            return []
+            elapsed = current - start
+            effective = self.get_effective_timeout(phase)
+            if effective <= 0:
+                return []
 
-        ratio = (elapsed / effective) * 100
-        fired = self._fired_escalations.setdefault(phase, set())
-        events: list[EscalationEvent] = []
+            ratio = (elapsed / effective) * 100
+            fired = self._fired_escalations.setdefault(phase, set())
+            events: list[EscalationEvent] = []
 
-        for level in sorted(TimeoutEscalation, key=lambda lv: lv.value):
-            if level in fired:
-                continue
-            if ratio >= level.value:
-                msg = self._escalation_message(level, phase, elapsed, effective)
-                event = EscalationEvent(
-                    level=level,
-                    phase=phase,
-                    elapsed_seconds=elapsed,
-                    timeout_seconds=effective,
-                    message=msg,
-                )
-                events.append(event)
-                fired.add(level)
-                logger.warning("エスカレーション: %s – %s", level.name, msg)
+            for level in sorted(TimeoutEscalation, key=lambda lv: lv.value):
+                if level in fired:
+                    continue
+                if ratio >= level.value:
+                    msg = self._escalation_message(level, phase, elapsed, effective)
+                    event = EscalationEvent(
+                        level=level,
+                        phase=phase,
+                        elapsed_seconds=elapsed,
+                        timeout_seconds=effective,
+                        message=msg,
+                    )
+                    events.append(event)
+                    fired.add(level)
+                    logger.warning("エスカレーション: %s – %s", level.name, msg)
 
         return events
 
     def get_statistics(self) -> dict[PDCAPhase, dict[str, float]]:
         """フェーズごとの実績統計（平均・最小・最大）を返す。"""
-        stats: dict[PDCAPhase, dict[str, float]] = {}
-        for phase, times in self._phase_actual_times.items():
-            if not times:
-                continue
-            stats[phase] = {
-                "count": float(len(times)),
-                "average": sum(times) / len(times),
-                "min": min(times),
-                "max": max(times),
-            }
-        return stats
+        with self._lock:
+            stats: dict[PDCAPhase, dict[str, float]] = {}
+            for phase, times in self._phase_actual_times.items():
+                if not times:
+                    continue
+                stats[phase] = {
+                    "count": float(len(times)),
+                    "average": sum(times) / len(times),
+                    "min": min(times),
+                    "max": max(times),
+                }
+            return stats
 
     @staticmethod
     def _escalation_message(

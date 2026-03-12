@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 import time
 from dataclasses import dataclass, field
 from typing import Any
@@ -124,11 +125,13 @@ class ResourceMonitor:
         self._limit = limit
         self._warning_threshold = warning_threshold
         self._critical_threshold = critical_threshold
+        self._lock = threading.Lock()
         self._samples: list[ResourceUsage] = []
 
     def check_usage(self, usage: ResourceUsage) -> list[ResourceAlert]:
         """使用量を制限と照合し、アラートリストを返す。"""
-        self._samples.append(usage)
+        with self._lock:
+            self._samples.append(usage)
         alerts: list[ResourceAlert] = []
 
         # メモリ・CPU・ディスク・PID数の4項目をそれぞれ制限値と比較

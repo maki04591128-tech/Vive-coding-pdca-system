@@ -10,6 +10,7 @@ M3 タスク 3-9: 要件定義書 §26.10 準拠。
 from __future__ import annotations
 
 import logging
+import threading
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -49,16 +50,19 @@ class SuppressList:
     ) -> None:
         self._entries: list[SuppressEntry] = []
         self._default_days = default_days
+        self._lock = threading.Lock()
 
     @property
     def entry_count(self) -> int:
-        return len(self._entries)
+        with self._lock:
+            return len(self._entries)
 
     @property
     def active_count(self) -> int:
-        return sum(
-            1 for e in self._entries if not e.is_expired and e.approved
-        )
+        with self._lock:
+            return sum(
+                1 for e in self._entries if not e.is_expired and e.approved
+            )
 
     def register(
         self,
@@ -99,7 +103,8 @@ class SuppressList:
             created_at=now,
             expires_at=now + (days * 86400),
         )
-        self._entries.append(entry)
+        with self._lock:
+            self._entries.append(entry)
 
         logger.info(
             "Suppress登録: %s (パターン: %s, 承認: %s, 期限: %d日)",
@@ -121,11 +126,12 @@ class SuppressList:
             抑制対象の場合True。
         """
         # 有効（承認済み＋期限内）な全エントリとパターンマッチで照合
-        for entry in self._entries:
-            if not entry.approved or entry.is_expired:
-                continue
-            if entry.pattern.lower() in finding_text.lower():
-                return True
+        with self._lock:
+            for entry in self._entries:
+                if not entry.approved or entry.is_expired:
+                    continue
+                if entry.pattern.lower() in finding_text.lower():
+                    return True
         return False
 
     def approve(self, entry_id: str) -> bool:
@@ -136,34 +142,38 @@ class SuppressList:
         bool
             承認に成功した場合True。
         """
-        for entry in self._entries:
-            if entry.id == entry_id:
-                entry.approved = True
-                logger.info("Suppress承認: %s", entry_id)
-                return True
+        with self._lock:
+            for entry in self._entries:
+                if entry.id == entry_id:
+                    entry.approved = True
+                    logger.info("Suppress承認: %s", entry_id)
+                    return True
         return False
 
     def remove(self, entry_id: str) -> bool:
         """エントリを削除する。"""
-        before = len(self._entries)
-        self._entries = [e for e in self._entries if e.id != entry_id]
-        return len(self._entries) < before
+        with self._lock:
+            before = len(self._entries)
+            self._entries = [e for e in self._entries if e.id != entry_id]
+            return len(self._entries) < before
 
     # 期限切れエントリを一括削除して、リストを最新状態に保つ
     def purge_expired(self) -> int:
         """期限切れエントリを削除する。"""
-        before = len(self._entries)
-        self._entries = [e for e in self._entries if not e.is_expired]
-        purged = before - len(self._entries)
+        with self._lock:
+            before = len(self._entries)
+            self._entries = [e for e in self._entries if not e.is_expired]
+            purged = before - len(self._entries)
         if purged > 0:
             logger.info("Suppress期限切れ削除: %d件", purged)
         return purged
 
     def list_active(self) -> list[SuppressEntry]:
         """有効なエントリを返す。"""
-        return [
-            e for e in self._entries if not e.is_expired and e.approved
-        ]
+        with self._lock:
+            return [
+                e for e in self._entries if not e.is_expired and e.approved
+            ]
 
     def get_status(self) -> dict[str, Any]:
         """Suppress List 状態を返す。"""

@@ -9,7 +9,9 @@ Proposal 26: Multi-Repository / Monorepo Support。
 from __future__ import annotations
 
 import logging
+import threading
 from dataclasses import dataclass, field
+from pathlib import PurePosixPath
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +79,12 @@ class MonorepoScopeResolver:
             return [repo_path]
 
         base = repo_path.rstrip("/")
-        resolved = f"{base}/{scope_path.strip('/')}"
+        clean_scope = scope_path.strip("/")
+        resolved = f"{base}/{clean_scope}"
+        # パストラバーサル防止: 解決後パスがベースパス配下にあることを確認
+        if ".." in PurePosixPath(clean_scope).parts:
+            logger.warning("パストラバーサル検出: scope_path=%s", scope_path)
+            return [repo_path]
         logger.debug("スコープ解決: %s", resolved)
         return [resolved]
 
@@ -110,8 +117,8 @@ class MonorepoScopeResolver:
                     or normalized_changed == normalized_pkg
                 )
                 if is_match and normalized_pkg not in affected:
-                        affected.append(normalized_pkg)
-                        break
+                    affected.append(normalized_pkg)
+                    break
         if affected:
             logger.info("影響パッケージを %d 件検出", len(affected))
         return affected
@@ -126,6 +133,7 @@ class CrossRepoCoordinator:
     """複数リポジトリの依存関係を管理し、実行計画を生成する。"""
 
     def __init__(self) -> None:
+        self._lock = threading.Lock()
         self._repos: dict[str, RepoScope] = {}
         self._dependencies: list[CrossRepoDependency] = []
 
@@ -137,9 +145,10 @@ class CrossRepoCoordinator:
         repos : list[RepoScope]
             登録するリポジトリのリスト。
         """
-        for repo in repos:
-            self._repos[repo.name] = repo
-            logger.debug("リポジトリ登録: %s", repo.name)
+        with self._lock:
+            for repo in repos:
+                self._repos[repo.name] = repo
+                logger.debug("リポジトリ登録: %s", repo.name)
 
     def add_dependency(self, dep: CrossRepoDependency) -> None:
         """依存関係を追加する。
@@ -149,7 +158,8 @@ class CrossRepoCoordinator:
         dep : CrossRepoDependency
             追加する依存関係。
         """
-        self._dependencies.append(dep)
+        with self._lock:
+            self._dependencies.append(dep)
         logger.debug(
             "依存関係追加: %s → %s (%s)",
             dep.source_repo,
@@ -214,27 +224,28 @@ class CrossRepoCoordinator:
         list[str]
             エラーメッセージのリスト。空なら問題なし。
         """
-        errors: list[str] = []
-        valid_types = {"api", "library", "config"}
+        with self._lock:
+            errors: list[str] = []
+            valid_types = {"api", "library", "config"}
 
-        for dep in self._dependencies:
-            if dep.source_repo not in self._repos:
-                errors.append(
-                    f"依存元リポジトリ '{dep.source_repo}' が未登録です"
-                )
-            if dep.target_repo not in self._repos:
-                errors.append(
-                    f"依存先リポジトリ '{dep.target_repo}' が未登録です"
-                )
-            if dep.dependency_type not in valid_types:
-                errors.append(
-                    f"不正な依存タイプ '{dep.dependency_type}'"
-                    f" (有効値: {', '.join(sorted(valid_types))})"
-                )
-            if dep.source_repo == dep.target_repo:
-                errors.append(
-                    f"自己依存は許可されていません: '{dep.source_repo}'"
-                )
+            for dep in self._dependencies:
+                if dep.source_repo not in self._repos:
+                    errors.append(
+                        f"依存元リポジトリ '{dep.source_repo}' が未登録です"
+                    )
+                if dep.target_repo not in self._repos:
+                    errors.append(
+                        f"依存先リポジトリ '{dep.target_repo}' が未登録です"
+                    )
+                if dep.dependency_type not in valid_types:
+                    errors.append(
+                        f"不正な依存タイプ '{dep.dependency_type}'"
+                        f" (有効値: {', '.join(sorted(valid_types))})"
+                    )
+                if dep.source_repo == dep.target_repo:
+                    errors.append(
+                        f"自己依存は許可されていません: '{dep.source_repo}'"
+                    )
 
         if errors:
             logger.warning("依存関係の検証エラー: %d 件", len(errors))

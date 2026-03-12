@@ -224,6 +224,19 @@ class TestAPIRouter:
         assert resp.status_code == 401
         assert resp.body["error"] == "Unauthorized"
 
+    def test_handle_request_forbidden_when_auth_not_configured(self) -> None:
+        """認証マネージャー未設定で認証必須エンドポイントへアクセスすると403。"""
+        router = APIRouter(auth=None)
+        ep = self._make_endpoint(requires_auth=True)
+        router.register_endpoint(ep)
+        req = APIRequest(
+            endpoint="/api/v1/status",
+            method=APIMethod.GET,
+        )
+        resp = router.handle_request(req)
+        assert resp.status_code == 403
+        assert resp.body["error"] == "Forbidden"
+
 
 # ============================================================
 # テスト: EndpointRegistry
@@ -240,3 +253,59 @@ class TestEndpointRegistry:
         assert "/api/v1/goals" in paths
         assert "/api/v1/status" in paths
         assert "/api/v1/export" in paths
+
+
+# ── スレッドセーフティ ──
+
+
+class TestAPIKeyAuthThreadSafety:
+    """APIKeyAuth の並行アクセスでデータが壊れない。"""
+
+    def test_concurrent_add_and_validate(self):
+        import threading
+        auth = APIKeyAuth()
+        errors: list[str] = []
+
+        def add_keys(tid: int):
+            try:
+                for i in range(50):
+                    auth.add_key(f"key-{tid}-{i}", "read")
+            except Exception as e:
+                errors.append(str(e))
+
+        threads = [threading.Thread(target=add_keys, args=(t,)) for t in range(4)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert not errors
+        assert len(auth.list_keys()) == 200
+
+
+class TestAPIKeyAuthBarrierThreadSafety:
+    """APIKeyAuth のBarrier同期スレッドセーフティテスト。"""
+
+    def test_concurrent_add_key_with_barrier(self) -> None:
+        import threading
+
+        auth = APIKeyAuth()
+        n_threads = 10
+        ops_per_thread = 50
+        barrier = threading.Barrier(n_threads)
+
+        def worker(tid: int) -> None:
+            barrier.wait()
+            for i in range(ops_per_thread):
+                auth.add_key(f"key-{tid}-{i}", "read")
+
+        threads = [
+            threading.Thread(target=worker, args=(t,))
+            for t in range(n_threads)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert len(auth.list_keys()) == n_threads * ops_per_thread

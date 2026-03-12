@@ -62,3 +62,32 @@ class TestDryRunMarkdownBlockersAndWarnings:
         assert "⚠️" in md
         assert "警告" in md
         assert "制約が未定義です" in md
+
+
+class TestDryRunExecutorBarrierThreadSafety:
+    """DryRunExecutorのスレッドセーフティテスト（Barrier同期）。"""
+
+    def test_concurrent_execute(self):
+        import threading
+
+        executor = DryRunExecutor()
+        n_threads = 10
+        ops_per_thread = 10
+        barrier = threading.Barrier(n_threads)
+
+        def worker(tid: int) -> None:
+            barrier.wait()
+            for _ in range(ops_per_thread):
+                executor.execute(
+                    goal_purpose="test", acceptance_criteria=["ok"]
+                )
+
+        threads = [
+            threading.Thread(target=worker, args=(t,)) for t in range(n_threads)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert executor.run_count == n_threads * ops_per_thread

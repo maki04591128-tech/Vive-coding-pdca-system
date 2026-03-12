@@ -16,6 +16,7 @@ M3 タスク 3-2: 要件定義書 §14 準拠。
 from __future__ import annotations
 
 import logging
+import threading
 import time
 from dataclasses import dataclass, field
 from enum import StrEnum
@@ -110,18 +111,22 @@ class MetricsCollector:
         self._cycle_metrics: list[CycleMetrics] = []
         self._model_metrics: dict[str, ModelMetrics] = {}
         self._alerts: list[Alert] = []
+        self._lock = threading.Lock()
 
     @property
     def cycle_count(self) -> int:
-        return len(self._cycle_metrics)
+        with self._lock:
+            return len(self._cycle_metrics)
 
     @property
     def alert_count(self) -> int:
-        return len(self._alerts)
+        with self._lock:
+            return len(self._alerts)
 
     def record_cycle(self, metrics: CycleMetrics) -> None:
         """サイクルメトリクスを記録する。"""
-        self._cycle_metrics.append(metrics)
+        with self._lock:
+            self._cycle_metrics.append(metrics)
 
     def record_model_usage(
         self,
@@ -132,16 +137,17 @@ class MetricsCollector:
         error: bool = False,
     ) -> None:
         """モデル別使用量を記録する。"""
-        if model_name not in self._model_metrics:
-            self._model_metrics[model_name] = ModelMetrics(
-                model_name=model_name,
-            )
-        m = self._model_metrics[model_name]
-        m.total_calls += calls
-        m.total_tokens += tokens
-        m.total_cost_usd += cost_usd
-        if error:
-            m.error_count += 1
+        with self._lock:
+            if model_name not in self._model_metrics:
+                self._model_metrics[model_name] = ModelMetrics(
+                    model_name=model_name,
+                )
+            m = self._model_metrics[model_name]
+            m.total_calls += calls
+            m.total_tokens += tokens
+            m.total_cost_usd += cost_usd
+            if error:
+                m.error_count += 1
 
     def raise_alert(
         self,
@@ -157,36 +163,41 @@ class MetricsCollector:
             message=message,
             detail=detail or {},
         )
-        self._alerts.append(alert)
+        with self._lock:
+            self._alerts.append(alert)
         logger.warning("アラート発行: [%s] %s", severity.value, message)
         return alert
 
     def get_cycle_success_rate(self) -> float:
         """サイクル成功率を返す。"""
-        if not self._cycle_metrics:
-            return 0.0
-        successes = sum(1 for m in self._cycle_metrics if m.success)
-        return successes / len(self._cycle_metrics)
+        with self._lock:
+            if not self._cycle_metrics:
+                return 0.0
+            successes = sum(1 for m in self._cycle_metrics if m.success)
+            return successes / len(self._cycle_metrics)
 
     def get_average_cycle_time(self) -> float:
         """平均サイクル時間（秒）を返す。"""
-        if not self._cycle_metrics:
-            return 0.0
-        total = sum(m.duration_seconds for m in self._cycle_metrics)
-        return total / len(self._cycle_metrics)
+        with self._lock:
+            if not self._cycle_metrics:
+                return 0.0
+            total = sum(m.duration_seconds for m in self._cycle_metrics)
+            return total / len(self._cycle_metrics)
 
     def get_ci_success_rate(self) -> float:
         """CI成功率を返す。"""
-        if not self._cycle_metrics:
-            return 0.0
-        passed = sum(1 for m in self._cycle_metrics if m.ci_passed)
-        return passed / len(self._cycle_metrics)
+        with self._lock:
+            if not self._cycle_metrics:
+                return 0.0
+            passed = sum(1 for m in self._cycle_metrics if m.ci_passed)
+            return passed / len(self._cycle_metrics)
 
     def get_unresolved_blockers(self) -> int:
         """直近サイクルの未解決ブロッカー数を返す。"""
-        if not self._cycle_metrics:
-            return 0
-        return self._cycle_metrics[-1].blocker_count
+        with self._lock:
+            if not self._cycle_metrics:
+                return 0
+            return self._cycle_metrics[-1].blocker_count
 
     def get_dashboard_data(
         self,
@@ -194,39 +205,58 @@ class MetricsCollector:
         progress_percent: float = 0.0,
     ) -> DashboardData:
         """ダッシュボード用データを構築する。"""
-        return DashboardData(
-            current_goal=current_goal,
-            progress_percent=progress_percent,
-            total_cycles=len(self._cycle_metrics),
-            successful_cycles=sum(
-                1 for m in self._cycle_metrics if m.success
-            ),
-            unresolved_blockers=self.get_unresolved_blockers(),
-            daily_cost_usd=sum(
-                m.llm_cost_usd for m in self._cycle_metrics
-            ),
-            model_metrics=list(self._model_metrics.values()),
-            recent_alerts=self._alerts[-10:],
-        )
+        with self._lock:
+            return DashboardData(
+                current_goal=current_goal,
+                progress_percent=progress_percent,
+                total_cycles=len(self._cycle_metrics),
+                successful_cycles=sum(
+                    1 for m in self._cycle_metrics if m.success
+                ),
+                unresolved_blockers=(
+                    self._cycle_metrics[-1].blocker_count
+                    if self._cycle_metrics else 0
+                ),
+                daily_cost_usd=sum(
+                    m.llm_cost_usd for m in self._cycle_metrics
+                ),
+                model_metrics=list(self._model_metrics.values()),
+                recent_alerts=self._alerts[-10:],
+            )
 
     def get_unacknowledged_alerts(self) -> list[Alert]:
         """未確認アラートを返す。"""
-        return [a for a in self._alerts if not a.acknowledged]
+        with self._lock:
+            return [a for a in self._alerts if not a.acknowledged]
 
     def acknowledge_alert(self, index: int) -> bool:
         """アラートを確認済みにする。"""
-        if 0 <= index < len(self._alerts):
-            self._alerts[index].acknowledged = True
-            return True
-        return False
+        with self._lock:
+            if 0 <= index < len(self._alerts):
+                self._alerts[index].acknowledged = True
+                return True
+            return False
 
     def get_status(self) -> dict[str, Any]:
         """可観測性の状態を返す。"""
-        return {
-            "cycle_count": self.cycle_count,
-            "cycle_success_rate": self.get_cycle_success_rate(),
-            "average_cycle_time": self.get_average_cycle_time(),
-            "ci_success_rate": self.get_ci_success_rate(),
-            "alert_count": self.alert_count,
-            "model_count": len(self._model_metrics),
-        }
+        with self._lock:
+            return {
+                "cycle_count": len(self._cycle_metrics),
+                "cycle_success_rate": (
+                    sum(1 for m in self._cycle_metrics if m.success)
+                    / len(self._cycle_metrics)
+                    if self._cycle_metrics else 0.0
+                ),
+                "average_cycle_time": (
+                    sum(m.duration_seconds for m in self._cycle_metrics)
+                    / len(self._cycle_metrics)
+                    if self._cycle_metrics else 0.0
+                ),
+                "ci_success_rate": (
+                    sum(1 for m in self._cycle_metrics if m.ci_passed)
+                    / len(self._cycle_metrics)
+                    if self._cycle_metrics else 0.0
+                ),
+                "alert_count": len(self._alerts),
+                "model_count": len(self._model_metrics),
+            }

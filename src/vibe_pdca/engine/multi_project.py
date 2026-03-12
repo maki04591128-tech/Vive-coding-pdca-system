@@ -14,6 +14,7 @@ M2 タスク 2-13: 要件定義書 §26.1 準拠。
 from __future__ import annotations
 
 import logging
+import threading
 import uuid
 from dataclasses import dataclass, field
 from typing import Any
@@ -66,10 +67,12 @@ class MultiProjectManager:
     def __init__(self) -> None:
         self._projects: dict[str, ProjectConfig] = {}
         self._usage: dict[str, ResourceUsage] = {}
+        self._lock = threading.Lock()
 
     @property
     def project_count(self) -> int:
-        return len(self._projects)
+        with self._lock:
+            return len(self._projects)
 
     def register_project(self, config: ProjectConfig) -> str:
         """プロジェクトを登録する。
@@ -84,11 +87,12 @@ class MultiProjectManager:
         str
             プロジェクトID。
         """
-        self._validate_isolation(config)
-        self._projects[config.project_id] = config
-        self._usage[config.project_id] = ResourceUsage(
-            project_id=config.project_id,
-        )
+        with self._lock:
+            self._validate_isolation(config)
+            self._projects[config.project_id] = config
+            self._usage[config.project_id] = ResourceUsage(
+                project_id=config.project_id,
+            )
         logger.info(
             "プロジェクト登録: %s (%s)", config.name, config.project_id,
         )
@@ -96,18 +100,22 @@ class MultiProjectManager:
 
     def get_project(self, project_id: str) -> ProjectConfig:
         """プロジェクト設定を取得する。"""
-        if project_id not in self._projects:
-            raise KeyError(f"プロジェクト未登録: {project_id}")
-        return self._projects[project_id]
+        with self._lock:
+            if project_id not in self._projects:
+                raise KeyError(f"プロジェクト未登録: {project_id}")
+            return self._projects[project_id]
 
     def list_projects(self) -> list[ProjectConfig]:
         """全プロジェクトを返す。"""
-        return list(self._projects.values())
+        with self._lock:
+            return list(self._projects.values())
 
     def deactivate_project(self, project_id: str) -> None:
         """プロジェクトを非アクティブにする。"""
-        config = self.get_project(project_id)
-        config.is_active = False
+        with self._lock:
+            if project_id not in self._projects:
+                raise KeyError(f"プロジェクト未登録: {project_id}")
+            self._projects[project_id].is_active = False
         logger.info("プロジェクト非アクティブ化: %s", project_id)
 
     def record_usage(
@@ -118,12 +126,13 @@ class MultiProjectManager:
         cost_usd: float = 0.0,
     ) -> None:
         """リソース使用量を記録する。"""
-        if project_id not in self._usage:
-            raise KeyError(f"プロジェクト未登録: {project_id}")
-        usage = self._usage[project_id]
-        usage.llm_calls += llm_calls
-        usage.llm_tokens += llm_tokens
-        usage.cost_usd += cost_usd
+        with self._lock:
+            if project_id not in self._usage:
+                raise KeyError(f"プロジェクト未登録: {project_id}")
+            usage = self._usage[project_id]
+            usage.llm_calls += llm_calls
+            usage.llm_tokens += llm_tokens
+            usage.cost_usd += cost_usd
 
     def check_cost_limit(self, project_id: str) -> bool:
         """コスト上限を超過していないかチェックする。
@@ -133,17 +142,21 @@ class MultiProjectManager:
         bool
             超過している場合True。
         """
-        config = self.get_project(project_id)
-        usage = self._usage.get(project_id)
-        if usage is None:
-            return False
-        return usage.cost_usd >= config.cost_limit_usd
+        with self._lock:
+            if project_id not in self._projects:
+                raise KeyError(f"プロジェクト未登録: {project_id}")
+            config = self._projects[project_id]
+            usage = self._usage.get(project_id)
+            if usage is None:
+                return False
+            return usage.cost_usd >= config.cost_limit_usd
 
     def get_usage(self, project_id: str) -> ResourceUsage:
         """プロジェクトのリソース使用量を返す。"""
-        if project_id not in self._usage:
-            raise KeyError(f"プロジェクト未登録: {project_id}")
-        return self._usage[project_id]
+        with self._lock:
+            if project_id not in self._usage:
+                raise KeyError(f"プロジェクト未登録: {project_id}")
+            return self._usage[project_id]
 
     def verify_isolation(
         self,
@@ -163,19 +176,20 @@ class MultiProjectManager:
 
     def get_status(self) -> dict[str, Any]:
         """マルチプロジェクト管理状態を返す。"""
-        return {
-            "project_count": self.project_count,
-            "projects": {
-                pid: {
-                    "name": cfg.name,
-                    "is_active": cfg.is_active,
-                    "cost_usd": self._usage[pid].cost_usd
-                    if pid in self._usage else 0.0,
-                    "cost_limit_usd": cfg.cost_limit_usd,
-                }
-                for pid, cfg in self._projects.items()
-            },
-        }
+        with self._lock:
+            return {
+                "project_count": len(self._projects),
+                "projects": {
+                    pid: {
+                        "name": cfg.name,
+                        "is_active": cfg.is_active,
+                        "cost_usd": self._usage[pid].cost_usd
+                        if pid in self._usage else 0.0,
+                        "cost_limit_usd": cfg.cost_limit_usd,
+                    }
+                    for pid, cfg in self._projects.items()
+                },
+            }
 
     def _validate_isolation(self, config: ProjectConfig) -> None:
         """リポジトリ重複などの隔離違反をチェックする。"""

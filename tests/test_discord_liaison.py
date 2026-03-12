@@ -90,3 +90,70 @@ class TestNotifications:
     def test_get_status(self, liaison):
         status = liaison.get_status()
         assert status["webhook_configured"] is True
+
+
+# ============================================================
+# テスト: スレッドセーフティ
+# ============================================================
+
+
+class TestDiscordLiaisonThreadSafety:
+    """DiscordLiaison のスレッドセーフティ検証。"""
+
+    def test_concurrent_send_notification(self):
+        """複数スレッドから同時に通知送信しても整合性が保たれる。"""
+        import threading
+        liaison = DiscordLiaison(webhook_url="https://example.com/wh")
+        errors: list[str] = []
+
+        def send(tid: int) -> None:
+            try:
+                for i in range(25):
+                    liaison.send_notification(
+                        NotificationType.B_NOTIFY,
+                        f"T{tid}-{i}",
+                        "body",
+                    )
+            except Exception as exc:
+                errors.append(str(exc))
+
+        threads = [threading.Thread(target=send, args=(t,)) for t in range(4)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert not errors
+        assert liaison.notification_count == 100
+
+
+class TestDiscordLiaisonBarrierThreadSafety:
+    """DiscordLiaison のBarrier同期スレッドセーフティテスト。"""
+
+    def test_concurrent_send_notification_with_barrier(self) -> None:
+        import threading
+
+        liaison = DiscordLiaison(webhook_url="https://example.com/wh")
+        n_threads = 10
+        ops_per_thread = 25
+        barrier = threading.Barrier(n_threads)
+
+        def worker(tid: int) -> None:
+            barrier.wait()
+            for i in range(ops_per_thread):
+                liaison.send_notification(
+                    NotificationType.B_NOTIFY,
+                    f"T{tid}-{i}",
+                    "body",
+                )
+
+        threads = [
+            threading.Thread(target=worker, args=(t,))
+            for t in range(n_threads)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert liaison.notification_count == n_threads * ops_per_thread

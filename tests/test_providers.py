@@ -334,6 +334,45 @@ class TestCloudLLMProvider:
         with pytest.raises(RuntimeError, match="API Error"):
             p.call(_make_request())
 
+    def test_call_openai_empty_choices_raises(self):
+        """OpenAI API が空のchoicesを返した場合にRuntimeErrorが発生すること。"""
+        p = self._make_cloud(name="openai-empty")
+        mock_client = _make_openai_mock_client()
+        mock_client.chat.completions.create.return_value = SimpleNamespace(
+            choices=[],
+            usage=SimpleNamespace(prompt_tokens=0, completion_tokens=0),
+        )
+        p._client = mock_client
+
+        with pytest.raises(RuntimeError, match="空のchoices"):
+            p.call(_make_request())
+
+    def test_call_openai_none_content_returns_empty_string(self):
+        """OpenAI API がcontent=Noneを返した場合に空文字列になること。"""
+        p = self._make_cloud(name="openai-none")
+        mock_client = _make_openai_mock_client()
+        mock_client.chat.completions.create.return_value = SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content=None))],
+            usage=SimpleNamespace(prompt_tokens=5, completion_tokens=10),
+        )
+        p._client = mock_client
+
+        resp = p.call(_make_request())
+        assert resp.content == ""
+
+    def test_call_anthropic_empty_content_raises(self):
+        """Anthropic API が空のコンテンツを返した場合にRuntimeErrorが発生すること。"""
+        p = self._make_cloud(name="anthropic-empty", model="claude-3")
+        mock_client = MagicMock()
+        mock_client.messages.create.return_value = SimpleNamespace(
+            content=[],
+            usage=SimpleNamespace(input_tokens=0, output_tokens=0),
+        )
+        p._client = mock_client
+
+        with pytest.raises(RuntimeError, match="空のコンテンツ"):
+            p.call(_make_request())
+
     # ── health_check テスト ──
 
     def test_health_check_openai_success(self):
@@ -519,6 +558,32 @@ class TestLocalLLMProvider:
 
         with pytest.raises(ConnectionError, match="接続拒否"):
             p.call(_make_request())
+
+    def test_call_empty_choices_raises(self):
+        """ローカルLLMが空のchoicesを返した場合にRuntimeErrorが発生すること。"""
+        p = self._make_local()
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.return_value = SimpleNamespace(
+            choices=[],
+            usage=SimpleNamespace(prompt_tokens=0, completion_tokens=0),
+        )
+        p._client = mock_client
+
+        with pytest.raises(RuntimeError, match="空のchoices"):
+            p.call(_make_request())
+
+    def test_call_none_content_returns_empty_string(self):
+        """ローカルLLMがcontent=Noneを返した場合に空文字列になること。"""
+        p = self._make_local()
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.return_value = SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content=None))],
+            usage=SimpleNamespace(prompt_tokens=5, completion_tokens=10),
+        )
+        p._client = mock_client
+
+        resp = p.call(_make_request())
+        assert resp.content == ""
 
     # ── health_check テスト ──
 

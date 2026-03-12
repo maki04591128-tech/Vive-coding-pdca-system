@@ -9,6 +9,7 @@ M3 タスク 3-6: 要件定義書 §26.8, ギャップB5 準拠。
 from __future__ import annotations
 
 import logging
+import threading
 from dataclasses import dataclass
 from typing import Any
 
@@ -84,21 +85,24 @@ class ModelDegradationDetector:
         self._weight_step = weight_step
         self._observations: dict[str, list[ModelObservation]] = {}
         self._persona_weights: dict[str, float] = {}
+        self._lock = threading.Lock()
 
     @property
     def persona_weights(self) -> dict[str, float]:
-        return dict(self._persona_weights)
+        with self._lock:
+            return dict(self._persona_weights)
 
     def record_observation(self, obs: ModelObservation) -> None:
         """観測データを記録する。"""
         key = f"{obs.model_name}:{obs.persona_role}"
-        if key not in self._observations:
-            self._observations[key] = []
-        self._observations[key].append(obs)
+        with self._lock:
+            if key not in self._observations:
+                self._observations[key] = []
+            self._observations[key].append(obs)
 
-        # ウィンドウサイズに制限
-        if len(self._observations[key]) > self._window_size * 2:
-            self._observations[key] = self._observations[key][-self._window_size * 2:]
+            # ウィンドウサイズに制限
+            if len(self._observations[key]) > self._window_size * 2:
+                self._observations[key] = self._observations[key][-self._window_size * 2:]
 
     def analyze(self, model_name: str, persona_role: str) -> DegradationReport:
         """劣化を分析する。
@@ -116,7 +120,8 @@ class ModelDegradationDetector:
             分析結果。
         """
         key = f"{model_name}:{persona_role}"
-        observations = self._observations.get(key, [])
+        with self._lock:
+            observations = list(self._observations.get(key, []))
 
         if len(observations) < self._window_size:
             return DegradationReport(
@@ -179,9 +184,10 @@ class ModelDegradationDetector:
         float
             調整後の重み。
         """
-        current = self._persona_weights.get(persona_role, 1.0)
-        new_weight = max(MIN_WEIGHT, min(MAX_WEIGHT, current + adjustment))
-        self._persona_weights[persona_role] = new_weight
+        with self._lock:
+            current = self._persona_weights.get(persona_role, 1.0)
+            new_weight = max(MIN_WEIGHT, min(MAX_WEIGHT, current + adjustment))
+            self._persona_weights[persona_role] = new_weight
 
         logger.info(
             "ペルソナ重み調整: %s %.2f → %.2f (B操作)",
@@ -193,7 +199,11 @@ class ModelDegradationDetector:
         """全モデル/ペルソナの劣化レポートを返す。"""
         reports: list[DegradationReport] = []
         for key in self._observations:
-            model_name, persona_role = key.split(":", 1)
+            parts = key.split(":", 1)
+            if len(parts) != 2:
+                logger.warning("不正なキー形式をスキップ: %s", key)
+                continue
+            model_name, persona_role = parts
             reports.append(self.analyze(model_name, persona_role))
         return reports
 

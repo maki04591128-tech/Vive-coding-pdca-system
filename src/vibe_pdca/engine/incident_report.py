@@ -9,6 +9,7 @@ M3 タスク 3-13: 要件定義書 §19, ギャップB8 準拠。
 from __future__ import annotations
 
 import logging
+import threading
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -95,11 +96,13 @@ class IncidentReporter:
     """インシデントレポート自動生成。"""
 
     def __init__(self) -> None:
+        self._lock = threading.Lock()
         self._reports: list[IncidentReport] = []
 
     @property
     def report_count(self) -> int:
-        return len(self._reports)
+        with self._lock:
+            return len(self._reports)
 
     def generate_p0_report(
         self,
@@ -130,7 +133,8 @@ class IncidentReporter:
                 "Ownerの承認を得ること",
             ],
         )
-        self._reports.append(report)
+        with self._lock:
+            self._reports.append(report)
         logger.warning("P0インシデントレポート生成: %s", report.id)
         return report
 
@@ -162,7 +166,8 @@ class IncidentReporter:
                 "Maintainerの承認を得ること",
             ],
         )
-        self._reports.append(report)
+        with self._lock:
+            self._reports.append(report)
         logger.warning("P1インシデントレポート生成: %s", report.id)
         return report
 
@@ -171,6 +176,7 @@ class IncidentReporter:
         priority: IncidentPriority | None = None,
     ) -> list[IncidentReport]:
         """レポートを取得する。"""
-        if priority is None:
-            return list(self._reports)
-        return [r for r in self._reports if r.priority == priority]
+        with self._lock:
+            if priority is None:
+                return list(self._reports)
+            return [r for r in self._reports if r.priority == priority]

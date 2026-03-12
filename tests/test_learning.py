@@ -55,3 +55,35 @@ class TestApplyToPrompt:
         fb = LearningFeedback()
         status = fb.get_status()
         assert "interval_cycles" in status
+
+
+class TestLearningFeedbackThreadSafety:
+    """LearningFeedbackのスレッドセーフティテスト。"""
+
+    def test_concurrent_record_failure(self):
+        import threading
+
+        fb = LearningFeedback()
+        n_threads = 10
+        records_per_thread = 50
+        barrier = threading.Barrier(n_threads)
+
+        def worker(thread_id):
+            barrier.wait()
+            for i in range(records_per_thread):
+                fb.record_failure(
+                    cycle_number=i,
+                    failure_type=f"type-{thread_id}",
+                    description=f"desc-{thread_id}-{i}",
+                )
+
+        threads = [
+            threading.Thread(target=worker, args=(tid,))
+            for tid in range(n_threads)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert fb.record_count == n_threads * records_per_thread

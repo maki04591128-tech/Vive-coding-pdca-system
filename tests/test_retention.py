@@ -89,3 +89,59 @@ class TestUpdateRetention:
         mgr = RetentionManager()
         status = mgr.get_status()
         assert "audit_log" in status
+
+
+# ============================================================
+# テスト: 保持期間バリデーション
+# ============================================================
+
+
+class TestRetentionDaysValidation:
+    """保持期間の値バリデーション。"""
+
+    def test_reject_zero_days(self):
+        from vibe_pdca.audit.retention import RetentionManager, RetentionTarget
+
+        mgr = RetentionManager()
+        assert not mgr.update_retention_days(
+            RetentionTarget.OPERATION_METRICS, 0,
+        )
+
+    def test_reject_negative_days(self):
+        from vibe_pdca.audit.retention import RetentionManager, RetentionTarget
+
+        mgr = RetentionManager()
+        assert not mgr.update_retention_days(
+            RetentionTarget.OPERATION_METRICS, -5,
+        )
+
+
+class TestRetentionManagerBarrierThreadSafety:
+    """RetentionManagerのスレッドセーフティテスト（Barrier同期）。"""
+
+    def test_concurrent_get_status(self):
+        import threading
+
+        mgr = RetentionManager()
+        n_threads = 10
+        ops_per_thread = 50
+        barrier = threading.Barrier(n_threads)
+        errors: list[Exception] = []
+
+        def worker(tid: int) -> None:
+            barrier.wait()
+            try:
+                for _ in range(ops_per_thread):
+                    mgr.get_status()
+            except Exception as exc:
+                errors.append(exc)
+
+        threads = [
+            threading.Thread(target=worker, args=(t,)) for t in range(n_threads)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert errors == []

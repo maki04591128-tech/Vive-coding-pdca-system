@@ -268,3 +268,42 @@ class TestDefaultTemplates:
         hf = hotfixes[0]
         assert hf.max_tasks < 7
         assert len(hf.phases) == 4
+
+
+# ============================================================
+# テスト: import_dict バリデーション
+# ============================================================
+
+
+class TestTemplateImportValidation:
+    """import_dict の入力バリデーション。"""
+
+    def test_missing_template_id(self):
+        import pytest
+        exporter = TemplateExporter()
+        with pytest.raises(ValueError, match="template_id"):
+            exporter.import_dict({"name": "t", "cycle_type": "standard"})
+
+    def test_missing_name(self):
+        import pytest
+        exporter = TemplateExporter()
+        with pytest.raises(ValueError, match="name"):
+            exporter.import_dict({
+                "template_id": "x", "cycle_type": "standard",
+            })
+
+    def test_missing_cycle_type(self):
+        import pytest
+        exporter = TemplateExporter()
+        with pytest.raises(ValueError, match="cycle_type"):
+            exporter.import_dict({"template_id": "x", "name": "t"})
+
+    def test_invalid_cycle_type(self):
+        import pytest
+        exporter = TemplateExporter()
+        with pytest.raises(ValueError, match="不正なサイクル種別"):
+            exporter.import_dict({
+                "template_id": "x",
+                "name": "t",
+                "cycle_type": "invalid_type",
+            })

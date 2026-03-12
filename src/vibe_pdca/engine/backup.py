@@ -12,6 +12,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import logging
+import threading
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -56,10 +57,12 @@ class BackupManager:
     ) -> None:
         self._backups: list[BackupEntry] = []
         self._retention_days = retention_days
+        self._lock = threading.Lock()
 
     @property
     def backup_count(self) -> int:
-        return len(self._backups)
+        with self._lock:
+            return len(self._backups)
 
     def create_backup(
         self,
@@ -89,7 +92,8 @@ class BackupManager:
             state_snapshot=copy.deepcopy(state_snapshot),
         )
         entry.checksum = entry.compute_checksum()
-        self._backups.append(entry)
+        with self._lock:
+            self._backups.append(entry)
 
         logger.info(
             "バックアップ作成: %s (操作: %s)",
@@ -145,27 +149,32 @@ class BackupManager:
         current = now if now is not None else time.time()
         # 保持期限（180日）を超えたバックアップを自動削除
         cutoff = current - (self._retention_days * 86400)
-        before = len(self._backups)
-        self._backups = [b for b in self._backups if b.created_at >= cutoff]
-        purged = before - len(self._backups)
+        with self._lock:
+            before = len(self._backups)
+            self._backups = [b for b in self._backups if b.created_at >= cutoff]
+            purged = before - len(self._backups)
         if purged > 0:
             logger.info("期限切れバックアップ削除: %d件", purged)
         return purged
 
     def list_backups(self) -> list[BackupEntry]:
         """全バックアップを返す。"""
-        return list(self._backups)
+        with self._lock:
+            return list(self._backups)
 
     def get_status(self) -> dict[str, Any]:
         """バックアップ管理状態を返す。"""
+        with self._lock:
+            count = len(self._backups)
         return {
-            "backup_count": self.backup_count,
+            "backup_count": count,
             "retention_days": self._retention_days,
         }
 
     def _find(self, backup_id: str) -> BackupEntry:
         """バックアップを検索する。"""
-        for entry in self._backups:
-            if entry.id == backup_id:
-                return entry
+        with self._lock:
+            for entry in self._backups:
+                if entry.id == backup_id:
+                    return entry
         raise KeyError(f"バックアップが見つかりません: {backup_id}")

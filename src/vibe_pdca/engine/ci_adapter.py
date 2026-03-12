@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import StrEnum
@@ -412,6 +413,7 @@ class CIAdapterRegistry:
 
     def __init__(self) -> None:
         self._adapters: dict[CIProvider, CIAdapterBase] = {}
+        self._lock = threading.Lock()
 
     def register(
         self, provider: CIProvider, adapter: CIAdapterBase,
@@ -425,7 +427,8 @@ class CIAdapterRegistry:
         adapter : CIAdapterBase
             対応するアダプターインスタンス。
         """
-        self._adapters[provider] = adapter
+        with self._lock:
+            self._adapters[provider] = adapter
         logger.info("CIアダプター登録: %s", provider.value)
 
     def get(self, provider: CIProvider) -> CIAdapterBase | None:
@@ -441,7 +444,8 @@ class CIAdapterRegistry:
         CIAdapterBase | None
             登録済みアダプター。未登録の場合は None。
         """
-        return self._adapters.get(provider)
+        with self._lock:
+            return self._adapters.get(provider)
 
     def list_providers(self) -> list[CIProvider]:
         """登録済みプロバイダー一覧を返す。
@@ -451,7 +455,8 @@ class CIAdapterRegistry:
         list[CIProvider]
             登録済みプロバイダーのリスト。
         """
-        return list(self._adapters.keys())
+        with self._lock:
+            return list(self._adapters.keys())
 
     def normalize(
         self, provider: CIProvider, raw: dict[str, Any],
@@ -475,7 +480,8 @@ class CIAdapterRegistry:
         KeyError
             指定プロバイダーが未登録の場合。
         """
-        adapter = self._adapters.get(provider)
+        with self._lock:
+            adapter = self._adapters.get(provider)
         if adapter is None:
             msg = f"未登録のCIプロバイダー: {provider.value}"
             raise KeyError(msg)

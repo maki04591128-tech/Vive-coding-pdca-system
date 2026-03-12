@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import logging
 import re
+import threading
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
@@ -61,45 +62,52 @@ class TranslationStore:
     """キーとロケールに基づく翻訳データの管理。"""
 
     def __init__(self) -> None:
+        self._lock = threading.Lock()
         self._entries: dict[tuple[str, Locale], str] = {}
 
     def add(self, entry: TranslationEntry) -> None:
         """翻訳エントリを追加する。"""
-        self._entries[(entry.key, entry.locale)] = entry.value
+        with self._lock:
+            self._entries[(entry.key, entry.locale)] = entry.value
         logger.info(
             "翻訳追加: key=%s locale=%s", entry.key, entry.locale,
         )
 
     def get(self, key: str, locale: Locale) -> str | None:
         """翻訳値を取得する。見つからない場合は None。"""
-        return self._entries.get((key, locale))
+        with self._lock:
+            return self._entries.get((key, locale))
 
     def get_or_default(
         self, key: str, locale: Locale, default: str = "",
     ) -> str:
         """翻訳値を取得する。見つからない場合はデフォルト値。"""
-        return self._entries.get((key, locale), default)
+        with self._lock:
+            return self._entries.get((key, locale), default)
 
     def list_keys(self, locale: Locale | None = None) -> list[str]:
         """登録済みキーの一覧を返す。
 
         locale を指定した場合はそのロケールのキーのみ返す。
         """
-        if locale is not None:
-            keys = {k for k, loc in self._entries if loc == locale}
-        else:
-            keys = {k for k, _ in self._entries}
-        return sorted(keys)
+        with self._lock:
+            if locale is not None:
+                keys = {k for k, loc in self._entries if loc == locale}
+            else:
+                keys = {k for k, _ in self._entries}
+            return sorted(keys)
 
     def list_locales(self) -> list[Locale]:
         """登録済みロケールの一覧を返す。"""
-        locales = {loc for _, loc in self._entries}
-        return sorted(locales, key=lambda x: x.value)
+        with self._lock:
+            locales = {loc for _, loc in self._entries}
+            return sorted(locales, key=lambda x: x.value)
 
     @property
     def count(self) -> int:
         """登録済みエントリ数を返す。"""
-        return len(self._entries)
+        with self._lock:
+            return len(self._entries)
 
 
 # ============================================================
@@ -111,16 +119,19 @@ class LocaleResolver:
     """デフォルトロケールの管理と解決。"""
 
     def __init__(self) -> None:
+        self._lock = threading.Lock()
         self._default: Locale = Locale.JA
 
     def set_default(self, locale: Locale) -> None:
         """デフォルトロケールを設定する。"""
-        self._default = locale
+        with self._lock:
+            self._default = locale
         logger.info("デフォルトロケール設定: %s", locale)
 
     def get_default(self) -> Locale:
         """デフォルトロケールを返す。"""
-        return self._default
+        with self._lock:
+            return self._default
 
     def resolve(self, preferred: Locale | None = None) -> Locale:
         """優先ロケールがあればそれを、なければデフォルトを返す。"""
@@ -188,13 +199,15 @@ class GlossaryTranslator:
     """ドメイン用語の翻訳管理。"""
 
     def __init__(self) -> None:
+        self._lock = threading.Lock()
         self._glossary: dict[tuple[str, Locale], str] = {}
 
     def add_term(
         self, term: str, locale: Locale, translation: str,
     ) -> None:
         """用語の翻訳を追加する。"""
-        self._glossary[(term, locale)] = translation
+        with self._lock:
+            self._glossary[(term, locale)] = translation
         logger.info(
             "用語追加: term=%s locale=%s", term, locale,
         )
@@ -203,12 +216,14 @@ class GlossaryTranslator:
         self, term: str, locale: Locale,
     ) -> str | None:
         """用語の翻訳を取得する。見つからない場合は None。"""
-        return self._glossary.get((term, locale))
+        with self._lock:
+            return self._glossary.get((term, locale))
 
     def list_terms(self, locale: Locale) -> list[str]:
         """指定ロケールの登録済み用語の一覧を返す。"""
-        terms = {t for t, loc in self._glossary if loc == locale}
-        return sorted(terms)
+        with self._lock:
+            terms = {t for t, loc in self._glossary if loc == locale}
+            return sorted(terms)
 
 
 # ============================================================

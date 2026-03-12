@@ -166,9 +166,9 @@ class HealthChecker:
 
             with self._statuses_lock:
                 old = self._statuses.get(name)
-            consecutive_failures = 0 if is_healthy else (
-                (old.consecutive_failures + 1) if old else 1
-            )
+                consecutive_failures = 0 if is_healthy else (
+                    (old.consecutive_failures + 1) if old else 1
+                )
 
             status = ProviderHealthStatus(
                 provider_name=name,
@@ -193,7 +193,7 @@ class HealthChecker:
             latency_ms = (time.monotonic() - start) * 1000
             with self._statuses_lock:
                 old = self._statuses.get(name)
-            consecutive_failures = (old.consecutive_failures + 1) if old else 1
+                consecutive_failures = (old.consecutive_failures + 1) if old else 1
 
             logger.error("ヘルスチェック例外: %s - %s", name, e)
             return ProviderHealthStatus(
